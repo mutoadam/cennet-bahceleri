@@ -57,7 +57,49 @@ const supabaseKey =
     }
 
     // 2. Fetch Suggestions & Stats
-    
+    async function loadData() {
+    if (!supabaseClient) {
+        if (!initSupabase()) return;
+    }
+
+    showLoader();
+
+    try {
+        const { data: pendingSuggestions, error: pendingError } = await supabaseClient
+            .from('suggestions')
+            .select('*')
+            .or('status.eq.pending,status.is.null')
+            .order('created_at', { ascending: false });
+
+        if (pendingError) throw pendingError;
+
+        const pendingCount = pendingSuggestions ? pendingSuggestions.length : 0;
+
+        const { count: approvedCount, error: approvedError } = await supabaseClient
+            .from('suggestions')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'approved');
+
+        if (approvedError) throw approvedError;
+
+        const { count: rejectedCount, error: rejectedError } = await supabaseClient
+            .from('suggestions')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'rejected');
+
+        if (rejectedError) throw rejectedError;
+
+        statsPendingVal.textContent = pendingCount;
+        statsApprovedVal.textContent = approvedCount ?? 0;
+        statsRejectedVal.textContent = rejectedCount ?? 0;
+
+        renderSuggestions(pendingSuggestions || []);
+
+    } catch (error) {
+        console.error('Veri çekme hatası:', error);
+        showError();
+    }
+}
 
     // 3. Render list to screen
     function renderSuggestions(suggestions) {
