@@ -28,7 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let supabaseClient = null;
     let currentSuggestion = null;
     let currentTabStatus = 'pending';
-    let knownColumns = null;
+    let knownColumns = ['id', 'program_name', 'venue_name', 'city', 'district', 'day', 'time', 'teacher', 'organization', 'women_friendly', 'address', 'google_maps_link', 'description', 'contact_name', 'contact_phone', 'photo_url', 'status', 'created_at', 'updated_at', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
 
     // 1. Supabase Client Initialization
     function initSupabase() {
@@ -1120,6 +1120,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const insertPayload = {
                 program_name,
                 venue_name,
+                city: city || 'Sakarya',
                 district,
                 day,
                 time,
@@ -1167,9 +1168,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (photo_url) {
                 addIfValid(['photo_url', 'photoUrl', 'image_url', 'imageUrl'], photo_url);
             }
-
-            // Source
-            addIfValid(['source'], 'admin_manual');
 
             // Ladies Suitable
             if (isLadiesSuitable) {
