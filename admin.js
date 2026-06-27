@@ -17,9 +17,18 @@ document.addEventListener('DOMContentLoaded', () => {
     const refreshBtn = document.getElementById('refresh-btn');
     const retryBtn = document.getElementById('retry-btn');
 
+    // Add Modal Elements
+    const addModal = document.getElementById('add-modal');
+    const addProgramBtn = document.getElementById('add-program-btn');
+    const addModalCloseTop = document.getElementById('add-modal-close-top');
+    const addBtnCancel = document.getElementById('add-btn-cancel');
+    const addBtnSave = document.getElementById('add-btn-save');
+    const addForm = document.getElementById('add-form');
+
     let supabaseClient = null;
     let currentSuggestion = null;
     let currentTabStatus = 'pending';
+    let knownColumns = null;
 
     // 1. Supabase Client Initialization
     function initSupabase() {
@@ -69,10 +78,27 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Column detection helper
+    async function detectColumns() {
+        try {
+            const { data, error } = await supabaseClient.from('suggestions').select('*').limit(1);
+            if (!error && data && data.length > 0) {
+                knownColumns = Object.keys(data[0]);
+                console.log("Successfully detected suggestions table columns:", knownColumns);
+            }
+        } catch (e) {
+            console.warn("Failed to detect columns on init:", e);
+        }
+    }
+
     // 2. Fetch Suggestions & Stats
     async function loadData() {
         if (!supabaseClient) {
             if (!initSupabase()) return;
+        }
+
+        if (!knownColumns) {
+            await detectColumns();
         }
 
         showLoader();
@@ -916,7 +942,268 @@ document.addEventListener('DOMContentLoaded', () => {
     document.addEventListener('keydown', (e) => {
         if (e.key === 'Escape') {
             closeInspectModal();
+            closeAddModal();
         }
+    });
+
+    // Add Modal functions and listeners
+    function closeAddModal() {
+        if (addModal) {
+            addModal.classList.add('hidden');
+            document.body.style.overflow = "";
+        }
+    }
+
+    addProgramBtn?.addEventListener('click', () => {
+        if (addForm) {
+            addForm.reset();
+            const cityInput = document.getElementById('add-city');
+            if (cityInput) cityInput.value = 'Sakarya';
+        }
+        if (addModal) {
+            addModal.classList.remove('hidden');
+            document.body.style.overflow = "hidden";
+        }
+    });
+
+    addModalCloseTop?.addEventListener('click', closeAddModal);
+    addBtnCancel?.addEventListener('click', closeAddModal);
+
+    addModal?.addEventListener('click', (e) => {
+        if (e.target.id === 'add-modal') {
+            closeAddModal();
+        }
+    });
+
+    async function handleAddProgramSubmit() {
+        if (!supabaseClient) return;
+
+        const saveBtn = document.getElementById('add-btn-save');
+        const cancelBtn = document.getElementById('add-btn-cancel');
+
+        // Get edited form values
+        const program_name = document.getElementById('add-program-name').value.trim();
+        const venue_name = document.getElementById('add-venue-name').value.trim();
+        const city = document.getElementById('add-city').value.trim();
+        const district = document.getElementById('add-district').value.trim();
+        const day = document.getElementById('add-day').value.trim();
+        const time = document.getElementById('add-time').value.trim();
+        const teacher = document.getElementById('add-teacher').value.trim();
+        const organization = document.getElementById('add-organization').value.trim();
+        const contact_name = document.getElementById('add-contact-name').value.trim();
+        const contact_phone = document.getElementById('add-contact-phone').value.trim();
+        const google_maps_link = document.getElementById('add-google-maps-link').value.trim();
+        const address = document.getElementById('add-address').value.trim();
+        let description = document.getElementById('add-description').value.trim();
+        const isLadiesSuitable = document.getElementById('add-ladies').value === 'yes';
+        const photo_url = document.getElementById('add-photo-url').value.trim();
+
+        if (!program_name || !venue_name || !city || !district || !day || !time) {
+            showToast("Lütfen zorunlu alanları doldurun.", "error");
+            return;
+        }
+
+        // Disable save/cancel buttons and show loading spinner
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.classList.add('disabled');
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = true;
+            cancelBtn.classList.add('disabled');
+        }
+
+        const originalSaveHTML = saveBtn ? saveBtn.innerHTML : '';
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kaydediliyor...';
+        }
+
+        try {
+            // Build initial payload
+            const insertPayload = {
+                program_name,
+                venue_name,
+                district,
+                day,
+                time,
+                contact_name,
+                contact_phone,
+                description,
+                status: 'approved'
+            };
+
+            // Helper to check and add valid columns
+            function addIfValid(dbKeys, value) {
+                if (!knownColumns) {
+                    insertPayload[dbKeys[0]] = value;
+                    return;
+                }
+                for (const key of dbKeys) {
+                    if (knownColumns.includes(key)) {
+                        insertPayload[key] = value;
+                        return;
+                    }
+                }
+            }
+
+            // Hoca
+            if (teacher) {
+                addIfValid(['teacher', 'speaker', 'hoca', 'lecturer'], teacher);
+            }
+            
+            // Organization
+            if (organization) {
+                addIfValid(['organization', 'association', 'community', 'dernek', 'kurum'], organization);
+            }
+            
+            // Address
+            if (address) {
+                addIfValid(['address', 'location'], address);
+            }
+            
+            // Google Maps Link
+            if (google_maps_link) {
+                addIfValid(['google_maps_link', 'googleMapsLink', 'maps_link', 'mapsLink'], google_maps_link);
+            }
+            
+            // Photo URL
+            if (photo_url) {
+                addIfValid(['photo_url', 'photoUrl', 'image_url', 'imageUrl'], photo_url);
+            }
+
+            // Source
+            addIfValid(['source'], 'admin_manual');
+
+            // Ladies Suitable
+            if (isLadiesSuitable) {
+                let ladiesKeyAdded = false;
+                const ladiesKeys = ['ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
+                if (knownColumns) {
+                    for (const key of ladiesKeys) {
+                        if (knownColumns.includes(key)) {
+                            insertPayload[key] = true;
+                            ladiesKeyAdded = true;
+                            break;
+                        }
+                    }
+                }
+                if (!ladiesKeyAdded) {
+                    // Prepend/append to description if column doesn't exist
+                    insertPayload.description += "\n\n(Not: Hanımlara uygundur.)";
+                }
+            }
+
+            console.log("Inserting program, initial payload:", insertPayload);
+
+            let attempt = 0;
+            let success = false;
+            let responseData = null;
+            let responseError = null;
+
+            while (attempt < 5) {
+                console.log(`Insert attempt #${attempt + 1}, Payload:`, insertPayload);
+                const { data, error } = await supabaseClient
+                    .from('suggestions')
+                    .insert(insertPayload)
+                    .select();
+
+                if (!error) {
+                    responseData = data;
+                    success = true;
+                    break;
+                }
+
+                responseError = error;
+                console.warn(`Attempt #${attempt + 1} failed:`, error);
+
+                // Analyze error message to detect and remove missing columns automatically
+                const errMsg = (error.message || '').toLowerCase();
+                let columnRemoved = false;
+
+                // Look for column names enclosed in quotes or in plaintext
+                const quoteMatches = errMsg.match(/['"`]([a-z0-9_]+)['"`]/g) || [];
+                const extractedWords = quoteMatches.map(m => m.replace(/['"`]/g, ''));
+                const allWords = errMsg.split(/[^a-z0-9_]/);
+
+                const candidates = new Set([...extractedWords, ...allWords]);
+
+                for (const key of Object.keys(insertPayload)) {
+                    if (candidates.has(key.toLowerCase()) || errMsg.includes(key.toLowerCase())) {
+                        console.log(`Detected offending column '${key}' in error message, removing from insert payload.`);
+                        if (key === 'ladies_suitable' || key === 'is_ladies_suitable' || key === 'isLadiesSuitable') {
+                            if (isLadiesSuitable && !insertPayload.description.includes("Hanımlara uygundur")) {
+                                insertPayload.description += "\n\n(Not: Hanımlara uygundur.)";
+                            }
+                        }
+                        delete insertPayload[key];
+                        columnRemoved = true;
+                    }
+                }
+
+                // Fallback: If no column could be detected, remove optional columns
+                if (!columnRemoved) {
+                    const optionalKeys = ['teacher', 'organization', 'address', 'google_maps_link', 'photo_url', 'source', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
+                    for (const optKey of optionalKeys) {
+                        if (optKey in insertPayload) {
+                            console.log(`No direct match. Removing optional column '${optKey}' as a safe fallback.`);
+                            if ((optKey === 'ladies_suitable' || optKey === 'is_ladies_suitable' || optKey === 'isLadiesSuitable') && isLadiesSuitable) {
+                                if (!insertPayload.description.includes("Hanımlara uygundur")) {
+                                    insertPayload.description += "\n\n(Not: Hanımlara uygundur.)";
+                                }
+                            }
+                            delete insertPayload[optKey];
+                            columnRemoved = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!columnRemoved) {
+                    break;
+                }
+
+                attempt++;
+            }
+
+            if (!success) {
+                throw responseError;
+            }
+
+            // Success
+            showToast("Program başarıyla eklendi.", "success");
+            closeAddModal();
+
+            // Set current tab to approved
+            const approvedTabBtn = document.querySelector('.tab-btn[data-status="approved"]');
+            if (approvedTabBtn) {
+                const tabBtns = document.querySelectorAll('.tab-btn');
+                tabBtns.forEach(b => b.classList.remove('active'));
+                approvedTabBtn.classList.add('active');
+            }
+            currentTabStatus = 'approved';
+
+            // Reload data
+            await loadData();
+
+        } catch (error) {
+            console.error('Program eklenirken hata oluştu:', error);
+            showToast("Program eklenirken hata oluştu.", "error");
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('disabled');
+                saveBtn.innerHTML = originalSaveHTML;
+            }
+            if (cancelBtn) {
+                cancelBtn.disabled = false;
+                cancelBtn.classList.remove('disabled');
+            }
+        }
+    }
+
+    addBtnSave?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await handleAddProgramSubmit();
     });
 
     // Tab buttons event listeners
