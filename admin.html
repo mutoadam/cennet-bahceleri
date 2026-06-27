@@ -1,1 +1,123 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cennet Bahçeleri - Admin Paneli</title>
+    <!-- Yüksek okunabilirlik için Google Yazı Tipleri -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Kolay taranabilir ve sade ikonlar -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Ana Tasarım Dosyası -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
 
+    <!-- Geçici Güvenlik Uyarı Şeridi -->
+    <div class="security-banner">
+        <i class="fa-solid fa-triangle-exclamation"></i>
+        <span>Bu panel geçici test panelidir. Yayın öncesi giriş sistemi eklenecektir.</span>
+    </div>
+
+    <!-- Admin Panel Üst Başlık Bölümü -->
+    <header class="admin-header">
+        <div class="container header-container">
+            <div class="logo-area">
+                <div class="logo-icon"><i class="fa-solid fa-mosque"></i></div>
+                <div>
+                    <h1>Cennet Bahçeleri</h1>
+                    <p class="subtitle">Admin Yönetim Paneli</p>
+                </div>
+            </div>
+            <div class="header-badge">
+                <span class="badge badge-primary">Faz 2 - İskelet Sürümü</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Ana Panel İçeriği -->
+    <main class="admin-main container">
+        <section class="page-title-section">
+            <h2>Bekleyen İlim Meclisi Önerileri</h2>
+            <p class="section-desc">Vatandaşlar tarafından form aracılığıyla gönderilen ve onay bekleyen program önerileri.</p>
+        </section>
+
+        <!-- İstatistik Kartları Bölümü -->
+        <section class="stats-grid">
+            <div class="stats-card card-pending">
+                <div class="stats-icon"><i class="fa-solid fa-clock"></i></div>
+                <div class="stats-info">
+                    <span class="stats-label">Bekleyen</span>
+                    <h3 id="stats-pending-val" class="stats-value">-</h3>
+                </div>
+            </div>
+            <div class="stats-card card-approved">
+                <div class="stats-icon"><i class="fa-solid fa-circle-check"></i></div>
+                <div class="stats-info">
+                    <span class="stats-label">Onaylanan</span>
+                    <h3 id="stats-approved-val" class="stats-value">-</h3>
+                </div>
+            </div>
+            <div class="stats-card card-rejected">
+                <div class="stats-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+                <div class="stats-info">
+                    <span class="stats-label">Reddedilen</span>
+                    <h3 id="stats-rejected-val" class="stats-value">-</h3>
+                </div>
+            </div>
+        </section>
+
+        <!-- Öneri Listeleme Alanı -->
+        <section class="suggestions-section">
+            <div class="section-header">
+                <h3>Öneri Listesi (<span id="suggestions-count">0</span>)</h3>
+                <button id="refresh-btn" class="btn btn-secondary btn-sm">
+                    <i class="fa-solid fa-rotate"></i> Yenile
+                </button>
+            </div>
+
+            <!-- Yükleniyor Durumu -->
+            <div id="loader" class="state-container">
+                <div class="spinner"></div>
+                <p>Veriler güvenli bir şekilde yükleniyor, lütfen bekleyin...</p>
+            </div>
+
+            <!-- Hata Durumu -->
+            <div id="error-container" class="state-container state-error hidden">
+                <i class="fa-solid fa-triangle-exclamation state-icon"></i>
+                <h4>Öneriler yüklenirken bir hata oluştu.</h4>
+                <p>Lütfen internet bağlantınızı ve Supabase yapılandırmanızı kontrol edip tekrar deneyin.</p>
+                <button id="retry-btn" class="btn btn-primary">Tekrar Dene</button>
+            </div>
+
+            <!-- Boş Durum -->
+            <div id="empty-container" class="state-container state-empty hidden">
+                <i class="fa-solid fa-clipboard-check state-icon"></i>
+                <h4>Şu anda bekleyen öneri bulunmuyor.</h4>
+                <p>Tüm öneriler karara bağlanmış durumda. Yeni öneri geldiğinde burada listelenecektir.</p>
+            </div>
+
+            <!-- Kart Listesi -->
+            <div id="suggestions-list" class="suggestions-list grid-list">
+                <!-- Kartlar JavaScript tarafında dinamik olarak buraya eklenecektir -->
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer Bilgisi -->
+    <footer class="admin-footer">
+        <div class="container">
+            <p>&copy; 2026 Cennet Bahçeleri. Tüm hakları saklıdır. Portal Altyapısı v2.0</p>
+        </div>
+    </footer>
+
+    <!-- Supabase JS CDN (v2) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <!-- Mevcut Yapılandırma Bilgileri (window.CENNET_CONFIG içerir) -->
+    <script src="config.js"></script>
+    <!-- Admin Mantığı ve Veri İşleme -->
+    <script src="admin.js"></script>
+</body>
+</html>
