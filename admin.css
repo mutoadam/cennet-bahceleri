@@ -170,6 +170,39 @@ body {
 /* Sayfa Başlığı Bölümü */
 .page-title-section {
     margin-bottom: 32px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 20px;
+    flex-wrap: wrap;
+}
+
+.page-title-container {
+    flex: 1;
+    min-width: 280px;
+}
+
+.add-program-btn {
+    background-color: var(--md-secondary) !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 4px 6px rgba(181, 141, 61, 0.2) !important;
+    padding: 12px 24px;
+    font-size: 16px;
+    white-space: nowrap;
+    min-height: 48px;
+    transition: var(--transition);
+    width: auto !important;
+}
+
+.add-program-btn:hover {
+    background-color: var(--md-secondary-hover) !important;
+    box-shadow: 0 6px 12px rgba(181, 141, 61, 0.3) !important;
+    transform: translateY(-2px);
+}
+
+.add-program-btn i {
+    font-size: 16px;
 }
 
 .page-title-section h2 {
