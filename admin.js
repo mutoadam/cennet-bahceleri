@@ -1071,7 +1071,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     async function handleAddProgramSubmit() {
-        if (!supabaseClient) return;
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
 
         const saveBtn = document.getElementById('add-btn-save');
         const cancelBtn = document.getElementById('add-btn-cancel');
@@ -1114,7 +1116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            // Build initial payload
+            // Build initial payload with status 'pending' (to satisfy any RLS insert policy, will be updated to 'approved' immediately after)
             const insertPayload = {
                 program_name,
                 venue_name,
@@ -1124,7 +1126,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 contact_name,
                 contact_phone,
                 description,
-                status: 'approved'
+                status: 'pending'
             };
 
             // Helper to check and add valid columns
@@ -1262,6 +1264,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!success) {
                 throw responseError;
+            }
+
+            // After successful insert as 'pending', update the status to 'approved'
+            if (responseData && responseData.length > 0) {
+                const insertedId = responseData[0].id;
+                console.log(`Successfully inserted pending suggestion ID: ${insertedId}. Now updating to approved...`);
+                const { data: updateData, error: updateError } = await supabaseClient
+                    .from('suggestions')
+                    .update({ status: 'approved' })
+                    .eq('id', insertedId)
+                    .select();
+
+                if (updateError) {
+                    console.error("Failed to update manually added suggestion status to approved:", updateError);
+                    throw updateError;
+                } else if (updateData && updateData.length > 0) {
+                    responseData = updateData;
+                }
             }
 
             // Success
