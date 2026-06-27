@@ -38,8 +38,13 @@
 
     <main class="admin-main container">
         <section class="page-title-section">
-            <h2>Bekleyen İlim Meclisi Önerileri</h2>
-            <p class="section-desc">Vatandaşlar tarafından form aracılığıyla gönderilen ve onay bekleyen program önerileri.</p>
+            <div class="page-title-container">
+                <h2>Bekleyen İlim Meclisi Önerileri</h2>
+                <p class="section-desc">Vatandaşlar tarafından form aracılığıyla gönderilen ve onay bekleyen program önerileri.</p>
+            </div>
+            <button id="add-program-btn" class="btn btn-secondary add-program-btn">
+                <i class="fa-solid fa-plus"></i> Yeni Program Ekle
+            </button>
         </section>
 
         <!-- Stats Section -->
@@ -309,6 +314,103 @@
                             <i class="fa-solid fa-floppy-disk"></i> Kaydet
                         </button>
                         <button id="modal-btn-cancel" class="btn btn-action btn-cancel" title="Düzenlemeyi İptal Et">
+                            <i class="fa-solid fa-ban"></i> Vazgeç
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Program Modal (Yeni Program Ekle Modalı) -->
+    <div id="add-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-calendar-plus"></i>
+                    <div>
+                        <h3>Yeni Program Ekle</h3>
+                        <span class="category-badge" style="background-color: var(--md-primary-container); color: var(--md-primary); font-size: 12px; display: inline-block;">Admin Manuel Giriş</span>
+                    </div>
+                </div>
+                <button id="add-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="add-form" class="edit-form-grid" onsubmit="return false;">
+                    <div class="form-group">
+                        <label for="add-program-name"><i class="fa-solid fa-file-invoice"></i> Program Adı *</label>
+                        <input type="text" id="add-program-name" class="form-control" placeholder="Örn: Tefsir Sohbeti" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="add-venue-name"><i class="fa-solid fa-mosque"></i> Mekân Adı *</label>
+                        <input type="text" id="add-venue-name" class="form-control" placeholder="Örn: Orhan Camii" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="add-city"><i class="fa-solid fa-city"></i> İl *</label>
+                        <input type="text" id="add-city" class="form-control" value="Sakarya" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="add-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
+                        <input type="text" id="add-district" class="form-control" placeholder="Örn: Adapazarı" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="add-day"><i class="fa-regular fa-calendar-days"></i> Gün *</label>
+                        <input type="text" id="add-day" class="form-control" placeholder="Örn: Her Pazar" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="add-time"><i class="fa-regular fa-clock"></i> Saat *</label>
+                        <input type="text" id="add-time" class="form-control" placeholder="Örn: 14:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="add-teacher"><i class="fa-solid fa-user-tie"></i> Hoca</label>
+                        <input type="text" id="add-teacher" class="form-control" placeholder="Örn: Ahmet Hoca">
+                    </div>
+                    <div class="form-group">
+                        <label for="add-organization"><i class="fa-solid fa-building"></i> Kurum / Dernek</label>
+                        <input type="text" id="add-organization" class="form-control" placeholder="Örn: İlim Yayma Cemiyeti">
+                    </div>
+                    <div class="form-group">
+                        <label for="add-ladies"><i class="fa-solid fa-person-dress"></i> Hanımlara Uygun mu?</label>
+                        <select id="add-ladies" class="form-control">
+                            <option value="no">Belirtilmemiş / Hayır</option>
+                            <option value="yes">Evet (Hanımlara Uygundur)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="add-photo-url"><i class="fa-solid fa-image"></i> Fotoğraf Linki</label>
+                        <input type="url" id="add-photo-url" class="form-control" placeholder="Örn: https://...">
+                    </div>
+                    <div class="form-group">
+                        <label for="add-contact-name"><i class="fa-solid fa-user"></i> Yetkili / Gönderen</label>
+                        <input type="text" id="add-contact-name" class="form-control" placeholder="Örn: Mehmet Bey">
+                    </div>
+                    <div class="form-group">
+                        <label for="add-contact-phone"><i class="fa-solid fa-phone"></i> Telefon / WhatsApp</label>
+                        <input type="text" id="add-contact-phone" class="form-control" placeholder="Örn: 05xx xxx xx xx">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="add-google-maps-link"><i class="fa-solid fa-map-pin"></i> Google Maps Linki</label>
+                        <input type="url" id="add-google-maps-link" class="form-control" placeholder="Örn: https://maps.app.goo.gl/...">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="add-address"><i class="fa-solid fa-map-location-dot"></i> Açık Adres</label>
+                        <textarea id="add-address" class="form-control" rows="2" placeholder="Sokak, mahalle, no detayları..."></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="add-description"><i class="fa-solid fa-align-left"></i> Açıklama</label>
+                        <textarea id="add-description" class="form-control" rows="3" placeholder="Program içeriği, detaylar..."></textarea>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-container">
+                    <div class="footer-actions-left">
+                        <button id="add-btn-save" class="btn btn-action btn-save">
+                            <i class="fa-solid fa-floppy-disk"></i> Kaydet
+                        </button>
+                        <button id="add-btn-cancel" class="btn btn-action btn-cancel">
                             <i class="fa-solid fa-ban"></i> Vazgeç
                         </button>
                     </div>
