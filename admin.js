@@ -442,22 +442,39 @@ document.addEventListener('DOMContentLoaded', () => {
                 updatePayload.updated_at = new Date().toISOString();
             }
 
-            let { error } = await supabaseClient
+            console.log("Update id:", currentSuggestion.id);
+            console.log("Yeni status:", newStatus);
+
+            let { data, error } = await supabaseClient
                 .from('suggestions')
                 .update(updatePayload)
-                .eq('id', id);
+                .eq('id', id)
+                .select();
 
             if (error && updatePayload.updated_at) {
                 console.warn("updated_at ile güncelleme başarısız oldu, sadece status deneniyor:", error);
                 const retryRes = await supabaseClient
                     .from('suggestions')
                     .update({ status: newStatus })
-                    .eq('id', id);
+                    .eq('id', id)
+                    .select();
+                data = retryRes.data;
                 error = retryRes.error;
+            }
+
+            console.log("Update sonucu:", data);
+            if (error) {
+                console.error(error);
             }
 
             if (error) {
                 throw error;
+            }
+
+            if (!data || data.length === 0) {
+                console.error("Hiç kayıt güncellenmedi. Tabloda id bulunamamış veya RLS engellemiş olabilir.");
+                showToast("Hiç kayıt güncellenmedi.", "error");
+                return;
             }
 
             // Show success toast
