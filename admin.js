@@ -512,45 +512,131 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error("Gerekli alanlar boş bırakılamaz.");
             }
 
+            // Build safe payload with columns we are certain exist (city is excluded completely from database payload)
             const updatePayload = {
                 program_name,
                 venue_name,
-                city,
                 district,
                 day,
                 time,
-                teacher,
-                organization,
                 contact_name,
                 contact_phone,
-                google_maps_link,
-                address,
                 description
             };
+
+            // Optional fields check - only add if they exist in currentSuggestion (meaning they are valid database columns)
+            if ('teacher' in currentSuggestion) {
+                updatePayload.teacher = teacher;
+            } else if ('speaker' in currentSuggestion) {
+                updatePayload.speaker = teacher;
+            } else if ('hoca' in currentSuggestion) {
+                updatePayload.hoca = teacher;
+            } else if ('lecturer' in currentSuggestion) {
+                updatePayload.lecturer = teacher;
+            }
+
+            if ('organization' in currentSuggestion) {
+                updatePayload.organization = organization;
+            } else if ('association' in currentSuggestion) {
+                updatePayload.association = organization;
+            } else if ('community' in currentSuggestion) {
+                updatePayload.community = organization;
+            } else if ('dernek' in currentSuggestion) {
+                updatePayload.dernek = organization;
+            } else if ('kurum' in currentSuggestion) {
+                updatePayload.kurum = organization;
+            }
+
+            if ('address' in currentSuggestion) {
+                updatePayload.address = address;
+            } else if ('location' in currentSuggestion) {
+                updatePayload.location = address;
+            }
+
+            if ('google_maps_link' in currentSuggestion) {
+                updatePayload.google_maps_link = google_maps_link;
+            } else if ('googleMapsLink' in currentSuggestion) {
+                updatePayload.googleMapsLink = google_maps_link;
+            } else if ('maps_link' in currentSuggestion) {
+                updatePayload.maps_link = google_maps_link;
+            } else if ('mapsLink' in currentSuggestion) {
+                updatePayload.mapsLink = google_maps_link;
+            }
 
             if ('updated_at' in currentSuggestion) {
                 updatePayload.updated_at = new Date().toISOString();
             }
 
             console.log("Updating suggestion ID:", id);
-            console.log("Payload:", updatePayload);
+            console.log("Initial payload:", updatePayload);
 
-            let { data, error } = await supabaseClient
-                .from('suggestions')
-                .update(updatePayload)
-                .eq('id', id)
-                .select();
+            let attempt = 0;
+            let success = false;
+            let responseData = null;
+            let responseError = null;
 
-            console.log("Update database response:", data);
-            if (error) {
-                console.error(error);
+            while (attempt < 5) {
+                console.log(`Update attempt #${attempt + 1}, Payload:`, updatePayload);
+                const { data, error } = await supabaseClient
+                    .from('suggestions')
+                    .update(updatePayload)
+                    .eq('id', id)
+                    .select();
+
+                if (!error) {
+                    responseData = data;
+                    success = true;
+                    break;
+                }
+
+                responseError = error;
+                console.warn(`Attempt #${attempt + 1} failed:`, error);
+
+                // Analyze error message to detect and remove missing columns automatically
+                const errMsg = (error.message || '').toLowerCase();
+                let columnRemoved = false;
+
+                // Look for column names enclosed in quotes or in plaintext
+                const quoteMatches = errMsg.match(/['"`]([a-z0-9_]+)['"`]/g) || [];
+                const extractedWords = quoteMatches.map(m => m.replace(/['"`]/g, ''));
+                const allWords = errMsg.split(/[^a-z0-9_]/);
+
+                const candidates = new Set([...extractedWords, ...allWords]);
+
+                for (const key of Object.keys(updatePayload)) {
+                    if (candidates.has(key.toLowerCase()) || errMsg.includes(key.toLowerCase())) {
+                        console.log(`Detected offending column '${key}' in error message, removing from update payload.`);
+                        delete updatePayload[key];
+                        columnRemoved = true;
+                    }
+                }
+
+                // If no exact column can be parsed from error message but it's a schema/column error, try removing optional columns
+                if (!columnRemoved) {
+                    const optionalKeys = ['teacher', 'organization', 'address', 'google_maps_link', 'updated_at'];
+                    for (const optKey of optionalKeys) {
+                        if (optKey in updatePayload) {
+                            console.log(`No direct match. Removing optional column '${optKey}' as a safe fallback.`);
+                            delete updatePayload[optKey];
+                            columnRemoved = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!columnRemoved) {
+                    // No key left or unable to resolve offending column, stop retrying
+                    break;
+                }
+
+                attempt++;
             }
 
-            if (error) {
-                throw error;
+            if (!success) {
+                throw responseError;
             }
 
-            if (!data || data.length === 0) {
+            if (!responseData || responseData.length === 0) {
                 console.error("Hiç kayıt güncellenmedi. Tabloda id bulunamamış veya RLS engellemiş olabilir.");
                 showToast("Hiç kayıt güncellenmedi.", "error");
                 return;
@@ -560,7 +646,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast("Öneri güncellendi.", "success");
 
             // Update currentSuggestion cache with the database returned object
-            const updatedItem = data[0];
+            const updatedItem = responseData[0];
             Object.assign(currentSuggestion, updatedItem);
 
             // Re-render openInspectModal with the updated item to reflect in view mode
