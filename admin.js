@@ -27,18 +27,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Supabase library is not loaded from CDN.');
             }
 
-            // Check if config exists
-            if (!window.CENNET_CONFIG) {
-                console.warn('window.CENNET_CONFIG bulunamadı! Lütfen config.js dosyasını kontrol edin. Geçici test verileri veya .env kullanılacak.');
-                // Fallback to empty config to prevent hard crash
-                window.CENNET_CONFIG = {
-                    supabaseUrl: '',
-                    supabaseKey: ''
-                };
+            let supabaseUrl = '';
+            let supabaseKey = '';
+
+            // Check CENNET_CONFIG
+            if (window.CENNET_CONFIG) {
+                supabaseUrl = window.CENNET_CONFIG.supabaseUrl || window.CENNET_CONFIG.SUPABASE_URL;
+                supabaseKey = window.CENNET_CONFIG.supabaseKey || window.CENNET_CONFIG.SUPABASE_KEY;
             }
 
-            const supabaseUrl = window.CENNET_CONFIG.supabaseUrl || window.CENNET_CONFIG.SUPABASE_URL;
-            const supabaseKey = window.CENNET_CONFIG.supabaseKey || window.CENNET_CONFIG.SUPABASE_KEY;
+            // Check CONFIG
+            if ((!supabaseUrl || !supabaseKey) && window.CONFIG) {
+                supabaseUrl = window.CONFIG.supabaseUrl || window.CONFIG.SUPABASE_URL || supabaseUrl;
+                supabaseKey = window.CONFIG.supabaseKey || window.CONFIG.SUPABASE_KEY || supabaseKey;
+            }
+
+            // Check APP_CONFIG
+            if ((!supabaseUrl || !supabaseKey) && window.APP_CONFIG) {
+                supabaseUrl = window.APP_CONFIG.supabaseUrl || window.APP_CONFIG.SUPABASE_URL || supabaseUrl;
+                supabaseKey = window.APP_CONFIG.supabaseKey || window.APP_CONFIG.SUPABASE_KEY || supabaseKey;
+            }
+
+            // Check direct window level
+            if (!supabaseUrl || !supabaseKey) {
+                supabaseUrl = window.SUPABASE_URL || window.supabaseUrl || supabaseUrl;
+                supabaseKey = window.SUPABASE_KEY || window.supabaseKey || supabaseKey;
+            }
 
             if (!supabaseUrl || !supabaseKey) {
                 console.error('Supabase URL veya Anon Key eksik! config.js içindeki değerleri kontrol edin.');
