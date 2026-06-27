@@ -126,104 +126,179 @@
                 </button>
             </div>
             <div class="modal-body">
-                <!-- Details Grid -->
-                <div class="modal-details-grid">
-                    <!-- Info Group: Program ve Mekan -->
-                    <div class="info-group main-info">
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-solid fa-mosque"></i> Mekân Adı</span>
-                            <span id="modal-venue-name" class="info-value">-</span>
+                <!-- View Mode Container -->
+                <div id="modal-view-body">
+                    <!-- Details Grid -->
+                    <div class="modal-details-grid">
+                        <!-- Info Group: Program ve Mekan -->
+                        <div class="info-group main-info">
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-solid fa-mosque"></i> Mekân Adı</span>
+                                <span id="modal-venue-name" class="info-value">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-solid fa-location-dot"></i> İl / İlçe</span>
+                                <span id="modal-location" class="info-value">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-regular fa-calendar-days"></i> Gün</span>
+                                <span id="modal-day" class="info-value">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-regular fa-clock"></i> Saat</span>
+                                <span id="modal-time" class="info-value">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-solid fa-user-tie"></i> Hoca</span>
+                                <span id="modal-teacher" class="info-value">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-solid fa-building"></i> Kurum / Dernek</span>
+                                <span id="modal-organization" class="info-value">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-solid fa-person-dress"></i> Hanımlara Uygun?</span>
+                                <span id="modal-ladies" class="info-value">-</span>
+                            </div>
                         </div>
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-solid fa-location-dot"></i> İl / İlçe</span>
-                            <span id="modal-location" class="info-value">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-regular fa-calendar-days"></i> Gün</span>
-                            <span id="modal-day" class="info-value">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-regular fa-clock"></i> Saat</span>
-                            <span id="modal-time" class="info-value">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-solid fa-user-tie"></i> Hoca</span>
-                            <span id="modal-teacher" class="info-value">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-solid fa-building"></i> Kurum / Dernek</span>
-                            <span id="modal-organization" class="info-value">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-solid fa-person-dress"></i> Hanımlara Uygun?</span>
-                            <span id="modal-ladies" class="info-value">-</span>
+
+                        <!-- Info Group: İletişim ve Detaylar -->
+                        <div class="info-group contact-info">
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-solid fa-user"></i> Yetkili / Gönderen</span>
+                                <span id="modal-contact-name" class="info-value">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-solid fa-phone"></i> Telefon / WhatsApp</span>
+                                <span id="modal-contact-phone" class="info-value">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-solid fa-map-location-dot"></i> Açık Adres</span>
+                                <span id="modal-address" class="info-value address-value">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-solid fa-info"></i> Durum (Status)</span>
+                                <span id="modal-status" class="info-value">-</span>
+                            </div>
+                            <div class="info-row">
+                                <span class="info-label"><i class="fa-regular fa-calendar-plus"></i> Gönderim Tarihi</span>
+                                <span id="modal-created-at" class="info-value">-</span>
+                            </div>
                         </div>
                     </div>
 
-                    <!-- Info Group: İletişim ve Detaylar -->
-                    <div class="info-group contact-info">
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-solid fa-user"></i> Yetkili / Gönderen</span>
-                            <span id="modal-contact-name" class="info-value">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-solid fa-phone"></i> Telefon / WhatsApp</span>
-                            <span id="modal-contact-phone" class="info-value">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-solid fa-map-location-dot"></i> Açık Adres</span>
-                            <span id="modal-address" class="info-value address-value">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-solid fa-info"></i> Durum (Status)</span>
-                            <span id="modal-status" class="info-value">-</span>
-                        </div>
-                        <div class="info-row">
-                            <span class="info-label"><i class="fa-regular fa-calendar-plus"></i> Gönderim Tarihi</span>
-                            <span id="modal-created-at" class="info-value">-</span>
+                    <!-- Description -->
+                    <div class="modal-description-area">
+                        <h4><i class="fa-solid fa-align-left"></i> Açıklama</h4>
+                        <p id="modal-description">-</p>
+                    </div>
+
+                    <!-- Photo Preview -->
+                    <div id="modal-photo-container" class="modal-photo-container hidden">
+                        <h4><i class="fa-solid fa-image"></i> Fotoğraf Önizleme</h4>
+                        <div class="modal-photo-frame">
+                            <img id="modal-photo-img" src="" alt="Öneri Fotoğrafı">
                         </div>
                     </div>
                 </div>
 
-                <!-- Description -->
-                <div class="modal-description-area">
-                    <h4><i class="fa-solid fa-align-left"></i> Açıklama</h4>
-                    <p id="modal-description">-</p>
-                </div>
-
-                <!-- Photo Preview -->
-                <div id="modal-photo-container" class="modal-photo-container hidden">
-                    <h4><i class="fa-solid fa-image"></i> Fotoğraf Önizleme</h4>
-                    <div class="modal-photo-frame">
-                        <img id="modal-photo-img" src="" alt="Öneri Fotoğrafı">
-                    </div>
+                <!-- Edit Mode Container (Hidden by default) -->
+                <div id="modal-edit-body" class="hidden">
+                    <form id="edit-form" class="edit-form-grid">
+                        <div class="form-group">
+                            <label for="edit-program-name"><i class="fa-solid fa-file-invoice"></i> Program Adı</label>
+                            <input type="text" id="edit-program-name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-venue-name"><i class="fa-solid fa-mosque"></i> Mekân Adı</label>
+                            <input type="text" id="edit-venue-name" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-city"><i class="fa-solid fa-city"></i> İl</label>
+                            <input type="text" id="edit-city" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
+                            <input type="text" id="edit-district" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-day"><i class="fa-regular fa-calendar-days"></i> Gün</label>
+                            <input type="text" id="edit-day" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-time"><i class="fa-regular fa-clock"></i> Saat</label>
+                            <input type="text" id="edit-time" class="form-control" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-teacher"><i class="fa-solid fa-user-tie"></i> Hoca</label>
+                            <input type="text" id="edit-teacher" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-organization"><i class="fa-solid fa-building"></i> Kurum / Dernek</label>
+                            <input type="text" id="edit-organization" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-contact-name"><i class="fa-solid fa-user"></i> Yetkili / Gönderen</label>
+                            <input type="text" id="edit-contact-name" class="form-control">
+                        </div>
+                        <div class="form-group">
+                            <label for="edit-contact-phone"><i class="fa-solid fa-phone"></i> Telefon / WhatsApp</label>
+                            <input type="text" id="edit-contact-phone" class="form-control">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="edit-google-maps-link"><i class="fa-solid fa-map-pin"></i> Google Maps Linki</label>
+                            <input type="url" id="edit-google-maps-link" class="form-control">
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="edit-address"><i class="fa-solid fa-map-location-dot"></i> Açık Adres</label>
+                            <textarea id="edit-address" class="form-control" rows="2"></textarea>
+                        </div>
+                        <div class="form-group full-width">
+                            <label for="edit-description"><i class="fa-solid fa-align-left"></i> Açıklama</label>
+                            <textarea id="edit-description" class="form-control" rows="3"></textarea>
+                        </div>
+                    </form>
                 </div>
             </div>
             <div class="modal-footer">
-                <!-- Left Side Actions (Later packages) -->
-                <div class="footer-actions-left">
-                    <button id="modal-btn-approve" class="btn btn-action btn-approve" title="Öneriyi Onayla">
-                        <i class="fa-solid fa-check"></i> Onayla
-                    </button>
-                    <button id="modal-btn-reject" class="btn btn-action btn-reject" title="Öneriyi Reddet">
-                        <i class="fa-solid fa-xmark"></i> Reddet
-                    </button>
-                    <button id="modal-btn-edit" class="btn btn-action btn-edit disabled" disabled title="Düzenleme bu pakette pasif">
-                        <i class="fa-solid fa-pen-to-square"></i> Düzenle
-                    </button>
+                <!-- View Mode Footer -->
+                <div id="modal-footer-view" class="modal-footer-container">
+                    <div class="footer-actions-left">
+                        <button id="modal-btn-approve" class="btn btn-action btn-approve" title="Öneriyi Onayla">
+                            <i class="fa-solid fa-check"></i> Onayla
+                        </button>
+                        <button id="modal-btn-reject" class="btn btn-action btn-reject" title="Öneriyi Reddet">
+                            <i class="fa-solid fa-xmark"></i> Reddet
+                        </button>
+                        <button id="modal-btn-edit" class="btn btn-action btn-edit" title="Öneriyi Düzenle">
+                            <i class="fa-solid fa-pen-to-square"></i> Düzenle
+                        </button>
+                    </div>
+                    
+                    <!-- Right Side Primary Actions & Close -->
+                    <div class="footer-actions-right">
+                        <a id="modal-btn-maps" class="btn btn-action btn-maps" href="#" target="_blank">
+                            <i class="fa-solid fa-map"></i> Google Maps'te Aç
+                        </a>
+                        <a id="modal-btn-phone" class="btn btn-action btn-phone" href="#">
+                            <i class="fa-solid fa-phone"></i> Telefon / WhatsApp
+                        </a>
+                        <button id="modal-btn-close" class="btn btn-action btn-close-primary">
+                            Kapat
+                        </button>
+                    </div>
                 </div>
-                
-                <!-- Right Side Primary Actions & Close -->
-                <div class="footer-actions-right">
-                    <a id="modal-btn-maps" class="btn btn-action btn-maps" href="#" target="_blank">
-                        <i class="fa-solid fa-map"></i> Google Maps'te Aç
-                    </a>
-                    <a id="modal-btn-phone" class="btn btn-action btn-phone" href="#">
-                        <i class="fa-solid fa-phone"></i> Telefon / WhatsApp
-                    </a>
-                    <button id="modal-btn-close" class="btn btn-action btn-close-primary">
-                        Kapat
-                    </button>
+
+                <!-- Edit Mode Footer -->
+                <div id="modal-footer-edit" class="modal-footer-container hidden">
+                    <div class="footer-actions-left">
+                        <button id="modal-btn-save" class="btn btn-action btn-save" title="Değişiklikleri Kaydet">
+                            <i class="fa-solid fa-floppy-disk"></i> Kaydet
+                        </button>
+                        <button id="modal-btn-cancel" class="btn btn-action btn-cancel" title="Düzenlemeyi İptal Et">
+                            <i class="fa-solid fa-ban"></i> Vazgeç
+                        </button>
+                    </div>
                 </div>
             </div>
         </div>
