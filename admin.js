@@ -324,6 +324,83 @@ document.addEventListener('DOMContentLoaded', () => {
         return text.toString().replace(/[&<>"']/g, m => map[m]);
     }
 
+    // Sync Approved/Added Suggestion to Programs Table (Paket F2)
+    async function syncSuggestionToProgram(suggestion, sourceType) {
+        if (!supabaseClient) return;
+        console.log("syncSuggestionToProgram başlatıldı - suggestion:", suggestion, "sourceType:", sourceType);
+
+        // 1. Duplicate check: programs tablosunda aynı suggestion_id varsa tekrar insert yapılmasın
+        const { data: existingPrograms, error: checkError } = await supabaseClient
+            .from('programs')
+            .select('id')
+            .eq('suggestion_id', suggestion.id);
+
+        if (checkError) {
+            console.error("Duplicate kontrolü sırasında hata oluştu:", checkError);
+            throw checkError;
+        }
+
+        if (existingPrograms && existingPrograms.length > 0) {
+            console.log(`suggestion_id: ${suggestion.id} zaten programs tablosunda mevcut. Tekrar eklenmedi.`);
+            return; // Treat as success
+        }
+
+        // 2. Resolve women_friendly
+        let women_friendly = false;
+        if (
+            suggestion.women_friendly === true || 
+            suggestion.is_ladies_suitable === true || 
+            suggestion.isLadiesSuitable === true || 
+            suggestion.ladies_suitable === true || 
+            suggestion.ladies_only === true || 
+            suggestion.ladiesOnly === true
+        ) {
+            women_friendly = true;
+        } else {
+            const descLower = (suggestion.description || '').toLowerCase();
+            if (descLower.includes('hanımlara uygundur') || descLower.includes('hanimlara uygundur')) {
+                women_friendly = true;
+            }
+        }
+
+        // 3. Resolve photo_url
+        const photo_url = suggestion.photo_url || suggestion.photoUrl || suggestion.image_url || suggestion.imageUrl || suggestion.photo || suggestion.image || null;
+
+        // 4. Construct programs payload
+        const programPayload = {
+            suggestion_id: suggestion.id,
+            program_name: suggestion.program_name || '',
+            venue_name: suggestion.venue_name || '',
+            city: suggestion.city || 'Sakarya',
+            district: suggestion.district || '',
+            day: suggestion.day || '',
+            time: suggestion.time || '',
+            teacher: suggestion.teacher || suggestion.speaker || suggestion.hoca || suggestion.lecturer || '',
+            organization: suggestion.organization || suggestion.institution || suggestion.association || suggestion.community || suggestion.cemaat || suggestion.dernek || suggestion.kurum || '',
+            women_friendly: women_friendly,
+            address: suggestion.address || suggestion.location || '',
+            google_maps_link: suggestion.google_maps_link || suggestion.googleMapsLink || suggestion.maps_link || suggestion.mapsLink || suggestion.map_link || suggestion.mapLink || '',
+            description: suggestion.description || '',
+            contact_name: suggestion.contact_name || suggestion.contact_person || suggestion.contactPerson || suggestion.sender_name || suggestion.sender || '',
+            contact_phone: suggestion.contact_phone || suggestion.contactPhone || suggestion.phone || suggestion.whatsapp || suggestion.telefon || '',
+            photo_url: photo_url,
+            status: 'active',
+            source: sourceType
+        };
+
+        console.log("Programs tablosuna aktarılan veri:", programPayload);
+
+        // 5. Insert to programs
+        const { error: insertError } = await supabaseClient
+            .from('programs')
+            .insert(programPayload);
+
+        if (insertError) {
+            console.error("Programs tablosuna ekleme hatası:", insertError);
+            throw insertError;
+        }
+    }
+
     // Modal functions (Paket A — Admin İncele Modalı)
     function openInspectModal(item) {
         currentSuggestion = item;
@@ -841,8 +918,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
+            let syncSuccess = true;
+            if (newStatus === 'approved') {
+                try {
+                    await syncSuggestionToProgram(data[0], 'suggestion');
+                } catch (syncError) {
+                    syncSuccess = false;
+                    console.error("Programs tablosuna aktarım hatası:", syncError);
+                }
+            }
+
             // Show success toast
-            showToast(newStatus === 'approved' ? "Öneri onaylandı." : "Öneri reddedildi.", "success");
+            if (newStatus === 'approved') {
+                if (syncSuccess) {
+                    showToast("Öneri onaylandı ve programa aktarıldı.", "success");
+                } else {
+                    showToast("Öneri onaylandı fakat programa aktarılamadı.", "error");
+                }
+            } else {
+                showToast("Öneri reddedildi.", "success");
+            }
 
             // Close modal
             closeInspectModal();
@@ -1170,7 +1265,23 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Success
-            showToast("Program başarıyla eklendi.", "success");
+            let syncSuccess = true;
+            if (responseData && responseData.length > 0) {
+                try {
+                    await syncSuggestionToProgram(responseData[0], 'admin_manual');
+                } catch (syncError) {
+                    syncSuccess = false;
+                    console.error("Programs tablosuna aktarım hatası (manuel):", syncError);
+                }
+            } else {
+                syncSuccess = false;
+            }
+
+            if (syncSuccess) {
+                showToast("Program başarıyla eklendi ve yayına hazırlandı.", "success");
+            } else {
+                showToast("Program eklendi fakat programs tablosuna aktarılamadı.", "error");
+            }
             closeAddModal();
 
             // Set current tab to approved
