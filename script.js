@@ -42,19 +42,7 @@ async function uploadPhoto(file) {
   const { error } = await supabaseClient.storage.from(cfg.SUPABASE_PHOTO_BUCKET || "suggestion-photos").upload(path, file, { cacheControl: "3600", upsert: false });
   if (error) throw error;
 
-    try {
-      const notifyResponse = await fetch("/.netlify/functions/notify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      });
-      const notifyResult = await notifyResponse.json().catch(() => null);
-      console.log("Telegram notify result:", notifyResult);
-    } catch (notifyError) {
-      console.warn("Telegram notification failed:", notifyError);
-    }
-
-  const { data } = supabaseClient.storage.from(cfg.SUPABASE_PHOTO_BUCKET || "suggestion-photos").getPublicUrl(path);
+      const { data } = supabaseClient.storage.from(cfg.SUPABASE_PHOTO_BUCKET || "suggestion-photos").getPublicUrl(path);
   return data?.publicUrl || null;
 }
 form.addEventListener("submit", async (e) => {
@@ -101,6 +89,18 @@ form.addEventListener("submit", async (e) => {
     };
     const { error } = await supabaseClient.from(cfg.SUPABASE_TABLE || "suggestions").insert(payload);
     if (error) throw error;
+    try {
+  const notifyResponse = await fetch("/.netlify/functions/notify", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const notifyResult = await notifyResponse.json().catch(() => null);
+  console.log("Telegram notify result:", notifyResult);
+} catch (notifyError) {
+  console.warn("Telegram notification failed:", notifyError);
+}
     form.hidden = true;
     success.hidden = false;
     window.scrollTo({ top: 0, behavior: "smooth" });
