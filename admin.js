@@ -404,6 +404,188 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.classList.add('hidden');
             document.body.style.overflow = "";
         }
+        exitEditMode();
+    }
+
+    // Edit Mode functions (Paket C)
+    function enterEditMode() {
+        if (!currentSuggestion) return;
+
+        const viewBody = document.getElementById('modal-view-body');
+        const editBody = document.getElementById('modal-edit-body');
+        const viewFooter = document.getElementById('modal-footer-view');
+        const editFooter = document.getElementById('modal-footer-edit');
+
+        if (viewBody) viewBody.classList.add('hidden');
+        if (editBody) editBody.classList.remove('hidden');
+        if (viewFooter) viewFooter.classList.add('hidden');
+        if (editFooter) editFooter.classList.remove('hidden');
+
+        // Populate form inputs
+        document.getElementById('edit-program-name').value = currentSuggestion.program_name || '';
+        document.getElementById('edit-venue-name').value = currentSuggestion.venue_name || '';
+        document.getElementById('edit-city').value = currentSuggestion.city || 'Sakarya';
+        document.getElementById('edit-district').value = currentSuggestion.district || '';
+        document.getElementById('edit-day').value = currentSuggestion.day || '';
+        document.getElementById('edit-time').value = currentSuggestion.time || '';
+        
+        // Hoca / Speaker fallback
+        const teacher = currentSuggestion.teacher || currentSuggestion.speaker || currentSuggestion.hoca || currentSuggestion.lecturer || '';
+        document.getElementById('edit-teacher').value = teacher;
+        
+        // Organization
+        const organization = currentSuggestion.organization || currentSuggestion.institution || currentSuggestion.association || currentSuggestion.community || currentSuggestion.cemaat || currentSuggestion.dernek || currentSuggestion.kurum || '';
+        document.getElementById('edit-organization').value = organization;
+        
+        // Contact Name
+        const contactName = currentSuggestion.contact_name || currentSuggestion.contact_person || currentSuggestion.contactPerson || currentSuggestion.sender_name || currentSuggestion.sender || '';
+        document.getElementById('edit-contact-name').value = contactName;
+        
+        // Contact Phone
+        const contactPhone = currentSuggestion.contact_phone || currentSuggestion.contactPhone || currentSuggestion.phone || currentSuggestion.whatsapp || currentSuggestion.telefon || '';
+        document.getElementById('edit-contact-phone').value = contactPhone;
+        
+        // Maps
+        const mapsLink = currentSuggestion.google_maps_link || currentSuggestion.googleMapsLink || currentSuggestion.maps_link || currentSuggestion.mapsLink || currentSuggestion.map_link || currentSuggestion.mapLink || '';
+        document.getElementById('edit-google-maps-link').value = mapsLink;
+        
+        // Address
+        document.getElementById('edit-address').value = currentSuggestion.address || currentSuggestion.location || '';
+        
+        // Description
+        document.getElementById('edit-description').value = currentSuggestion.description || currentSuggestion.notes || '';
+    }
+
+    function exitEditMode() {
+        const viewBody = document.getElementById('modal-view-body');
+        const editBody = document.getElementById('modal-edit-body');
+        const viewFooter = document.getElementById('modal-footer-view');
+        const editFooter = document.getElementById('modal-footer-edit');
+
+        if (viewBody) viewBody.classList.remove('hidden');
+        if (editBody) editBody.classList.add('hidden');
+        if (viewFooter) viewFooter.classList.remove('hidden');
+        if (editFooter) editFooter.classList.add('hidden');
+    }
+
+    async function handleSaveUpdate() {
+        if (!supabaseClient || !currentSuggestion) return;
+
+        const saveBtn = document.getElementById('modal-btn-save');
+        const cancelBtn = document.getElementById('modal-btn-cancel');
+
+        // Disable save/cancel buttons and show loading spinner
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.classList.add('disabled');
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = true;
+            cancelBtn.classList.add('disabled');
+        }
+
+        const originalSaveHTML = saveBtn ? saveBtn.innerHTML : '';
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kaydediliyor...';
+        }
+
+        try {
+            const id = currentSuggestion.id;
+
+            // Get edited form values
+            const program_name = document.getElementById('edit-program-name').value.trim();
+            const venue_name = document.getElementById('edit-venue-name').value.trim();
+            const city = document.getElementById('edit-city').value.trim();
+            const district = document.getElementById('edit-district').value.trim();
+            const day = document.getElementById('edit-day').value.trim();
+            const time = document.getElementById('edit-time').value.trim();
+            const teacher = document.getElementById('edit-teacher').value.trim();
+            const organization = document.getElementById('edit-organization').value.trim();
+            const contact_name = document.getElementById('edit-contact-name').value.trim();
+            const contact_phone = document.getElementById('edit-contact-phone').value.trim();
+            const google_maps_link = document.getElementById('edit-google-maps-link').value.trim();
+            const address = document.getElementById('edit-address').value.trim();
+            const description = document.getElementById('edit-description').value.trim();
+
+            if (!program_name || !venue_name || !city || !district || !day || !time) {
+                showToast("Lütfen zorunlu alanları doldurun.", "error");
+                throw new Error("Gerekli alanlar boş bırakılamaz.");
+            }
+
+            const updatePayload = {
+                program_name,
+                venue_name,
+                city,
+                district,
+                day,
+                time,
+                teacher,
+                organization,
+                contact_name,
+                contact_phone,
+                google_maps_link,
+                address,
+                description
+            };
+
+            if ('updated_at' in currentSuggestion) {
+                updatePayload.updated_at = new Date().toISOString();
+            }
+
+            console.log("Updating suggestion ID:", id);
+            console.log("Payload:", updatePayload);
+
+            let { data, error } = await supabaseClient
+                .from('suggestions')
+                .update(updatePayload)
+                .eq('id', id)
+                .select();
+
+            console.log("Update database response:", data);
+            if (error) {
+                console.error(error);
+            }
+
+            if (error) {
+                throw error;
+            }
+
+            if (!data || data.length === 0) {
+                console.error("Hiç kayıt güncellenmedi. Tabloda id bulunamamış veya RLS engellemiş olabilir.");
+                showToast("Hiç kayıt güncellenmedi.", "error");
+                return;
+            }
+
+            // Success
+            showToast("Öneri güncellendi.", "success");
+
+            // Update currentSuggestion cache with the database returned object
+            const updatedItem = data[0];
+            Object.assign(currentSuggestion, updatedItem);
+
+            // Re-render openInspectModal with the updated item to reflect in view mode
+            openInspectModal(currentSuggestion);
+
+            // Hide edit mode, back to view mode
+            exitEditMode();
+
+            // Refresh parent list & counters in background
+            await loadData();
+
+        } catch (error) {
+            console.error('Düzenleme sırasında hata oluştu:', error);
+            showToast("Düzenleme sırasında hata oluştu.", "error");
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('disabled');
+                saveBtn.innerHTML = originalSaveHTML;
+            }
+            if (cancelBtn) {
+                cancelBtn.disabled = false;
+                cancelBtn.classList.remove('disabled');
+            }
+        }
     }
 
     // Status Update Handler (Paket B)
@@ -547,6 +729,20 @@ document.addEventListener('DOMContentLoaded', () => {
         if (confirmReject) {
             await handleStatusUpdate('rejected');
         }
+    });
+
+    // Modal Edit Mode Actions (Paket C)
+    document.getElementById('modal-btn-edit')?.addEventListener('click', () => {
+        enterEditMode();
+    });
+
+    document.getElementById('modal-btn-cancel')?.addEventListener('click', () => {
+        exitEditMode();
+    });
+
+    document.getElementById('modal-btn-save')?.addEventListener('click', async (e) => {
+        e.preventDefault();
+        await handleSaveUpdate();
     });
 
     // Modal Close Listeners
