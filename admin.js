@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const retryBtn = document.getElementById('retry-btn');
 
     let supabaseClient = null;
+    let currentSuggestion = null;
 
     // 1. Supabase Client Initialization
     function initSupabase() {
@@ -248,6 +249,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Modal functions (Paket A — Admin İncele Modalı)
     function openInspectModal(item) {
+        currentSuggestion = item;
         console.log("İncele tıklandı", item);
         try {
             // Resolve field values (fallback to 'Belirtilmemiş' for missing strings, handle potential variant keys)
@@ -404,9 +406,131 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Status Update Handler (Paket B)
+    async function handleStatusUpdate(newStatus) {
+        if (!supabaseClient || !currentSuggestion) return;
+
+        const approveBtn = document.getElementById('modal-btn-approve');
+        const rejectBtn = document.getElementById('modal-btn-reject');
+
+        // Disable buttons and show loading state
+        if (approveBtn) {
+            approveBtn.disabled = true;
+            approveBtn.classList.add('disabled');
+        }
+        if (rejectBtn) {
+            rejectBtn.disabled = true;
+            rejectBtn.classList.add('disabled');
+        }
+
+        // Save original innerHTML to restore later
+        const originalApproveHTML = approveBtn ? approveBtn.innerHTML : '';
+        const originalRejectHTML = rejectBtn ? rejectBtn.innerHTML : '';
+
+        if (newStatus === 'approved' && approveBtn) {
+            approveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Onaylanıyor...';
+        } else if (newStatus === 'rejected' && rejectBtn) {
+            rejectBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Reddediliyor...';
+        }
+
+        try {
+            const id = currentSuggestion.id;
+            let updatePayload = { status: newStatus };
+            
+            // Safe check for updated_at column
+            if ('updated_at' in currentSuggestion) {
+                updatePayload.updated_at = new Date().toISOString();
+            }
+
+            let { error } = await supabaseClient
+                .from('suggestions')
+                .update(updatePayload)
+                .eq('id', id);
+
+            if (error && updatePayload.updated_at) {
+                console.warn("updated_at ile güncelleme başarısız oldu, sadece status deneniyor:", error);
+                const retryRes = await supabaseClient
+                    .from('suggestions')
+                    .update({ status: newStatus })
+                    .eq('id', id);
+                error = retryRes.error;
+            }
+
+            if (error) {
+                throw error;
+            }
+
+            // Show success toast
+            showToast(newStatus === 'approved' ? "Öneri onaylandı." : "Öneri reddedildi.", "success");
+
+            // Close modal
+            closeInspectModal();
+
+            // Refresh list & counters
+            await loadData();
+
+        } catch (error) {
+            console.error('İşlem sırasında hata oluştu:', error);
+            showToast("İşlem sırasında hata oluştu.", "error");
+        } finally {
+            // Restore buttons
+            if (approveBtn) {
+                approveBtn.disabled = false;
+                approveBtn.classList.remove('disabled');
+                approveBtn.innerHTML = originalApproveHTML;
+            }
+            if (rejectBtn) {
+                rejectBtn.disabled = false;
+                rejectBtn.classList.remove('disabled');
+                rejectBtn.innerHTML = originalRejectHTML;
+            }
+        }
+    }
+
+    // Dynamic Toast Notification
+    function showToast(message, type = "success") {
+        let toast = document.getElementById('admin-toast');
+        if (!toast) {
+            toast = document.createElement('div');
+            toast.id = 'admin-toast';
+            document.body.appendChild(toast);
+        }
+
+        toast.className = `toast-notification toast-${type}`;
+
+        const icon = type === 'success' ? 'fa-circle-check' : 'fa-circle-exclamation';
+        toast.innerHTML = `<i class="fa-solid ${icon}"></i> <span>${escapeHtml(message)}</span>`;
+
+        // Force reflow
+        toast.offsetHeight;
+
+        toast.classList.add('show');
+
+        setTimeout(() => {
+            toast.classList.remove('show');
+        }, 3000);
+    }
+
     // Event Listeners for buttons
     refreshBtn.addEventListener('click', loadData);
     retryBtn.addEventListener('click', loadData);
+
+    // Modal Action Buttons (Paket B)
+    document.getElementById('modal-btn-approve')?.addEventListener('click', async () => {
+        if (!currentSuggestion) return;
+        const confirmApprove = confirm("Bu öneriyi onaylamak istediğinize emin misiniz?");
+        if (confirmApprove) {
+            await handleStatusUpdate('approved');
+        }
+    });
+
+    document.getElementById('modal-btn-reject')?.addEventListener('click', async () => {
+        if (!currentSuggestion) return;
+        const confirmReject = confirm("Bu öneriyi reddetmek istediğinize emin misiniz?");
+        if (confirmReject) {
+            await handleStatusUpdate('rejected');
+        }
+    });
 
     // Modal Close Listeners
     document.getElementById('modal-btn-close')?.addEventListener('click', closeInspectModal);
