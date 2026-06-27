@@ -248,144 +248,151 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Modal functions (Paket A — Admin İncele Modalı)
     function openInspectModal(item) {
-        // Resolve field values (fallback to 'Belirtilmemiş' for missing strings, handle potential variant keys)
-        const programName = item.program_name || 'Belirtilmemiş';
-        const category = item.category || 'Belirtilmemiş';
-        const venueName = item.venue_name || 'Belirtilmemiş';
-        const city = item.city || 'Sakarya';
-        const district = item.district || 'Belirtilmemiş';
-        const day = item.day || 'Belirtilmemiş';
-        const time = item.time || 'Belirtilmemiş';
-        
-        // Hoca / Speaker fallback
-        const teacher = item.teacher || item.speaker || item.hoca || item.lecturer || 'Belirtilmemiş';
-        
-        // Organization / Kurum / Cemaat / Dernek
-        const organization = item.organization || item.institution || item.association || item.community || item.cemaat || item.dernek || item.kurum || 'Belirtilmemiş';
-        
-        // Hanımlara uygun mu? (isLadiesSuitable logic)
-        let isLadies = false;
-        if (item.is_ladies_suitable === true || item.isLadiesSuitable === true || item.ladies_suitable === true || item.ladies_only === true || item.ladiesOnly === true) {
-            isLadies = true;
-        } else {
-            // Keyword check in textual fields
-            const fieldsToSearch = [
-                item.program_name,
-                item.description,
-                item.notes,
-                item.category,
-                item.venue_name
-            ].filter(Boolean).map(s => s.toLowerCase());
+        console.log("İncele tıklandı", item);
+        try {
+            // Resolve field values (fallback to 'Belirtilmemiş' for missing strings, handle potential variant keys)
+            const programName = item.program_name || 'Belirtilmemiş';
+            const category = item.category || 'Belirtilmemiş';
+            const venueName = item.venue_name || 'Belirtilmemiş';
+            const city = item.city || 'Sakarya';
+            const district = item.district || 'Belirtilmemiş';
+            const day = item.day || 'Belirtilmemiş';
+            const time = item.time || 'Belirtilmemiş';
             
-            isLadies = fieldsToSearch.some(s => s.includes('hanım') || s.includes('bayan') || s.includes('kadın') || s.includes('kizler') || s.includes('kızlar'));
-        }
-        const ladiesText = isLadies ? "Evet" : "Belirtilmemiş";
-
-        // Contact info / Sender
-        const contactName = item.contact_name || item.contact_person || item.contactPerson || item.sender_name || item.sender || 'Belirtilmemiş';
-        const contactPhone = item.contact_phone || item.contactPhone || item.phone || item.whatsapp || item.telefon || 'Belirtilmemiş';
-        
-        // Address
-        const address = item.address || item.location || 'Belirtilmemiş';
-        
-        // Status formatting
-        let statusText = "Bekleyen Öneri";
-        let statusClass = "status-badge status-pending";
-        const statusVal = (item.status || 'pending').toLowerCase();
-        if (statusVal === 'pending' || statusVal === 'beklemede') {
-            statusText = "Bekleyen Öneri";
-            statusClass = "status-badge status-pending";
-        } else if (statusVal === 'approved' || statusVal === 'onaylandı' || statusVal === 'onaylandi' || statusVal === 'aktif') {
-            statusText = "Onaylandı";
-            statusClass = "status-badge status-approved";
-        } else if (statusVal === 'rejected' || statusVal === 'reddedildi' || statusVal === 'red') {
-            statusText = "Reddedildi";
-            statusClass = "status-badge status-rejected";
-        } else {
-            statusText = item.status;
-            statusClass = "status-badge";
-        }
-        
-        // Created date
-        const createdDate = item.created_at ? formatDate(item.created_at) : 'Belirtilmeyen Tarih';
-        
-        // Description
-        const description = item.description || item.notes || 'Açıklama belirtilmemiş.';
-
-        // Populate elements
-        document.getElementById('modal-program-name').textContent = programName;
-        document.getElementById('modal-category').textContent = category;
-        document.getElementById('modal-venue-name').textContent = venueName;
-        document.getElementById('modal-location').textContent = `${city} / ${district}`;
-        document.getElementById('modal-day').textContent = day;
-        document.getElementById('modal-time').textContent = time;
-        document.getElementById('modal-teacher').textContent = teacher;
-        document.getElementById('modal-organization').textContent = organization;
-        document.getElementById('modal-ladies').textContent = ladiesText;
-        
-        document.getElementById('modal-contact-name').textContent = contactName;
-        document.getElementById('modal-contact-phone').textContent = contactPhone;
-        document.getElementById('modal-address').textContent = address;
-        
-        const statusContainer = document.getElementById('modal-status');
-        statusContainer.innerHTML = `<span class="${statusClass}">${escapeHtml(statusText)}</span>`;
-        
-        document.getElementById('modal-created-at').textContent = createdDate;
-        document.getElementById('modal-description').textContent = description;
-
-        // Photo logic
-        const photoUrl = item.photo_url || item.photoUrl || item.image_url || item.imageUrl || item.photo || item.image;
-        const photoContainer = document.getElementById('modal-photo-container');
-        const photoImg = document.getElementById('modal-photo-img');
-
-        if (photoUrl) {
-            photoImg.src = photoUrl;
-            photoImg.onerror = () => {
-                photoContainer.classList.add('hidden');
-            };
-            photoContainer.classList.remove('hidden');
-        } else {
-            photoContainer.classList.add('hidden');
-        }
-
-        // Google Maps Link logic
-        let mapsUrl = item.google_maps_link || item.googleMapsLink || item.maps_link || item.mapsLink || item.map_link || item.mapLink;
-        if (!mapsUrl) {
-            if (item.latitude && item.longitude) {
-                mapsUrl = `https://maps.google.com/?q=${item.latitude},${item.longitude}`;
-            } else if (item.venue_name && item.venue_name !== 'Belirtilmemiş') {
-                mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueName + " " + (district !== 'Belirtilmemiş' ? district : '') + " " + city)}`;
+            // Hoca / Speaker fallback
+            const teacher = item.teacher || item.speaker || item.hoca || item.lecturer || 'Belirtilmemiş';
+            
+            // Organization / Kurum / Cemaat / Dernek
+            const organization = item.organization || item.institution || item.association || item.community || item.cemaat || item.dernek || item.kurum || 'Belirtilmemiş';
+            
+            // Hanımlara uygun mu? (isLadiesSuitable logic)
+            let isLadies = false;
+            if (item.is_ladies_suitable === true || item.isLadiesSuitable === true || item.ladies_suitable === true || item.ladies_only === true || item.ladiesOnly === true) {
+                isLadies = true;
+            } else {
+                // Keyword check in textual fields
+                const fieldsToSearch = [
+                    item.program_name,
+                    item.description,
+                    item.notes,
+                    item.category,
+                    item.venue_name
+                ].filter(Boolean).map(s => s.toLowerCase());
+                
+                isLadies = fieldsToSearch.some(s => s.includes('hanım') || s.includes('bayan') || s.includes('kadın') || s.includes('kizler') || s.includes('kızlar'));
             }
-        }
+            const ladiesText = isLadies ? "Evet" : "Belirtilmemiş";
 
-        const mapsBtn = document.getElementById('modal-btn-maps');
-        if (mapsUrl) {
-            mapsBtn.href = mapsUrl;
-            mapsBtn.classList.remove('disabled');
-            mapsBtn.style.pointerEvents = 'auto';
-        } else {
-            mapsBtn.href = '#';
-            mapsBtn.classList.add('disabled');
-            mapsBtn.style.pointerEvents = 'none';
-        }
+            // Contact info / Sender
+            const contactName = item.contact_name || item.contact_person || item.contactPerson || item.sender_name || item.sender || 'Belirtilmemiş';
+            const contactPhone = item.contact_phone || item.contactPhone || item.phone || item.whatsapp || item.telefon || 'Belirtilmemiş';
+            
+            // Address
+            const address = item.address || item.location || 'Belirtilmemiş';
+            
+            // Status formatting
+            let statusText = "Bekleyen Öneri";
+            let statusClass = "status-badge status-pending";
+            const statusVal = (item.status || 'pending').toLowerCase();
+            if (statusVal === 'pending' || statusVal === 'beklemede') {
+                statusText = "Bekleyen Öneri";
+                statusClass = "status-badge status-pending";
+            } else if (statusVal === 'approved' || statusVal === 'onaylandı' || statusVal === 'onaylandi' || statusVal === 'aktif') {
+                statusText = "Onaylandı";
+                statusClass = "status-badge status-approved";
+            } else if (statusVal === 'rejected' || statusVal === 'reddedildi' || statusVal === 'red') {
+                statusText = "Reddedildi";
+                statusClass = "status-badge status-rejected";
+            } else {
+                statusText = item.status;
+                statusClass = "status-badge";
+            }
+            
+            // Created date
+            const createdDate = item.created_at ? formatDate(item.created_at) : 'Belirtilmeyen Tarih';
+            
+            // Description
+            const description = item.description || item.notes || 'Açıklama belirtilmemiş.';
 
-        // Phone logic
-        const phoneBtn = document.getElementById('modal-btn-phone');
-        if (contactPhone && contactPhone !== 'Belirtilmemiş' && contactPhone !== '-') {
-            const cleanPhone = contactPhone.replace(/\D/g, '');
-            phoneBtn.href = `tel:${cleanPhone}`;
-            phoneBtn.classList.remove('disabled');
-            phoneBtn.style.pointerEvents = 'auto';
-        } else {
-            phoneBtn.href = '#';
-            phoneBtn.classList.add('disabled');
-            phoneBtn.style.pointerEvents = 'none';
-        }
+            // Populate elements
+            document.getElementById('modal-program-name').textContent = programName;
+            document.getElementById('modal-category').textContent = category;
+            document.getElementById('modal-venue-name').textContent = venueName;
+            document.getElementById('modal-location').textContent = `${city} / ${district}`;
+            document.getElementById('modal-day').textContent = day;
+            document.getElementById('modal-time').textContent = time;
+            document.getElementById('modal-teacher').textContent = teacher;
+            document.getElementById('modal-organization').textContent = organization;
+            document.getElementById('modal-ladies').textContent = ladiesText;
+            
+            document.getElementById('modal-contact-name').textContent = contactName;
+            document.getElementById('modal-contact-phone').textContent = contactPhone;
+            document.getElementById('modal-address').textContent = address;
+            
+            const statusContainer = document.getElementById('modal-status');
+            statusContainer.innerHTML = `<span class="${statusClass}">${escapeHtml(statusText)}</span>`;
+            
+            document.getElementById('modal-created-at').textContent = createdDate;
+            document.getElementById('modal-description').textContent = description;
 
-        // Show Modal overlay
-        const modal = document.getElementById('inspect-modal');
-        if (modal) {
-            modal.classList.remove('hidden');
+            // Photo logic
+            const photoUrl = item.photo_url || item.photoUrl || item.image_url || item.imageUrl || item.photo || item.image;
+            const photoContainer = document.getElementById('modal-photo-container');
+            const photoImg = document.getElementById('modal-photo-img');
+
+            if (photoUrl) {
+                photoImg.src = photoUrl;
+                photoImg.onerror = () => {
+                    photoContainer.classList.add('hidden');
+                };
+                photoContainer.classList.remove('hidden');
+            } else {
+                photoContainer.classList.add('hidden');
+            }
+
+            // Google Maps Link logic
+            let mapsUrl = item.google_maps_link || item.googleMapsLink || item.maps_link || item.mapsLink || item.map_link || item.mapLink;
+            if (!mapsUrl) {
+                if (item.latitude && item.longitude) {
+                    mapsUrl = `https://maps.google.com/?q=${item.latitude},${item.longitude}`;
+                } else if (item.venue_name && item.venue_name !== 'Belirtilmemiş') {
+                    mapsUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(venueName + " " + (district !== 'Belirtilmemiş' ? district : '') + " " + city)}`;
+                }
+            }
+
+            const mapsBtn = document.getElementById('modal-btn-maps');
+            if (mapsUrl) {
+                mapsBtn.href = mapsUrl;
+                mapsBtn.classList.remove('disabled');
+                mapsBtn.style.pointerEvents = 'auto';
+            } else {
+                mapsBtn.href = '#';
+                mapsBtn.classList.add('disabled');
+                mapsBtn.style.pointerEvents = 'none';
+            }
+
+            // Phone logic
+            const phoneBtn = document.getElementById('modal-btn-phone');
+            if (contactPhone && contactPhone !== 'Belirtilmemiş' && contactPhone !== '-') {
+                const cleanPhone = contactPhone.replace(/\D/g, '');
+                phoneBtn.href = `tel:${cleanPhone}`;
+                phoneBtn.classList.remove('disabled');
+                phoneBtn.style.pointerEvents = 'auto';
+            } else {
+                phoneBtn.href = '#';
+                phoneBtn.classList.add('disabled');
+                phoneBtn.style.pointerEvents = 'none';
+            }
+
+            // Show Modal overlay
+            const modal = document.getElementById('inspect-modal');
+            console.log("Modal bulundu mu?", modal);
+            if (modal) {
+                modal.classList.remove('hidden');
+                document.body.style.overflow = "hidden";
+            }
+        } catch (e) {
+            console.error("openInspectModal Hatası:", e);
         }
     }
 
@@ -393,6 +400,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const modal = document.getElementById('inspect-modal');
         if (modal) {
             modal.classList.add('hidden');
+            document.body.style.overflow = "";
         }
     }
 
