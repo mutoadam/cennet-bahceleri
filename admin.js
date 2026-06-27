@@ -66,10 +66,9 @@ const supabaseKey =
 
     try {
         const { data: pendingSuggestions, error: pendingError } = await supabaseClient
-            .from('suggestions')
-            .select('*')
-            .or('status.eq.pending,status.is.null')
-            .order('created_at', { ascending: false });
+    .from('suggestions')
+    .select('*')
+    .order('created_at', { ascending: false });
 
         if (pendingError) throw pendingError;
 
