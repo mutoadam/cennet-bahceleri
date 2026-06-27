@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let supabaseClient = null;
     let currentSuggestion = null;
+    let currentTabStatus = 'pending';
 
     // 1. Supabase Client Initialization
     function initSupabase() {
@@ -77,15 +78,15 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoader();
 
         try {
-            // Fetch Pending Suggestions
-            // public.suggestions table status = pending, sorted by created_at DESC
-            const { data: pendingSuggestions, error: pendingError } = await supabaseClient
+            // Fetch Current Status Suggestions
+            // public.suggestions table status matching currentTabStatus, sorted by created_at DESC
+            const { data: statusSuggestions, error: fetchError } = await supabaseClient
                 .from('suggestions')
                 .select('*')
-                .eq('status', 'pending')
+                .eq('status', currentTabStatus)
                 .order('created_at', { ascending: false });
 
-            if (pendingError) throw pendingError;
+            if (fetchError) throw fetchError;
 
             // Fetch counts for Stats
             // We run these in parallel to make it extremely efficient
@@ -100,8 +101,24 @@ document.addEventListener('DOMContentLoaded', () => {
             statsApprovedVal.textContent = approvedCountRes.count !== null ? approvedCountRes.count : '0';
             statsRejectedVal.textContent = rejectedCountRes.count !== null ? rejectedCountRes.count : '0';
 
+            // Update Page Title and Description based on active status
+            const pageTitle = document.querySelector('.page-title-section h2');
+            const pageDesc = document.querySelector('.page-title-section .section-desc');
+            if (pageTitle && pageDesc) {
+                if (currentTabStatus === 'pending') {
+                    pageTitle.textContent = "Bekleyen İlim Meclisi Önerileri";
+                    pageDesc.textContent = "Vatandaşlar tarafından form aracılığıyla gönderilen ve onay bekleyen program önerileri.";
+                } else if (currentTabStatus === 'approved') {
+                    pageTitle.textContent = "Onaylanan İlim Meclisi Önerileri";
+                    pageDesc.textContent = "Admin tarafından onaylanmış ve sistemde yayında olan programlar.";
+                } else if (currentTabStatus === 'rejected') {
+                    pageTitle.textContent = "Reddedilen İlim Meclisi Önerileri";
+                    pageDesc.textContent = "Kriterleri karşılamadığı için reddedilen program önerileri.";
+                }
+            }
+
             // Display list
-            renderSuggestions(pendingSuggestions);
+            renderSuggestions(statusSuggestions);
 
         } catch (error) {
             console.error('Veri çekme hatası:', error);
@@ -141,9 +158,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }
 
+            // Status formatting for Card
+            let statusText = "Bekleyen Öneri";
+            let statusClass = "status-badge status-pending";
+            const statusVal = (item.status || 'pending').toLowerCase();
+            if (statusVal === 'pending' || statusVal === 'beklemede') {
+                statusText = "Bekleyen Öneri";
+                statusClass = "status-badge status-pending";
+            } else if (statusVal === 'approved' || statusVal === 'onaylandı' || statusVal === 'onaylandi' || statusVal === 'aktif') {
+                statusText = "Onaylandı";
+                statusClass = "status-badge status-approved";
+            } else if (statusVal === 'rejected' || statusVal === 'reddedildi' || statusVal === 'red') {
+                statusText = "Reddedildi";
+                statusClass = "status-badge status-rejected";
+            }
+
             card.innerHTML = `
                 <div class="card-header-info">
-                    <span class="category-badge">${escapeHtml(item.category || 'Belirtilmemiş')}</span>
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <span class="category-badge">${escapeHtml(item.category || 'Belirtilmemiş')}</span>
+                        <span class="${statusClass}" style="font-size: 11px; padding: 2px 8px; display: inline-flex; align-items: center;">${escapeHtml(statusText)}</span>
+                    </div>
                     <span class="date-badge"><i class="fa-regular fa-calendar-days"></i> ${createdDate}</span>
                 </div>
                 
@@ -209,6 +244,22 @@ document.addEventListener('DOMContentLoaded', () => {
         errorContainer.classList.add('hidden');
         emptyContainer.classList.remove('hidden');
         suggestionsList.classList.add('hidden');
+
+        // Dynamically update empty message
+        const emptyTitle = emptyContainer.querySelector('h4');
+        const emptyDesc = emptyContainer.querySelector('p');
+        if (emptyTitle) {
+            emptyTitle.textContent = "Bu kategoride kayıt bulunmuyor.";
+        }
+        if (emptyDesc) {
+            if (currentTabStatus === 'pending') {
+                emptyDesc.textContent = "Tüm öneriler karara bağlanmış durumda. Yeni öneri geldiğinde burada listelenecektir.";
+            } else if (currentTabStatus === 'approved') {
+                emptyDesc.textContent = "Onaylanmış herhangi bir öneri bulunmamaktadır.";
+            } else if (currentTabStatus === 'rejected') {
+                emptyDesc.textContent = "Reddedilmiş herhangi bir öneri bulunmamaktadır.";
+            }
+        }
     }
 
     function hideStates() {
@@ -384,6 +435,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 phoneBtn.href = '#';
                 phoneBtn.classList.add('disabled');
                 phoneBtn.style.pointerEvents = 'none';
+            }
+
+            // Control action buttons based on status
+            const approveBtn = document.getElementById('modal-btn-approve');
+            const rejectBtn = document.getElementById('modal-btn-reject');
+            const editBtn = document.getElementById('modal-btn-edit');
+
+            if (approveBtn) approveBtn.classList.remove('hidden');
+            if (rejectBtn) rejectBtn.classList.remove('hidden');
+            if (editBtn) editBtn.classList.remove('hidden');
+
+            if (statusVal === 'pending' || statusVal === 'beklemede') {
+                // Pending suggestion: Onayla, Reddet, Düzenle are all active
+            } else if (statusVal === 'approved' || statusVal === 'onaylandı' || statusVal === 'onaylandi' || statusVal === 'aktif') {
+                // Approved suggestion: Onayla hidden, Reddet and Düzenle active
+                if (approveBtn) approveBtn.classList.add('hidden');
+            } else if (statusVal === 'rejected' || statusVal === 'reddedildi' || statusVal === 'red') {
+                // Rejected suggestion: Reddet hidden, Onayla and Düzenle active
+                if (rejectBtn) rejectBtn.classList.add('hidden');
             }
 
             // Show Modal overlay
@@ -849,6 +919,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Tab buttons event listeners
+    function initTabs() {
+        const tabBtns = document.querySelectorAll('.tab-btn');
+        tabBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                tabBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentTabStatus = btn.getAttribute('data-status');
+                await loadData();
+            });
+        });
+    }
+
     // Initial Load
+    initTabs();
     loadData();
 });
