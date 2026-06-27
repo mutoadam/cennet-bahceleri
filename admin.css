@@ -924,15 +924,29 @@ body {
 }
 
 .btn-approve {
-    background-color: var(--md-success-container);
-    color: var(--md-success);
-    border: 1px solid var(--md-success);
+    background-color: #2d6a4f;
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 4px 6px rgba(45, 106, 79, 0.15);
+}
+
+.btn-approve:hover:not(.disabled) {
+    background-color: #1b4332;
+    box-shadow: 0 6px 12px rgba(27, 67, 50, 0.25);
+    color: #ffffff;
 }
 
 .btn-reject {
-    background-color: var(--md-error-container);
-    color: var(--md-error);
-    border: 1px solid var(--md-error);
+    background-color: #da2c2c;
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 4px 6px rgba(218, 44, 44, 0.15);
+}
+
+.btn-reject:hover:not(.disabled) {
+    background-color: #ba1a1a;
+    box-shadow: 0 6px 12px rgba(186, 26, 26, 0.25);
+    color: #ffffff;
 }
 
 .btn-edit {
@@ -942,11 +956,12 @@ body {
 }
 
 .btn-approve.disabled, .btn-reject.disabled, .btn-edit.disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    opacity: 0.5 !important;
+    cursor: not-allowed !important;
     background-color: #e0e0e0 !important;
     color: #7f7f7f !important;
-    border-color: #cccccc !important;
+    border: 1px solid #cccccc !important;
+    box-shadow: none !important;
 }
 
 .btn-maps {
@@ -1042,4 +1057,44 @@ body {
     .btn-action {
         width: 100%;
     }
+}
+
+/* ==========================================
+   Toast Notifications for Actions
+   ========================================== */
+.toast-notification {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(100px);
+    background-color: var(--md-primary);
+    color: white;
+    padding: 14px 28px;
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-lg);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-weight: 700;
+    z-index: 11000;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), opacity 0.3s;
+    opacity: 0;
+    pointer-events: none;
+    font-size: 15px;
+}
+
+.toast-notification.show {
+    transform: translateX(-50%) translateY(0);
+    opacity: 1;
+    pointer-events: auto;
+}
+
+.toast-success {
+    background-color: #2d6a4f;
+    border-left: 5px solid #d8f3dc;
+}
+
+.toast-error {
+    background-color: #ba1a1a;
+    border-left: 5px solid #ffdad6;
 }
