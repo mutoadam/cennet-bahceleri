@@ -33,25 +33,25 @@ document.addEventListener('DOMContentLoaded', () => {
             // Check CENNET_CONFIG
             if (window.CENNET_CONFIG) {
                 supabaseUrl = window.CENNET_CONFIG.supabaseUrl || window.CENNET_CONFIG.SUPABASE_URL;
-                supabaseKey = window.CENNET_CONFIG.supabaseKey || window.CENNET_CONFIG.SUPABASE_KEY;
+                supabaseKey = window.CENNET_CONFIG.supabaseKey || window.CENNET_CONFIG.SUPABASE_KEY || window.CENNET_CONFIG.SUPABASE_ANON_KEY;
             }
 
             // Check CONFIG
             if ((!supabaseUrl || !supabaseKey) && window.CONFIG) {
                 supabaseUrl = window.CONFIG.supabaseUrl || window.CONFIG.SUPABASE_URL || supabaseUrl;
-                supabaseKey = window.CONFIG.supabaseKey || window.CONFIG.SUPABASE_KEY || supabaseKey;
+                supabaseKey = window.CONFIG.supabaseKey || window.CONFIG.SUPABASE_KEY || window.CONFIG.SUPABASE_ANON_KEY || supabaseKey;
             }
 
             // Check APP_CONFIG
             if ((!supabaseUrl || !supabaseKey) && window.APP_CONFIG) {
                 supabaseUrl = window.APP_CONFIG.supabaseUrl || window.APP_CONFIG.SUPABASE_URL || supabaseUrl;
-                supabaseKey = window.APP_CONFIG.supabaseKey || window.APP_CONFIG.SUPABASE_KEY || supabaseKey;
+                supabaseKey = window.APP_CONFIG.supabaseKey || window.APP_CONFIG.SUPABASE_KEY || window.APP_CONFIG.SUPABASE_ANON_KEY || supabaseKey;
             }
 
             // Check direct window level
             if (!supabaseUrl || !supabaseKey) {
                 supabaseUrl = window.SUPABASE_URL || window.supabaseUrl || supabaseUrl;
-                supabaseKey = window.SUPABASE_KEY || window.supabaseKey || supabaseKey;
+                supabaseKey = window.SUPABASE_KEY || window.supabaseKey || window.SUPABASE_ANON_KEY || window.supabaseAnonKey || supabaseKey;
             }
 
             if (!supabaseUrl || !supabaseKey) {
