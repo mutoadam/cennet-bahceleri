@@ -57,45 +57,7 @@ const supabaseKey =
     }
 
     // 2. Fetch Suggestions & Stats
-    async function loadData() {
-        if (!supabaseClient) {
-            if (!initSupabase()) return;
-        }
-
-        showLoader();
-
-        try {
-            // Fetch Pending Suggestions
-// status = pending olanlar ve status boş olanlar
-const { data: pendingSuggestions, error: pendingError } = await supabaseClient
-    .from('suggestions')
-    .select('*')
-    .or('status.eq.pending,status.is.null')
-    .order('created_at', { ascending: false });
-
-if (pendingError) throw pendingError;
-
-            // Fetch counts for Stats
-            // We run these in parallel to make it extremely efficient
-            const [pendingCountRes, approvedCountRes, rejectedCountRes] = await Promise.all([
-                supabaseClient.from('suggestions').select('*', { count: 'exact', head: true }).or('status.eq.pending,status.is.null'),,
-                supabaseClient.from('suggestions').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
-                supabaseClient.from('suggestions').select('*', { count: 'exact', head: true }).eq('status', 'rejected')
-            ]);
-
-            // Update Stats Display
-            statsPendingVal.textContent = pendingCountRes.count !== null ? pendingCountRes.count : '0';
-            statsApprovedVal.textContent = approvedCountRes.count !== null ? approvedCountRes.count : '0';
-            statsRejectedVal.textContent = rejectedCountRes.count !== null ? rejectedCountRes.count : '0';
-
-            // Display list
-            renderSuggestions(pendingSuggestions);
-
-        } catch (error) {
-            console.error('Veri çekme hatası:', error);
-            showError();
-        }
-    }
+    
 
     // 3. Render list to screen
     function renderSuggestions(suggestions) {
