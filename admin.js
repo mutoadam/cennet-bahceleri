@@ -66,19 +66,19 @@ const supabaseKey =
 
         try {
             // Fetch Pending Suggestions
-            // public.suggestions table status = pending, sorted by created_at DESC
-            const { data: pendingSuggestions, error: pendingError } = await supabaseClient
-                .from('suggestions')
-                .select('*')
-                .eq('status', 'pending')
-                .order('created_at', { ascending: false });
+// status = pending olanlar ve status boş olanlar
+const { data: pendingSuggestions, error: pendingError } = await supabaseClient
+    .from('suggestions')
+    .select('*')
+    .or('status.eq.pending,status.is.null')
+    .order('created_at', { ascending: false });
 
-            if (pendingError) throw pendingError;
+if (pendingError) throw pendingError;
 
             // Fetch counts for Stats
             // We run these in parallel to make it extremely efficient
             const [pendingCountRes, approvedCountRes, rejectedCountRes] = await Promise.all([
-                supabaseClient.from('suggestions').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
+                supabaseClient.from('suggestions').select('*', { count: 'exact', head: true }).or('status.eq.pending,status.is.null'),,
                 supabaseClient.from('suggestions').select('*', { count: 'exact', head: true }).eq('status', 'approved'),
                 supabaseClient.from('suggestions').select('*', { count: 'exact', head: true }).eq('status', 'rejected')
             ]);
