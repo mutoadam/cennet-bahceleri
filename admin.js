@@ -38,7 +38,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             const supabaseUrl = window.CENNET_CONFIG.supabaseUrl || window.CENNET_CONFIG.SUPABASE_URL;
-            const supabaseKey = window.CENNET_CONFIG.supabaseKey || window.CENNET_CONFIG.SUPABASE_KEY;
+            const supabaseKey =
+    window.CENNET_CONFIG.supabaseKey ||
+    window.CENNET_CONFIG.SUPABASE_ANON_KEY;
 
             if (!supabaseUrl || !supabaseKey) {
                 console.error('Supabase URL veya Anon Key eksik! config.js içindeki değerleri kontrol edin.');
