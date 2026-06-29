@@ -1516,7 +1516,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (deleteConfirmOkBtn) {
             deleteConfirmOkBtn.disabled = true;
             deleteConfirmOkBtn.classList.add('disabled');
-            deleteConfirmOkBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Siliniyor...';
+            deleteConfirmOkBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Taşınıyor...';
         }
         if (deleteConfirmCancelBtn) {
             deleteConfirmCancelBtn.disabled = true;
@@ -1524,59 +1524,45 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            console.log(`Deleting program with ID: ${programId}`);
-            let deletedRows = [];
-            let deleteError = null;
+            console.log(`Soft deleting program with ID: ${programId}`);
+            let updatedRows = [];
+            let updateError = null;
 
-            // Try deleting with .select() to get immediate confirmation of deletion
-            try {
-                const { data, error } = await supabaseClient
+            const updatePayload = {
+                status: 'deleted',
+                updated_at: new Date().toISOString()
+            };
+
+            const { data, error } = await supabaseClient
+                .from('programs')
+                .update(updatePayload)
+                .eq('id', programId)
+                .select();
+            
+            updateError = error;
+            updatedRows = data;
+
+            if (updateError) {
+                console.warn("Soft delete with updated_at failed, retrying without updated_at:", updateError);
+                const retryRes = await supabaseClient
                     .from('programs')
-                    .delete()
+                    .update({ status: 'deleted' })
                     .eq('id', programId)
                     .select();
-                
-                deleteError = error;
-                deletedRows = data;
-            } catch (err) {
-                console.warn("Delete with .select() failed, retrying simple delete:", err);
-                // Fallback to simple delete
-                const { error } = await supabaseClient
-                    .from('programs')
-                    .delete()
-                    .eq('id', programId);
-                
-                deleteError = error;
-                
-                // Verify if the program is actually deleted from the database
-                if (!deleteError) {
-                    const { data: checkData, error: checkError } = await supabaseClient
-                        .from('programs')
-                        .select('id')
-                        .eq('id', programId);
-                    
-                    if (!checkError) {
-                        if (checkData && checkData.length > 0) {
-                            throw new Error("Program veritabanından silinemedi (hâlâ mevcut). RLS politikalarını kontrol edin.");
-                        } else {
-                            deletedRows = [{ id: programId }];
-                        }
-                    } else {
-                        throw checkError;
-                    }
-                }
+                updateError = retryRes.error;
+                updatedRows = retryRes.data;
             }
 
-            if (deleteError) {
-                throw deleteError;
+            if (updateError) {
+                throw updateError;
             }
 
-            if (!deletedRows || deletedRows.length === 0) {
-                throw new Error("Program veritabanından silinemedi (kayıt bulunamadı veya RLS engelledi).");
+            if (!updatedRows || updatedRows.length === 0) {
+                throw new Error("Program güncellenemedi (kayıt bulunamadı veya RLS engelledi).");
             }
 
-            // Successfully deleted
-            showToast("Program başarıyla silindi.", "success");
+            // Successfully soft deleted
+            showToast("Program çöp kutusuna taşındı.", "success");
             closeDeleteConfirmModal();
 
             // Sync local state
@@ -1615,6 +1601,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const { data: programsData, error: fetchError } = await supabaseClient
                 .from('programs')
                 .select('*')
+                .neq('status', 'deleted')
                 .order('created_at', { ascending: false });
 
             if (fetchError) {
@@ -1622,6 +1609,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 const { data: altProgramsData, error: altFetchError } = await supabaseClient
                     .from('programs')
                     .select('*')
+                    .neq('status', 'deleted')
                     .order('program_name', { ascending: true });
                 
                 if (altFetchError) throw altFetchError;
@@ -1636,10 +1624,12 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function processPrograms(programs) {
-        loadedPrograms = programs; // Cache loaded programs
+        // Exclude deleted programs from loadedPrograms cache, list, and statistics
+        const filteredPrograms = programs.filter(p => (p.status || '').toLowerCase() !== 'deleted');
+        loadedPrograms = filteredPrograms; // Cache loaded programs
 
-        const totalCount = programs.length;
-        const activeCount = programs.filter(p => (p.status || '').toLowerCase() === 'active').length;
+        const totalCount = filteredPrograms.length;
+        const activeCount = filteredPrograms.filter(p => (p.status || '').toLowerCase() === 'active').length;
         const passiveCount = totalCount - activeCount;
 
         const statsTotalVal = document.getElementById('stats-total-programs-val');
@@ -1650,7 +1640,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statsActiveVal) statsActiveVal.textContent = activeCount;
         if (statsPassiveVal) statsPassiveVal.textContent = passiveCount;
 
-        populateFilterOptions(programs);
+        populateFilterOptions(filteredPrograms);
         applyFilters();
     }
 
