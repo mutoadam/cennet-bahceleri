@@ -29,6 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentSuggestion = null;
     let currentTabStatus = 'pending';
     let loadedPrograms = [];
+    let isTrashBinView = false;
     let knownColumns = ['id', 'program_name', 'venue_name', 'city', 'district', 'day', 'time', 'teacher', 'organization', 'women_friendly', 'address', 'google_maps_link', 'description', 'contact_name', 'contact_phone', 'photo_url', 'status', 'created_at', 'updated_at', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
     
     // ROADMAP: İleride sık kullanılan programlar için is_pinned alanı eklenebilir.
@@ -1394,6 +1395,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (statusVal === 'passive' || statusVal === 'inactive') {
             label = '🌙 Ara Verildi';
             badgeClass = 'status-badge status-rejected';
+        } else if (statusVal === 'deleted') {
+            label = '🗑 Silindi';
+            badgeClass = 'status-badge status-deleted';
         }
         return { label, badgeClass };
     }
@@ -1589,6 +1593,50 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    async function restoreProgram(programId) {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        try {
+            console.log(`Restoring program ID ${programId} to inactive...`);
+            const { data, error } = await supabaseClient
+                .from('programs')
+                .update({ status: 'inactive', updated_at: new Date().toISOString() })
+                .eq('id', programId)
+                .select();
+
+            let updateError = error;
+            let updatedRows = data;
+
+            if (updateError) {
+                console.warn("Restore with updated_at failed, trying status only:", updateError);
+                const retryRes = await supabaseClient
+                    .from('programs')
+                    .update({ status: 'inactive' })
+                    .eq('id', programId)
+                    .select();
+                updateError = retryRes.error;
+                updatedRows = retryRes.data;
+            }
+
+            if (updateError) {
+                throw updateError;
+            }
+
+            if (!updatedRows || updatedRows.length === 0) {
+                throw new Error("No rows updated.");
+            }
+
+            showToast("Program çöp kutusundan geri alındı.", "success");
+            await loadPrograms();
+
+        } catch (error) {
+            console.error('Program geri alma hatası:', error);
+            showToast("Program geri alınamadı.", "error");
+        }
+    }
+
     async function loadPrograms() {
         if (!supabaseClient) {
             if (!initSupabase()) return;
@@ -1601,7 +1649,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const { data: programsData, error: fetchError } = await supabaseClient
                 .from('programs')
                 .select('*')
-                .neq('status', 'deleted')
                 .order('created_at', { ascending: false });
 
             if (fetchError) {
@@ -1609,7 +1656,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 const { data: altProgramsData, error: altFetchError } = await supabaseClient
                     .from('programs')
                     .select('*')
-                    .neq('status', 'deleted')
                     .order('program_name', { ascending: true });
                 
                 if (altFetchError) throw altFetchError;
@@ -1624,23 +1670,32 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function processPrograms(programs) {
-        // Exclude deleted programs from loadedPrograms cache, list, and statistics
-        const filteredPrograms = programs.filter(p => (p.status || '').toLowerCase() !== 'deleted');
-        loadedPrograms = filteredPrograms; // Cache loaded programs
+        // Separate deleted and normal programs (deleted are kept for Trash Bin view)
+        const normalPrograms = programs.filter(p => (p.status || '').toLowerCase() !== 'deleted');
+        const deletedPrograms = programs.filter(p => (p.status || '').toLowerCase() === 'deleted');
 
-        const totalCount = filteredPrograms.length;
-        const activeCount = filteredPrograms.filter(p => (p.status || '').toLowerCase() === 'active').length;
+        const totalCount = normalPrograms.length;
+        const activeCount = normalPrograms.filter(p => (p.status || '').toLowerCase() === 'active').length;
         const passiveCount = totalCount - activeCount;
 
         const statsTotalVal = document.getElementById('stats-total-programs-val');
         const statsActiveVal = document.getElementById('stats-active-programs-val');
         const statsPassiveVal = document.getElementById('stats-passive-programs-val');
+        const statsTrashVal = document.getElementById('stats-trash-programs-val');
 
         if (statsTotalVal) statsTotalVal.textContent = totalCount;
         if (statsActiveVal) statsActiveVal.textContent = activeCount;
         if (statsPassiveVal) statsPassiveVal.textContent = passiveCount;
+        if (statsTrashVal) statsTrashVal.textContent = deletedPrograms.length;
 
-        populateFilterOptions(filteredPrograms);
+        // Set loadedPrograms to deletedPrograms when in trash bin view, otherwise normalPrograms
+        if (isTrashBinView) {
+            loadedPrograms = deletedPrograms;
+        } else {
+            loadedPrograms = normalPrograms;
+        }
+
+        populateFilterOptions(loadedPrograms);
         applyFilters();
     }
 
@@ -1706,10 +1761,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function applyFilters() {
         const searchQuery = document.getElementById('filter-search')?.value.trim().toLowerCase() || '';
-        const selectedDistrict = document.getElementById('filter-district')?.value || '';
-        const selectedDay = document.getElementById('filter-day')?.value || '';
-        const selectedStatus = document.getElementById('filter-status')?.value || '';
-        const selectedSource = document.getElementById('filter-source')?.value || '';
+        const selectedDistrict = isTrashBinView ? '' : (document.getElementById('filter-district')?.value || '');
+        const selectedDay = isTrashBinView ? '' : (document.getElementById('filter-day')?.value || '');
+        const selectedStatus = isTrashBinView ? '' : (document.getElementById('filter-status')?.value || '');
+        const selectedSource = isTrashBinView ? '' : (document.getElementById('filter-source')?.value || '');
 
         const filtered = loadedPrograms.filter(item => {
             // 1. Search filter
@@ -1885,6 +1940,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? `<button class="btn btn-secondary btn-status-toggle" data-id="${item.id}" data-action="pause" style="width: 100%;"><i class="fa-solid fa-moon"></i> 🌙 Ara Ver</button>`
                     : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="width: 100%;"><i class="fa-solid fa-play"></i> ▶️ Devam Ettir</button>`;
 
+                const editButtonHtml = isTrashBinView ? '' : `
+                    <button class="btn-card-edit" title="Programı Düzenle">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                `;
+
                 card.innerHTML = `
                     <div class="card-header-info">
                         <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
@@ -1892,9 +1953,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
                             ${ladiesMarkup}
                         </div>
-                        <button class="btn-card-edit" title="Programı Düzenle">
-                            <i class="fa-solid fa-pen-to-square"></i>
-                        </button>
+                        ${editButtonHtml}
                     </div>
                     
                     <h4 class="program-title" title="${escapeHtml(item.program_name || 'İsimsiz Program')}">${escapeHtml(item.program_name || 'İsimsiz Program')}</h4>
@@ -1922,10 +1981,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     ${photoMarkup}
 
                     <div class="card-actions" style="margin-top: auto; display: flex; gap: 8px; width: 100%;">
-                        ${toggleButtonHtml}
-                        <button class="btn btn-reject btn-delete-program" data-id="${item.id}" style="width: auto; min-width: 44px; padding: 0 12px; background-color: var(--md-error-container); color: var(--md-error);" title="Programı Sil">
-                            <i class="fa-solid fa-trash-can"></i> Sil
-                        </button>
+                        ${isTrashBinView ? `
+                            <button class="btn btn-primary btn-restore-program" data-id="${item.id}" style="width: 100%; background-color: var(--md-primary); border-color: var(--md-primary);"><i class="fa-solid fa-trash-arrow-up"></i> Geri Al</button>
+                        ` : `
+                            ${toggleButtonHtml}
+                            <button class="btn btn-reject btn-delete-program" data-id="${item.id}" style="width: auto; min-width: 44px; padding: 0 12px; background-color: var(--md-error-container); color: var(--md-error);" title="Programı Sil">
+                                <i class="fa-solid fa-trash-can"></i> Sil
+                            </button>
+                        `}
                     </div>
                 `;
 
@@ -1955,6 +2018,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (deleteBtn) {
                     deleteBtn.addEventListener('click', () => {
                         openDeleteConfirmModal(item);
+                    });
+                }
+
+                // Bind click event to card restore button (Paket H6.2)
+                const restoreBtn = card.querySelector('.btn-restore-program');
+                if (restoreBtn) {
+                    restoreBtn.addEventListener('click', async () => {
+                        await restoreProgram(item.id);
                     });
                 }
 
@@ -2029,6 +2100,25 @@ document.addEventListener('DOMContentLoaded', () => {
                         : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="min-height: 28px; padding: 2px 6px; font-size: 11px;"><i class="fa-solid fa-play"></i> Devam Ettir</button>`;
                 }
 
+                let actionsHtml = '';
+                if (isTrashBinView) {
+                    actionsHtml = `
+                        <button class="btn btn-primary btn-sm btn-restore-program" data-id="${item.id}" style="background-color: var(--md-primary); border-color: var(--md-primary);">
+                            <i class="fa-solid fa-trash-arrow-up"></i> Geri Al
+                        </button>
+                    `;
+                } else {
+                    actionsHtml = `
+                        <button class="btn-table-edit" title="Programı Düzenle">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                        ${toggleButtonHtml}
+                        <button class="btn-table-delete text-danger" data-id="${item.id}" title="Programı Sil">
+                            <i class="fa-solid fa-trash-can"></i> Sil
+                        </button>
+                    `;
+                }
+
                 if (currentViewMode === 'compact') {
                     tr.innerHTML = `
                         <td title="${escapeHtml(statusBadge.label)}">
@@ -2046,13 +2136,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td title="${escapeHtml(item.teacher || '-')}">${escapeHtml(item.teacher || '-')}</td>
                         <td>
                             <div class="table-actions">
-                                <button class="btn-table-edit" title="Programı Düzenle">
-                                    <i class="fa-solid fa-pen-to-square"></i>
-                                </button>
-                                ${toggleButtonHtml}
-                                <button class="btn-table-delete text-danger" data-id="${item.id}" title="Programı Sil">
-                                    <i class="fa-solid fa-trash-can"></i> Sil
-                                </button>
+                                ${actionsHtml}
                             </div>
                         </td>
                     `;
@@ -2077,13 +2161,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <td title="${escapeHtml(item.organization || '-')}">${escapeHtml(item.organization || '-')}</td>
                         <td>
                             <div class="table-actions">
-                                <button class="btn-table-edit" title="Programı Düzenle">
-                                    <i class="fa-solid fa-pen-to-square"></i>
-                                </button>
-                                ${toggleButtonHtml}
-                                <button class="btn-table-delete text-danger" data-id="${item.id}" title="Programı Sil">
-                                    <i class="fa-solid fa-trash-can"></i> Sil
-                                </button>
+                                ${actionsHtml}
                             </div>
                         </td>
                     `;
@@ -2115,6 +2193,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tableDeleteBtn) {
                     tableDeleteBtn.addEventListener('click', () => {
                         openDeleteConfirmModal(item);
+                    });
+                }
+
+                // Bind click event to table restore button (Paket H6.2)
+                const tableRestoreBtn = tr.querySelector('.btn-restore-program');
+                if (tableRestoreBtn) {
+                    tableRestoreBtn.addEventListener('click', async () => {
+                        await restoreProgram(item.id);
                     });
                 }
 
@@ -2656,10 +2742,47 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Trash Bin Listeners (Paket H6.2)
+    function initTrashBinListeners() {
+        const trashBinBtn = document.getElementById('trash-bin-btn');
+        const backToProgramsBtn = document.getElementById('back-to-programs-btn');
+        const programsListTitle = document.getElementById('programs-list-title');
+        const filterPanel = document.getElementById('programs-filter-panel');
+
+        trashBinBtn?.addEventListener('click', async () => {
+            isTrashBinView = true;
+            trashBinBtn.classList.add('hidden');
+            backToProgramsBtn?.classList.remove('hidden');
+            if (programsListTitle) programsListTitle.textContent = "Çöp Kutusu";
+            filterPanel?.classList.add('trash-view-active');
+            
+            // Clear search to prevent unexpected filtering on entering trash bin
+            const searchInput = document.getElementById('filter-search');
+            if (searchInput) searchInput.value = '';
+
+            await loadPrograms();
+        });
+
+        backToProgramsBtn?.addEventListener('click', async () => {
+            isTrashBinView = false;
+            backToProgramsBtn.classList.add('hidden');
+            trashBinBtn?.classList.remove('hidden');
+            if (programsListTitle) programsListTitle.textContent = "Program Listesi";
+            filterPanel?.classList.remove('trash-view-active');
+            
+            // Clear search to prevent unexpected filtering on returning to normal list
+            const searchInput = document.getElementById('filter-search');
+            if (searchInput) searchInput.value = '';
+
+            await loadPrograms();
+        });
+    }
+
     // Initial Load
     initViewSelector();
     initFilterListeners();
     initMainNavigation();
+    initTrashBinListeners();
     initTabs();
     loadData();
 });
