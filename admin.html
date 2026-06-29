@@ -580,9 +580,32 @@
                             </div>
                         </details>
                     </div>
-                    <div class="form-group">
-                        <label for="edit-program-logo-url"><i class="fa-solid fa-building-columns"></i> Logo Linki</label>
-                        <input type="url" id="edit-program-logo-url" class="form-control" placeholder="Örn: https://...">
+                    <div class="form-group full-width logo-upload-group" style="grid-column: span 2;">
+                        <label><i class="fa-solid fa-image-portrait"></i> Program/Kurum Logosu Yükle</label>
+                        <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
+                            <input type="file" id="edit-program-logo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;">
+                            <button type="button" id="edit-program-logo-upload-trigger" class="btn btn-secondary btn-sm upload-trigger-btn" style="min-height: 38px; padding: 8px 16px;">
+                                <i class="fa-solid fa-upload"></i> Logo Seç...
+                            </button>
+                            <span id="edit-program-logo-file-name" class="file-name-display" style="font-size: 14px; color: var(--md-on-surface-variant);">Seçilen dosya yok</span>
+                            <div class="upload-progress-container hidden" id="edit-logo-upload-progress" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--md-primary);">
+                                <div class="spinner spinner-xs" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                                <span class="progress-text">Yükleniyor...</span>
+                            </div>
+                        </div>
+                        <div id="edit-program-logo-preview-container" class="logo-preview-container hidden" style="position: relative; width: 80px; height: 80px; margin-top: 12px; border: 1px solid var(--md-outline); border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #fdfdfd; box-shadow: var(--shadow-sm);">
+                            <img id="edit-program-logo-preview-img" src="" alt="Logo Önizleme" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                            <span id="edit-program-logo-preview-text" style="font-size: 11px; text-align: center; color: var(--md-on-surface-variant); padding: 4px; line-height: 1.2; font-weight: 600; display: none;"></span>
+                            <button type="button" id="edit-program-logo-remove-btn" class="btn-remove-logo" title="Logoyu Kaldır" style="position: absolute; top: 0; right: 0; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: background 0.2s; z-index: 5;">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                        <details class="advanced-logo-url" style="margin-top: 12px; cursor: pointer;">
+                            <summary style="font-size: 13px; color: var(--md-on-surface-variant); font-weight: 500;">Gelişmiş: Logo URL / Kodu</summary>
+                            <div style="margin-top: 8px; cursor: default;">
+                                <input type="text" id="edit-program-logo-url" class="form-control" placeholder="Örn: https://... veya ummetder">
+                            </div>
+                        </details>
                     </div>
                     <div class="form-group">
                         <label for="edit-program-contact-name"><i class="fa-solid fa-user"></i> Yetkili / Gönderen</label>
@@ -708,6 +731,33 @@
                             <summary style="font-size: 13px; color: var(--md-on-surface-variant); font-weight: 500;">Gelişmiş: Fotoğraf URL</summary>
                             <div style="margin-top: 8px; cursor: default;">
                                 <input type="url" id="add-photo-url" class="form-control" placeholder="Örn: https://...">
+                            </div>
+                        </details>
+                    </div>
+                    <div class="form-group full-width logo-upload-group" style="grid-column: span 2;">
+                        <label><i class="fa-solid fa-image-portrait"></i> Program/Kurum Logosu Yükle</label>
+                        <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
+                            <input type="file" id="add-program-logo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;">
+                            <button type="button" id="add-program-logo-upload-trigger" class="btn btn-secondary btn-sm upload-trigger-btn" style="min-height: 38px; padding: 8px 16px;">
+                                <i class="fa-solid fa-upload"></i> Logo Seç...
+                            </button>
+                            <span id="add-program-logo-file-name" class="file-name-display" style="font-size: 14px; color: var(--md-on-surface-variant);">Seçilen dosya yok</span>
+                            <div class="upload-progress-container hidden" id="add-logo-upload-progress" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--md-primary);">
+                                <div class="spinner spinner-xs" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                                <span class="progress-text">Yükleniyor...</span>
+                            </div>
+                        </div>
+                        <div id="add-program-logo-preview-container" class="logo-preview-container hidden" style="position: relative; width: 80px; height: 80px; margin-top: 12px; border: 1px solid var(--md-outline); border-radius: 50%; overflow: hidden; display: flex; align-items: center; justify-content: center; background: #fdfdfd; box-shadow: var(--shadow-sm);">
+                            <img id="add-program-logo-preview-img" src="" alt="Logo Önizleme" style="width: 100%; height: 100%; object-fit: cover; display: none;">
+                            <span id="add-program-logo-preview-text" style="font-size: 11px; text-align: center; color: var(--md-on-surface-variant); padding: 4px; line-height: 1.2; font-weight: 600; display: none;"></span>
+                            <button type="button" id="add-program-logo-remove-btn" class="btn-remove-logo" title="Logoyu Kaldır" style="position: absolute; top: 0; right: 0; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 50%; width: 22px; height: 22px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 10px; transition: background 0.2s; z-index: 5;">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                        <details class="advanced-logo-url" style="margin-top: 12px; cursor: pointer;">
+                            <summary style="font-size: 13px; color: var(--md-on-surface-variant); font-weight: 500;">Gelişmiş: Logo URL / Kodu</summary>
+                            <div style="margin-top: 8px; cursor: default;">
+                                <input type="text" id="add-program-logo-url" class="form-control" placeholder="Örn: https://... veya ummetder">
                             </div>
                         </details>
                     </div>
