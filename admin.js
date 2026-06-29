@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let loadedPrograms = [];
     let isTrashBinView = false;
     let knownColumns = ['id', 'program_name', 'venue_name', 'city', 'district', 'day', 'time', 'teacher', 'organization', 'women_friendly', 'address', 'google_maps_link', 'description', 'contact_name', 'contact_phone', 'photo_url', 'status', 'created_at', 'updated_at', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
+    let activeOrganizations = [];
     
     // ROADMAP: İleride sık kullanılan programlar için is_pinned alanı eklenebilir.
     let currentViewMode = localStorage.getItem('cennetBahceleriProgramsViewMode') || 'card';
@@ -1083,6 +1084,8 @@ document.addEventListener('DOMContentLoaded', () => {
             addForm.reset();
             const cityInput = document.getElementById('add-city');
             if (cityInput) cityInput.value = 'Sakarya';
+            const addOrgSelect = document.getElementById('add-org-select');
+            if (addOrgSelect) addOrgSelect.value = '';
         }
         
         // Reset photo upload elements
@@ -2507,6 +2510,18 @@ document.addEventListener('DOMContentLoaded', () => {
         const logoInput = document.getElementById('edit-program-logo-url');
         if (logoInput) logoInput.value = item.logo_url || '';
 
+        // Auto-select helper organization dropdown
+        const orgSelect = document.getElementById('edit-program-org-select');
+        if (orgSelect) {
+            orgSelect.value = ""; // default to none
+            if (item.organization && activeOrganizations && activeOrganizations.length > 0) {
+                const foundOrg = activeOrganizations.find(o => (o.name || '').toLowerCase() === item.organization.toLowerCase());
+                if (foundOrg) {
+                    orgSelect.value = foundOrg.id;
+                }
+            }
+        }
+
         // Reset logo upload input
         const editLogoFile = document.getElementById('edit-program-logo-file');
         if (editLogoFile) editLogoFile.value = '';
@@ -3321,6 +3336,100 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    async function loadOrganizations() {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        const addSelect = document.getElementById('add-org-select');
+        const editSelect = document.getElementById('edit-program-org-select');
+
+        try {
+            // Set Loading state
+            if (addSelect) addSelect.innerHTML = '<option value="">Kurumlar yükleniyor...</option>';
+            if (editSelect) editSelect.innerHTML = '<option value="">Kurumlar yükleniyor...</option>';
+
+            const { data, error } = await supabaseClient
+                .from('organizations')
+                .select('id, name, logo_url')
+                .eq('status', 'active')
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            activeOrganizations = data || [];
+
+            let optionsHtml = '<option value="">Kurum seçilmedi</option>';
+            if (activeOrganizations.length === 0) {
+                optionsHtml = '<option value="">Kayıtlı aktif kurum bulunamadı</option>';
+            } else {
+                activeOrganizations.forEach(org => {
+                    optionsHtml += `<option value="${org.id}">${escapeHtml(org.name)}</option>`;
+                });
+            }
+
+            if (addSelect) addSelect.innerHTML = optionsHtml;
+            if (editSelect) editSelect.innerHTML = optionsHtml;
+
+        } catch (err) {
+            console.error("Kurumlar yüklenirken hata oluştu (organizations tablosu olmayabilir):", err);
+            activeOrganizations = [];
+            const errorOptionsHtml = '<option value="">Kurum listesi yüklenemedi</option>';
+            if (addSelect) addSelect.innerHTML = errorOptionsHtml;
+            if (editSelect) editSelect.innerHTML = errorOptionsHtml;
+        }
+    }
+
+    function initOrganizationListeners() {
+        const addSelect = document.getElementById('add-org-select');
+        addSelect?.addEventListener('change', (e) => {
+            const orgId = e.target.value;
+            if (orgId) {
+                const org = activeOrganizations.find(o => o.id === orgId);
+                if (org) {
+                    const orgInput = document.getElementById('add-organization');
+                    if (orgInput) orgInput.value = org.name;
+                    
+                    const logoInput = document.getElementById('add-program-logo-url');
+                    if (logoInput) {
+                        logoInput.value = org.logo_url || '';
+                        updateLogoPreview(
+                            org.logo_url,
+                            'add-program-logo-preview-container',
+                            'add-program-logo-preview-img',
+                            'add-program-logo-preview-text',
+                            'add-program-logo-file-name'
+                        );
+                    }
+                }
+            }
+        });
+
+        const editSelect = document.getElementById('edit-program-org-select');
+        editSelect?.addEventListener('change', (e) => {
+            const orgId = e.target.value;
+            if (orgId) {
+                const org = activeOrganizations.find(o => o.id === orgId);
+                if (org) {
+                    const orgInput = document.getElementById('edit-program-organization');
+                    if (orgInput) orgInput.value = org.name;
+                    
+                    const logoInput = document.getElementById('edit-program-logo-url');
+                    if (logoInput) {
+                        logoInput.value = org.logo_url || '';
+                        updateLogoPreview(
+                            org.logo_url,
+                            'edit-program-logo-preview-container',
+                            'edit-program-logo-preview-img',
+                            'edit-program-logo-preview-text',
+                            'edit-program-logo-file-name'
+                        );
+                    }
+                }
+            }
+        });
+    }
+
     // Initial Load
     initViewSelector();
     initFilterListeners();
@@ -3329,5 +3438,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initTabs();
     initPhotoUploadListeners();
     initLogoUploadListeners();
+    initOrganizationListeners();
+    loadOrganizations();
     loadData();
 });
