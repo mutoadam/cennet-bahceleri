@@ -1774,6 +1774,12 @@ document.addEventListener('DOMContentLoaded', () => {
             infoText.textContent = `${loadedPrograms.length} program içinden ${filtered.length} kayıt gösteriliyor.`;
         }
 
+        // Update list header subtitle
+        const subtitleText = document.querySelector('.header-title-wrapper .subtitle-text');
+        if (subtitleText) {
+            subtitleText.innerHTML = `<span id="programs-count-total">${loadedPrograms.length}</span> program içinden <span id="programs-count">${filtered.length}</span> kayıt gösteriliyor`;
+        }
+
         renderPrograms(filtered);
     }
 
@@ -1891,23 +1897,23 @@ document.addEventListener('DOMContentLoaded', () => {
                         </button>
                     </div>
                     
-                    <h4 class="program-title">${escapeHtml(item.program_name || 'İsimsiz Program')}</h4>
-                    <p class="venue-info"><i class="fa-solid fa-location-dot"></i> <strong>${escapeHtml(item.venue_name || 'Bilinmeyen Mekân')}</strong></p>
+                    <h4 class="program-title" title="${escapeHtml(item.program_name || 'İsimsiz Program')}">${escapeHtml(item.program_name || 'İsimsiz Program')}</h4>
+                    <p class="venue-info" title="${escapeHtml(item.venue_name || 'Bilinmeyen Mekân')}"><i class="fa-solid fa-location-dot"></i> <strong>${escapeHtml(item.venue_name || 'Bilinmeyen Mekân')}</strong></p>
                     
                     <div class="details-grid">
-                        <div class="detail-item">
+                        <div class="detail-item" title="${escapeHtml(item.district || '-')}">
                             <span class="detail-label">📍 İlçe:</span>
                             <span class="detail-value">${escapeHtml(item.district || '-')}</span>
                         </div>
-                        <div class="detail-item">
+                        <div class="detail-item" title="${escapeHtml(item.day || '-')} - ${escapeHtml(item.time || '-')}">
                             <span class="detail-label">🕒 Gün & Saat:</span>
                             <span class="detail-value">${escapeHtml(item.day || '-')} - ${escapeHtml(item.time || '-')}</span>
                         </div>
-                        <div class="detail-item">
+                        <div class="detail-item" title="${escapeHtml(item.teacher || '-')}">
                             <span class="detail-label">👤 Hoca:</span>
                             <span class="detail-value">${escapeHtml(item.teacher || '-')}</span>
                         </div>
-                        <div class="detail-item">
+                        <div class="detail-item" title="${escapeHtml(item.organization || '-')}">
                             <span class="detail-label">🏢 Kurum / Dernek:</span>
                             <span class="detail-value">${escapeHtml(item.organization || '-')}</span>
                         </div>
@@ -1964,24 +1970,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? 'programs-admin-table list-view-table' 
                 : 'programs-admin-table compact-view-table';
 
-            table.innerHTML = `
-                <thead>
-                    <tr>
-                        <th>Durum</th>
-                        <th>Kaynak</th>
-                        <th>Program Adı</th>
-                        <th>Mekân</th>
-                        <th>İlçe</th>
-                        <th>Gün</th>
-                        <th>Saat</th>
-                        <th>Hoca</th>
-                        <th>Kurum</th>
-                        <th>İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            `;
+            if (currentViewMode === 'compact') {
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>Durum</th>
+                            <th>Kaynak</th>
+                            <th>Program</th>
+                            <th>İlçe</th>
+                            <th>Gün</th>
+                            <th>Saat</th>
+                            <th>Hoca</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                `;
+            } else {
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>Durum</th>
+                            <th>Kaynak</th>
+                            <th>Program Adı</th>
+                            <th>Mekân</th>
+                            <th>İlçe</th>
+                            <th>Gün</th>
+                            <th>Saat</th>
+                            <th>Hoca</th>
+                            <th>Kurum</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                `;
+            }
 
             const tbody = table.querySelector('tbody');
 
@@ -2004,36 +2029,65 @@ document.addEventListener('DOMContentLoaded', () => {
                         : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="min-height: 28px; padding: 2px 6px; font-size: 11px;"><i class="fa-solid fa-play"></i> Devam Ettir</button>`;
                 }
 
-                tr.innerHTML = `
-                    <td>
-                        <span class="${statusBadge.badgeClass}">${escapeHtml(statusBadge.label)}</span>
-                    </td>
-                    <td>
-                        <span class="${sourceBadge.badgeClass}">${escapeHtml(sourceBadge.label)}</span>
-                    </td>
-                    <td>
-                        <span class="table-program-name">${escapeHtml(item.program_name || 'İsimsiz Program')}</span>
-                    </td>
-                    <td>
-                        <span class="table-venue-name">${escapeHtml(item.venue_name || '-')}</span>
-                    </td>
-                    <td>${escapeHtml(item.district || '-')}</td>
-                    <td>${escapeHtml(item.day || '-')}</td>
-                    <td><strong>${escapeHtml(item.time || '-')}</strong></td>
-                    <td>${escapeHtml(item.teacher || '-')}</td>
-                    <td>${escapeHtml(item.organization || '-')}</td>
-                    <td>
-                        <div class="table-actions">
-                            <button class="btn-table-edit" title="Programı Düzenle">
-                                <i class="fa-solid fa-pen-to-square"></i>
-                            </button>
-                            ${toggleButtonHtml}
-                            <button class="btn-table-delete text-danger" data-id="${item.id}" title="Programı Sil">
-                                <i class="fa-solid fa-trash-can"></i> Sil
-                            </button>
-                        </div>
-                    </td>
-                `;
+                if (currentViewMode === 'compact') {
+                    tr.innerHTML = `
+                        <td title="${escapeHtml(statusBadge.label)}">
+                            <span class="${statusBadge.badgeClass}">${escapeHtml(statusBadge.label)}</span>
+                        </td>
+                        <td title="${escapeHtml(sourceBadge.label)}">
+                            <span class="${sourceBadge.badgeClass}">${escapeHtml(sourceBadge.label)}</span>
+                        </td>
+                        <td title="${escapeHtml(item.program_name || 'İsimsiz Program')}">
+                            <span class="table-program-name">${escapeHtml(item.program_name || 'İsimsiz Program')}</span>
+                        </td>
+                        <td title="${escapeHtml(item.district || '-')}">${escapeHtml(item.district || '-')}</td>
+                        <td title="${escapeHtml(item.day || '-')}">${escapeHtml(item.day || '-')}</td>
+                        <td title="${escapeHtml(item.time || '-')}"><strong>${escapeHtml(item.time || '-')}</strong></td>
+                        <td title="${escapeHtml(item.teacher || '-')}">${escapeHtml(item.teacher || '-')}</td>
+                        <td>
+                            <div class="table-actions">
+                                <button class="btn-table-edit" title="Programı Düzenle">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                ${toggleButtonHtml}
+                                <button class="btn-table-delete text-danger" data-id="${item.id}" title="Programı Sil">
+                                    <i class="fa-solid fa-trash-can"></i> Sil
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                } else {
+                    tr.innerHTML = `
+                        <td title="${escapeHtml(statusBadge.label)}">
+                            <span class="${statusBadge.badgeClass}">${escapeHtml(statusBadge.label)}</span>
+                        </td>
+                        <td title="${escapeHtml(sourceBadge.label)}">
+                            <span class="${sourceBadge.badgeClass}">${escapeHtml(sourceBadge.label)}</span>
+                        </td>
+                        <td title="${escapeHtml(item.program_name || 'İsimsiz Program')}">
+                            <span class="table-program-name">${escapeHtml(item.program_name || 'İsimsiz Program')}</span>
+                        </td>
+                        <td title="${escapeHtml(item.venue_name || '-')}">
+                            <span class="table-venue-name">${escapeHtml(item.venue_name || '-')}</span>
+                        </td>
+                        <td title="${escapeHtml(item.district || '-')}">${escapeHtml(item.district || '-')}</td>
+                        <td title="${escapeHtml(item.day || '-')}">${escapeHtml(item.day || '-')}</td>
+                        <td title="${escapeHtml(item.time || '-')}"><strong>${escapeHtml(item.time || '-')}</strong></td>
+                        <td title="${escapeHtml(item.teacher || '-')}">${escapeHtml(item.teacher || '-')}</td>
+                        <td title="${escapeHtml(item.organization || '-')}">${escapeHtml(item.organization || '-')}</td>
+                        <td>
+                            <div class="table-actions">
+                                <button class="btn-table-edit" title="Programı Düzenle">
+                                    <i class="fa-solid fa-pen-to-square"></i>
+                                </button>
+                                ${toggleButtonHtml}
+                                <button class="btn-table-delete text-danger" data-id="${item.id}" title="Programı Sil">
+                                    <i class="fa-solid fa-trash-can"></i> Sil
+                                </button>
+                            </div>
+                        </td>
+                    `;
+                }
 
                 // Bind click event to table edit button
                 const tableEditBtn = tr.querySelector('.btn-table-edit');
