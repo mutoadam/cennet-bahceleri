@@ -166,13 +166,20 @@
                         <h3 id="stats-passive-programs-val" class="stats-value">-</h3>
                     </div>
                 </div>
+                <div class="stats-card card-deleted" id="stats-trash-card" style="border-left: 6px solid var(--md-error);">
+                    <div class="stats-icon" style="background-color: var(--md-error-container); color: var(--md-error);"><i class="fa-solid fa-trash-can"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Çöp Kutusu</span>
+                        <h3 id="stats-trash-programs-val" class="stats-value">-</h3>
+                    </div>
+                </div>
             </section>
 
             <!-- Programs List Section -->
             <section class="suggestions-section">
                 <div class="section-header">
                     <div class="header-title-wrapper">
-                        <h3>Program Listesi</h3>
+                        <h3 id="programs-list-title">Program Listesi</h3>
                         <p class="subtitle-text"><span id="programs-count">0</span> Program gösteriliyor</p>
                     </div>
                     <!-- Görünüm Seçici (Package H5.2) -->
@@ -187,6 +194,12 @@
                             <i class="fa-solid fa-align-justify"></i> <span>Kompakt</span>
                         </button>
                     </div>
+                    <button id="trash-bin-btn" class="btn btn-secondary btn-sm" style="background-color: var(--md-error-container); color: var(--md-error); border-color: rgba(186, 26, 26, 0.2);">
+                        🗑 Çöp Kutusu
+                    </button>
+                    <button id="back-to-programs-btn" class="btn btn-secondary btn-sm hidden">
+                        <i class="fa-solid fa-arrow-left"></i> Program Listesine Dön
+                    </button>
                     <button id="programs-refresh-btn" class="btn btn-secondary btn-sm">
                         <i class="fa-solid fa-rotate"></i> Programları Yenile
                     </button>
