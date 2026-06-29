@@ -30,6 +30,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTabStatus = 'pending';
     let loadedPrograms = [];
     let knownColumns = ['id', 'program_name', 'venue_name', 'city', 'district', 'day', 'time', 'teacher', 'organization', 'women_friendly', 'address', 'google_maps_link', 'description', 'contact_name', 'contact_phone', 'photo_url', 'status', 'created_at', 'updated_at', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
+    
+    // ROADMAP: İleride sık kullanılan programlar için is_pinned alanı eklenebilir.
+    let currentViewMode = localStorage.getItem('cennetBahceleriProgramsViewMode') || 'card';
 
     // 1. Supabase Client Initialization
     function initSupabase() {
@@ -1046,6 +1049,9 @@ document.addEventListener('DOMContentLoaded', () => {
             if (typeof closeProgramEditModal === 'function') {
                 closeProgramEditModal();
             }
+            if (typeof closeDeleteConfirmModal === 'function') {
+                closeDeleteConfirmModal();
+            }
         }
     });
 
@@ -1461,6 +1467,93 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // ==========================================================
+    // Program Deletion Logic (Paket H6)
+    // ==========================================================
+    let programToDelete = null;
+
+    const deleteConfirmModal = document.getElementById('delete-confirm-modal');
+    const deleteConfirmName = document.getElementById('delete-confirm-name');
+    const deleteConfirmVenue = document.getElementById('delete-confirm-venue');
+    const deleteConfirmDistrict = document.getElementById('delete-confirm-district');
+    const deleteConfirmDay = document.getElementById('delete-confirm-day');
+    const deleteConfirmTime = document.getElementById('delete-confirm-time');
+    const deleteConfirmCancelBtn = document.getElementById('delete-confirm-cancel-btn');
+    const deleteConfirmCloseTop = document.getElementById('delete-confirm-close-top');
+    const deleteConfirmOkBtn = document.getElementById('delete-confirm-ok-btn');
+
+    function openDeleteConfirmModal(item) {
+        programToDelete = item;
+        if (deleteConfirmName) deleteConfirmName.textContent = item.program_name || '-';
+        if (deleteConfirmVenue) deleteConfirmVenue.textContent = item.venue_name || '-';
+        if (deleteConfirmDistrict) deleteConfirmDistrict.textContent = item.district || '-';
+        if (deleteConfirmDay) deleteConfirmDay.textContent = item.day || '-';
+        if (deleteConfirmTime) deleteConfirmTime.textContent = item.time || '-';
+
+        if (deleteConfirmModal) {
+            deleteConfirmModal.classList.remove('hidden');
+            document.body.style.overflow = "hidden";
+        }
+    }
+
+    function closeDeleteConfirmModal() {
+        if (deleteConfirmModal) {
+            deleteConfirmModal.classList.add('hidden');
+            document.body.style.overflow = "";
+        }
+        programToDelete = null;
+    }
+
+    async function handleDeleteProgram() {
+        if (!programToDelete || !programToDelete.id) {
+            showToast("Program silinemedi.", "error");
+            closeDeleteConfirmModal();
+            return;
+        }
+
+        const programId = programToDelete.id;
+
+        if (deleteConfirmOkBtn) {
+            deleteConfirmOkBtn.disabled = true;
+            deleteConfirmOkBtn.classList.add('disabled');
+            deleteConfirmOkBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Siliniyor...';
+        }
+        if (deleteConfirmCancelBtn) {
+            deleteConfirmCancelBtn.disabled = true;
+            deleteConfirmCancelBtn.classList.add('disabled');
+        }
+
+        try {
+            console.log(`Deleting program with ID: ${programId}`);
+            const { error } = await supabaseClient
+                .from('programs')
+                .delete()
+                .eq('id', programId);
+
+            if (error) {
+                throw error;
+            }
+
+            showToast("Program başarıyla silindi.", "success");
+            closeDeleteConfirmModal();
+            await loadPrograms();
+
+        } catch (error) {
+            console.error('Program silme hatası:', error);
+            showToast("Program silinemedi.", "error");
+        } finally {
+            if (deleteConfirmOkBtn) {
+                deleteConfirmOkBtn.disabled = false;
+                deleteConfirmOkBtn.classList.remove('disabled');
+                deleteConfirmOkBtn.textContent = 'Programı Sil';
+            }
+            if (deleteConfirmCancelBtn) {
+                deleteConfirmCancelBtn.disabled = false;
+                deleteConfirmCancelBtn.classList.remove('disabled');
+            }
+        }
+    }
+
     async function loadPrograms() {
         if (!supabaseClient) {
             if (!initSupabase()) return;
@@ -1672,7 +1765,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (selectedDistrict) activeFiltersHtml += `<span class="active-filter-badge">İlçe: ${escapeHtml(selectedDistrict)}</span>`;
                     if (selectedDay) activeFiltersHtml += `<span class="active-filter-badge">Gün: ${escapeHtml(selectedDay)}</span>`;
                     if (selectedStatus) {
-                        const statusText = selectedStatus === 'active' ? 'Aktif' : 'Pasif';
+                        const statusText = selectedStatus === 'active' ? 'Devam Eden' : 'Ara Verilen';
                         activeFiltersHtml += `<span class="active-filter-badge">Durum: ${statusText}</span>`;
                     }
                     if (selectedSource) {
@@ -1712,96 +1805,232 @@ document.addEventListener('DOMContentLoaded', () => {
 
         hideProgramsStates();
 
-        programs.forEach(item => {
-            const card = document.createElement('div');
-            card.className = 'suggestion-card';
-            
-            const sourceBadge = getSourceBadge(item.source);
-            const statusBadge = getStatusBadge(item.status);
+        // Configure class list for the programs-list wrapper according to view mode
+        programsList.className = 'suggestions-list'; 
+        if (currentViewMode === 'card') {
+            programsList.classList.add('grid-list', 'view-card');
+        } else {
+            programsList.classList.add('programs-list-table-wrapper');
+        }
 
-            let photoMarkup = '';
-            if (item.photo_url) {
-                photoMarkup = `
-                    <div class="suggestion-photo-preview">
-                        <img src="${item.photo_url}" alt="Program Fotoğrafı" onerror="this.style.display='none';">
+        if (currentViewMode === 'card') {
+            programs.forEach(item => {
+                const card = document.createElement('div');
+                card.className = 'suggestion-card';
+                
+                const sourceBadge = getSourceBadge(item.source);
+                const statusBadge = getStatusBadge(item.status);
+
+                let photoMarkup = '';
+                if (item.photo_url) {
+                    photoMarkup = `
+                        <div class="suggestion-photo-preview">
+                            <img src="${item.photo_url}" alt="Program Fotoğrafı" onerror="this.style.display='none';">
+                        </div>
+                    `;
+                }
+
+                let ladiesMarkup = '';
+                if (item.women_friendly || item.ladies_suitable || item.is_ladies_suitable) {
+                    ladiesMarkup = `<span class="category-badge" style="background-color: #fce4ec; color: #c2185b; border-color: rgba(194, 24, 91, 0.2);"><i class="fa-solid fa-person-dress"></i> Hanımlara Uygun</span>`;
+                }
+
+                const statusVal = (item.status || '').toLowerCase();
+                const toggleButtonHtml = statusVal === 'active'
+                    ? `<button class="btn btn-secondary btn-status-toggle" data-id="${item.id}" data-action="pause" style="width: 100%;"><i class="fa-solid fa-moon"></i> 🌙 Ara Ver</button>`
+                    : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="width: 100%;"><i class="fa-solid fa-play"></i> ▶️ Devam Ettir</button>`;
+
+                card.innerHTML = `
+                    <div class="card-header-info">
+                        <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                            <span class="${sourceBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(sourceBadge.label)}</span>
+                            <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
+                            ${ladiesMarkup}
+                        </div>
+                        <button class="btn-card-edit" title="Programı Düzenle">
+                            <i class="fa-solid fa-pen-to-square"></i>
+                        </button>
+                    </div>
+                    
+                    <h4 class="program-title">${escapeHtml(item.program_name || 'İsimsiz Program')}</h4>
+                    <p class="venue-info"><i class="fa-solid fa-location-dot"></i> <strong>${escapeHtml(item.venue_name || 'Bilinmeyen Mekân')}</strong></p>
+                    
+                    <div class="details-grid">
+                        <div class="detail-item">
+                            <span class="detail-label">📍 İlçe:</span>
+                            <span class="detail-value">${escapeHtml(item.district || '-')}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">🕒 Gün & Saat:</span>
+                            <span class="detail-value">${escapeHtml(item.day || '-')} - ${escapeHtml(item.time || '-')}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">👤 Hoca:</span>
+                            <span class="detail-value">${escapeHtml(item.teacher || '-')}</span>
+                        </div>
+                        <div class="detail-item">
+                            <span class="detail-label">🏢 Kurum / Dernek:</span>
+                            <span class="detail-value">${escapeHtml(item.organization || '-')}</span>
+                        </div>
+                    </div>
+
+                    ${photoMarkup}
+
+                    <div class="card-actions" style="margin-top: auto; display: flex; gap: 8px; width: 100%;">
+                        ${toggleButtonHtml}
+                        <button class="btn btn-reject btn-delete-program" data-id="${item.id}" style="width: auto; min-width: 44px; padding: 0 12px; background-color: var(--md-error-container); color: var(--md-error);" title="Programı Sil">
+                            <i class="fa-solid fa-trash-can"></i> Sil
+                        </button>
                     </div>
                 `;
-            }
 
-            let ladiesMarkup = '';
-            if (item.women_friendly || item.ladies_suitable || item.is_ladies_suitable) {
-                ladiesMarkup = `<span class="category-badge" style="background-color: #fce4ec; color: #c2185b; border-color: rgba(194, 24, 91, 0.2);"><i class="fa-solid fa-person-dress"></i> Hanımlara Uygun</span>`;
-            }
+                // Bind click event to card edit button (Paket H4)
+                const cardEditBtn = card.querySelector('.btn-card-edit');
+                if (cardEditBtn) {
+                    cardEditBtn.addEventListener('click', () => {
+                        openProgramEditModal(item);
+                    });
+                }
 
-            const statusVal = (item.status || '').toLowerCase();
-            const toggleButtonHtml = statusVal === 'active'
-                ? `<button class="btn btn-secondary btn-status-toggle" data-id="${item.id}" data-action="pause" style="width: 100%;"><i class="fa-solid fa-moon"></i> 🌙 Ara Ver</button>`
-                : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="width: 100%;"><i class="fa-solid fa-play"></i> ▶️ Devam Ettir</button>`;
+                // Bind click event to status toggle button (Paket H5)
+                const statusToggleBtn = card.querySelector('.btn-status-toggle');
+                if (statusToggleBtn) {
+                    statusToggleBtn.addEventListener('click', async () => {
+                        const action = statusToggleBtn.getAttribute('data-action');
+                        if (action === 'pause') {
+                            openStatusConfirmModal(item);
+                        } else if (action === 'resume') {
+                            await updateProgramStatus(item.id, 'active');
+                        }
+                    });
+                }
 
-            card.innerHTML = `
-                <div class="card-header-info">
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
-                        <span class="${sourceBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(sourceBadge.label)}</span>
-                        <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
-                        ${ladiesMarkup}
-                    </div>
-                    <button class="btn-card-edit" title="Programı Düzenle">
-                        <i class="fa-solid fa-pen-to-square"></i>
-                    </button>
-                </div>
-                
-                <h4 class="program-title">${escapeHtml(item.program_name || 'İsimsiz Program')}</h4>
-                <p class="venue-info"><i class="fa-solid fa-location-dot"></i> <strong>${escapeHtml(item.venue_name || 'Bilinmeyen Mekân')}</strong></p>
-                
-                <div class="details-grid">
-                    <div class="detail-item">
-                        <span class="detail-label">📍 İlçe:</span>
-                        <span class="detail-value">${escapeHtml(item.district || '-')}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">🕒 Gün & Saat:</span>
-                        <span class="detail-value">${escapeHtml(item.day || '-')} - ${escapeHtml(item.time || '-')}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">👤 Hoca:</span>
-                        <span class="detail-value">${escapeHtml(item.teacher || '-')}</span>
-                    </div>
-                    <div class="detail-item">
-                        <span class="detail-label">🏢 Kurum / Dernek:</span>
-                        <span class="detail-value">${escapeHtml(item.organization || '-')}</span>
-                    </div>
-                </div>
+                // Bind click event to card delete button (Paket H6)
+                const deleteBtn = card.querySelector('.btn-delete-program');
+                if (deleteBtn) {
+                    deleteBtn.addEventListener('click', () => {
+                        openDeleteConfirmModal(item);
+                    });
+                }
 
-                ${photoMarkup}
+                programsList.appendChild(card);
+            });
+        } else {
+            // Render List View or Compact View using semantic table representation
+            const tableResponsive = document.createElement('div');
+            tableResponsive.className = 'programs-table-responsive';
 
-                <div class="card-actions" style="margin-top: auto; display: flex; gap: 8px; width: 100%;">
-                    ${toggleButtonHtml}
-                </div>
+            const table = document.createElement('table');
+            table.className = currentViewMode === 'list' 
+                ? 'programs-admin-table list-view-table' 
+                : 'programs-admin-table compact-view-table';
+
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Durum</th>
+                        <th>Kaynak</th>
+                        <th>Program Adı</th>
+                        <th>Mekân</th>
+                        <th>İlçe</th>
+                        <th>Gün</th>
+                        <th>Saat</th>
+                        <th>Hoca</th>
+                        <th>Kurum</th>
+                        <th>İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
             `;
 
-            // Bind click event to card edit button (Paket H4)
-            const cardEditBtn = card.querySelector('.btn-card-edit');
-            if (cardEditBtn) {
-                cardEditBtn.addEventListener('click', () => {
-                    openProgramEditModal(item);
-                });
-            }
+            const tbody = table.querySelector('tbody');
 
-            // Bind click event to status toggle button (Paket H5)
-            const statusToggleBtn = card.querySelector('.btn-status-toggle');
-            if (statusToggleBtn) {
-                statusToggleBtn.addEventListener('click', async () => {
-                    const action = statusToggleBtn.getAttribute('data-action');
-                    if (action === 'pause') {
-                        openStatusConfirmModal(item);
-                    } else if (action === 'resume') {
-                        await updateProgramStatus(item.id, 'active');
-                    }
-                });
-            }
+            programs.forEach(item => {
+                const tr = document.createElement('tr');
+                
+                const sourceBadge = getSourceBadge(item.source);
+                const statusBadge = getStatusBadge(item.status);
+                const statusVal = (item.status || '').toLowerCase();
 
-            programsList.appendChild(card);
-        });
+                let toggleButtonHtml = '';
+                if (currentViewMode === 'list') {
+                    toggleButtonHtml = statusVal === 'active'
+                        ? `<button class="btn btn-secondary btn-sm btn-status-toggle" data-id="${item.id}" data-action="pause"><i class="fa-solid fa-moon"></i> 🌙 Ara Ver</button>`
+                        : `<button class="btn btn-primary btn-sm btn-status-toggle" data-id="${item.id}" data-action="resume"><i class="fa-solid fa-play"></i> ▶️ Devam Ettir</button>`;
+                } else {
+                    // Ultra dense style for Compact View
+                    toggleButtonHtml = statusVal === 'active'
+                        ? `<button class="btn btn-secondary btn-status-toggle" data-id="${item.id}" data-action="pause" style="min-height: 28px; padding: 2px 6px; font-size: 11px;"><i class="fa-solid fa-moon"></i> Ara Ver</button>`
+                        : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="min-height: 28px; padding: 2px 6px; font-size: 11px;"><i class="fa-solid fa-play"></i> Devam Ettir</button>`;
+                }
+
+                tr.innerHTML = `
+                    <td>
+                        <span class="${statusBadge.badgeClass}">${escapeHtml(statusBadge.label)}</span>
+                    </td>
+                    <td>
+                        <span class="${sourceBadge.badgeClass}">${escapeHtml(sourceBadge.label)}</span>
+                    </td>
+                    <td>
+                        <span class="table-program-name">${escapeHtml(item.program_name || 'İsimsiz Program')}</span>
+                    </td>
+                    <td>
+                        <span class="table-venue-name">${escapeHtml(item.venue_name || '-')}</span>
+                    </td>
+                    <td>${escapeHtml(item.district || '-')}</td>
+                    <td>${escapeHtml(item.day || '-')}</td>
+                    <td><strong>${escapeHtml(item.time || '-')}</strong></td>
+                    <td>${escapeHtml(item.teacher || '-')}</td>
+                    <td>${escapeHtml(item.organization || '-')}</td>
+                    <td>
+                        <div class="table-actions">
+                            <button class="btn-table-edit" title="Programı Düzenle">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                            ${toggleButtonHtml}
+                            <button class="btn-table-delete text-danger" data-id="${item.id}" title="Programı Sil">
+                                <i class="fa-solid fa-trash-can"></i> Sil
+                            </button>
+                        </div>
+                    </td>
+                `;
+
+                // Bind click event to table edit button
+                const tableEditBtn = tr.querySelector('.btn-table-edit');
+                if (tableEditBtn) {
+                    tableEditBtn.addEventListener('click', () => {
+                        openProgramEditModal(item);
+                    });
+                }
+
+                // Bind click event to status toggle button
+                const statusToggleBtn = tr.querySelector('.btn-status-toggle');
+                if (statusToggleBtn) {
+                    statusToggleBtn.addEventListener('click', async () => {
+                        const action = statusToggleBtn.getAttribute('data-action');
+                        if (action === 'pause') {
+                            openStatusConfirmModal(item);
+                        } else if (action === 'resume') {
+                            await updateProgramStatus(item.id, 'active');
+                        }
+                    });
+                }
+
+                // Bind click event to table delete button (Paket H6)
+                const tableDeleteBtn = tr.querySelector('.btn-table-delete');
+                if (tableDeleteBtn) {
+                    tableDeleteBtn.addEventListener('click', () => {
+                        openDeleteConfirmModal(item);
+                    });
+                }
+
+                tbody.appendChild(tr);
+            });
+
+            tableResponsive.appendChild(table);
+            programsList.appendChild(tableResponsive);
+        }
     }
 
     function showProgramsLoader() {
@@ -1870,7 +2099,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (daySelect) daySelect.value = '';
 
             const statusSelect = document.getElementById('filter-status');
-            if (statusSelect) statusSelect.value = '';
+            if (statusSelect) statusSelect.value = 'active';
 
             const sourceSelect = document.getElementById('filter-source');
             if (sourceSelect) sourceSelect.value = '';
@@ -2305,7 +2534,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
 
+    // Delete Confirmation Modal Listeners (Paket H6)
+    document.getElementById('delete-confirm-close-top')?.addEventListener('click', closeDeleteConfirmModal);
+    document.getElementById('delete-confirm-cancel-btn')?.addEventListener('click', closeDeleteConfirmModal);
+    document.getElementById('delete-confirm-ok-btn')?.addEventListener('click', handleDeleteProgram);
+    document.getElementById('delete-confirm-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'delete-confirm-modal') {
+            closeDeleteConfirmModal();
+        }
+    });
+
+    function initViewSelector() {
+        const viewBtns = document.querySelectorAll('.view-btn');
+        viewBtns.forEach(btn => {
+            const btnView = btn.getAttribute('data-view');
+            if (btnView === currentViewMode) {
+                btn.classList.add('active');
+            } else {
+                btn.classList.remove('active');
+            }
+            btn.addEventListener('click', () => {
+                viewBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentViewMode = btnView;
+                localStorage.setItem('cennetBahceleriProgramsViewMode', currentViewMode);
+                applyFilters();
+            });
+        });
+    }
+
     // Initial Load
+    initViewSelector();
     initFilterListeners();
     initMainNavigation();
     initTabs();
