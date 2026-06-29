@@ -155,14 +155,14 @@
                 <div class="stats-card card-approved">
                     <div class="stats-icon"><i class="fa-solid fa-circle-check"></i></div>
                     <div class="stats-info">
-                        <span class="stats-label">Aktif Program</span>
+                        <span class="stats-label">Devam Eden Program</span>
                         <h3 id="stats-active-programs-val" class="stats-value">-</h3>
                     </div>
                 </div>
                 <div class="stats-card card-rejected">
                     <div class="stats-icon"><i class="fa-solid fa-circle-xmark"></i></div>
                     <div class="stats-info">
-                        <span class="stats-label">Pasif Program</span>
+                        <span class="stats-label">Ara Verilen Program</span>
                         <h3 id="stats-passive-programs-val" class="stats-value">-</h3>
                     </div>
                 </div>
@@ -203,8 +203,8 @@
                             <label for="filter-status"><i class="fa-solid fa-circle-info"></i> Durum</label>
                             <select id="filter-status" class="form-control">
                                 <option value="">Tüm Durumlar</option>
-                                <option value="active">Aktif</option>
-                                <option value="passive">Pasif</option>
+                                <option value="active">Devam Ediyor</option>
+                                <option value="passive">Ara Verildi</option>
                             </select>
                         </div>
                         <div class="filter-group">
@@ -525,8 +525,8 @@
                     <div class="form-group">
                         <label for="edit-program-status"><i class="fa-solid fa-circle-info"></i> Yayın Durumu *</label>
                         <select id="edit-program-status" class="form-control" required>
-                            <option value="active">Aktif</option>
-                            <option value="passive">Pasif</option>
+                            <option value="active">Devam Ediyor</option>
+                            <option value="inactive">Ara Verildi</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -674,6 +674,34 @@
                             <i class="fa-solid fa-ban"></i> Vazgeç
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Status Change Confirmation Modal -->
+    <div id="status-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header" style="background-color: var(--md-primary);">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-triangle-exclamation" style="color: var(--md-secondary);"></i>
+                    <div>
+                        <h3 id="status-confirm-title">Programa Ara Ver</h3>
+                    </div>
+                </div>
+                <button id="status-confirm-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <p id="status-confirm-message" style="font-size: 16px; color: var(--md-on-surface); line-height: 1.5; margin-bottom: 20px;">
+                    Bu program geçici olarak uygulamada gösterilmeyecek.<br><br>Daha sonra istediğiniz zaman tekrar "Devam Ettir" diyerek yeniden yayınlayabilirsiniz.<br><br>Devam etmek istiyor musunuz?
+                </p>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px;">
+                <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
+                    <button id="status-confirm-cancel-btn" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Vazgeç</button>
+                    <button id="status-confirm-ok-btn" class="btn btn-action btn-approve" style="min-height: 40px; padding: 8px 16px; background-color: var(--md-secondary); border-color: var(--md-secondary);">Evet, Devam Et</button>
                 </div>
             </div>
         </div>
