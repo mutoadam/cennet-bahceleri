@@ -394,8 +394,27 @@
                             <input type="text" id="edit-city" class="form-control" required>
                         </div>
                         <div class="form-group">
-                            <label for="edit-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
-                            <input type="text" id="edit-district" class="form-control" required>
+                            <label for="edit-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
+                            <select id="edit-district" class="form-control" required>
+                                <option value="" disabled selected>İlçe Seçiniz</option>
+                                <option value="Adapazarı">Adapazarı</option>
+                                <option value="Akyazı">Akyazı</option>
+                                <option value="Arifiye">Arifiye</option>
+                                <option value="Erenler">Erenler</option>
+                                <option value="Ferizli">Ferizli</option>
+                                <option value="Geyve">Geyve</option>
+                                <option value="Hendek">Hendek</option>
+                                <option value="Karapürçek">Karapürçek</option>
+                                <option value="Karasu">Karasu</option>
+                                <option value="Kaynarca">Kaynarca</option>
+                                <option value="Kocaali">Kocaali</option>
+                                <option value="Pamukova">Pamukova</option>
+                                <option value="Sapanca">Sapanca</option>
+                                <option value="Serdivan">Serdivan</option>
+                                <option value="Söğütlü">Söğütlü</option>
+                                <option value="Taraklı">Taraklı</option>
+                            </select>
+                            <div id="edit-district-warning" class="district-warning hidden" style="color: var(--md-error); font-size: 13px; margin-top: 4px; font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Bu kayıt eski mahalle/semt değeri içeriyor. Lütfen doğru ilçeyi seçiniz.</div>
                         </div>
                         <div class="form-group">
                             <label for="edit-day"><i class="fa-regular fa-calendar-days"></i> Gün</label>
@@ -522,7 +541,26 @@
                     </div>
                     <div class="form-group">
                         <label for="edit-program-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
-                        <input type="text" id="edit-program-district" class="form-control" placeholder="Örn: Adapazarı" required>
+                        <select id="edit-program-district" class="form-control" required>
+                            <option value="" disabled selected>İlçe Seçiniz</option>
+                            <option value="Adapazarı">Adapazarı</option>
+                            <option value="Akyazı">Akyazı</option>
+                            <option value="Arifiye">Arifiye</option>
+                            <option value="Erenler">Erenler</option>
+                            <option value="Ferizli">Ferizli</option>
+                            <option value="Geyve">Geyve</option>
+                            <option value="Hendek">Hendek</option>
+                            <option value="Karapürçek">Karapürçek</option>
+                            <option value="Karasu">Karasu</option>
+                            <option value="Kaynarca">Kaynarca</option>
+                            <option value="Kocaali">Kocaali</option>
+                            <option value="Pamukova">Pamukova</option>
+                            <option value="Sapanca">Sapanca</option>
+                            <option value="Serdivan">Serdivan</option>
+                            <option value="Söğütlü">Söğütlü</option>
+                            <option value="Taraklı">Taraklı</option>
+                        </select>
+                        <div id="edit-program-district-warning" class="district-warning hidden" style="color: var(--md-error); font-size: 13px; margin-top: 4px; font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Bu kayıt eski mahalle/semt değeri içeriyor. Lütfen doğru ilçeyi seçiniz.</div>
                     </div>
                     <div class="form-group">
                         <label for="edit-program-day"><i class="fa-regular fa-calendar-days"></i> Gün *</label>
@@ -689,7 +727,25 @@
                     </div>
                     <div class="form-group">
                         <label for="add-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
-                        <input type="text" id="add-district" class="form-control" placeholder="Örn: Adapazarı" required>
+                        <select id="add-district" class="form-control" required>
+                            <option value="" disabled selected>İlçe Seçiniz</option>
+                            <option value="Adapazarı">Adapazarı</option>
+                            <option value="Akyazı">Akyazı</option>
+                            <option value="Arifiye">Arifiye</option>
+                            <option value="Erenler">Erenler</option>
+                            <option value="Ferizli">Ferizli</option>
+                            <option value="Geyve">Geyve</option>
+                            <option value="Hendek">Hendek</option>
+                            <option value="Karapürçek">Karapürçek</option>
+                            <option value="Karasu">Karasu</option>
+                            <option value="Kaynarca">Kaynarca</option>
+                            <option value="Kocaali">Kocaali</option>
+                            <option value="Pamukova">Pamukova</option>
+                            <option value="Sapanca">Sapanca</option>
+                            <option value="Serdivan">Serdivan</option>
+                            <option value="Söğütlü">Söğütlü</option>
+                            <option value="Taraklı">Taraklı</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="add-day"><i class="fa-regular fa-calendar-days"></i> Gün *</label>
