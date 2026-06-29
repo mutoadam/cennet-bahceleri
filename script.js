@@ -304,6 +304,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Scroll back to top
         window.scrollTo({ top: 0, behavior: 'smooth' });
-        // force deploy 2026-06-29
     });
 });
