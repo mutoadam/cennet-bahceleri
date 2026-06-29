@@ -2383,52 +2383,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Primary Tab Switcher (Öneriler vs. Programlar)
+    // Primary Tab Switcher (Öneriler vs. Programlar vs. Kurumlar)
     function initMainNavigation() {
         const tabSuggestions = document.getElementById('main-tab-suggestions');
         const tabPrograms = document.getElementById('main-tab-programs');
+        const tabOrganizations = document.getElementById('main-tab-organizations');
         const suggestionsContent = document.getElementById('suggestions-tab-content');
         const programsContent = document.getElementById('programs-tab-content');
+        const organizationsContent = document.getElementById('organizations-tab-content');
 
-        if (tabSuggestions && tabPrograms && suggestionsContent && programsContent) {
+        if (tabSuggestions && tabPrograms && tabOrganizations && suggestionsContent && programsContent && organizationsContent) {
             tabSuggestions.addEventListener('click', () => {
                 tabSuggestions.classList.add('active');
                 tabPrograms.classList.remove('active');
+                tabOrganizations.classList.remove('active');
                 suggestionsContent.classList.remove('hidden');
                 programsContent.classList.add('hidden');
+                organizationsContent.classList.add('hidden');
             });
 
             tabPrograms.addEventListener('click', () => {
                 tabPrograms.classList.add('active');
                 tabSuggestions.classList.remove('active');
+                tabOrganizations.classList.remove('active');
                 programsContent.classList.remove('hidden');
                 suggestionsContent.classList.add('hidden');
+                organizationsContent.classList.add('hidden');
                 loadPrograms();
             });
-        }
-    }
 
-    // Primary Tab Switcher (Öneriler vs. Programlar)
-    function initMainNavigation() {
-        const tabSuggestions = document.getElementById('main-tab-suggestions');
-        const tabPrograms = document.getElementById('main-tab-programs');
-        const suggestionsContent = document.getElementById('suggestions-tab-content');
-        const programsContent = document.getElementById('programs-tab-content');
-
-        if (tabSuggestions && tabPrograms && suggestionsContent && programsContent) {
-            tabSuggestions.addEventListener('click', () => {
-                tabSuggestions.classList.add('active');
-                tabPrograms.classList.remove('active');
-                suggestionsContent.classList.remove('hidden');
-                programsContent.classList.add('hidden');
-            });
-
-            tabPrograms.addEventListener('click', () => {
-                tabPrograms.classList.add('active');
+            tabOrganizations.addEventListener('click', () => {
+                tabOrganizations.classList.add('active');
                 tabSuggestions.classList.remove('active');
-                programsContent.classList.remove('hidden');
+                tabPrograms.classList.remove('active');
+                organizationsContent.classList.remove('hidden');
                 suggestionsContent.classList.add('hidden');
-                loadPrograms();
+                programsContent.classList.add('hidden');
+                loadAdminOrganizations();
             });
         }
     }
@@ -3503,6 +3494,552 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ==========================================================
+    // Kurumlar (Organizations) Yönetim Paneli Modülü (H9-D)
+    // ==========================================================
+    let loadedOrganizations = [];
+
+    // Türkçe Karakter Normalizasyonu ve Slug Oluşturucu
+    function generateSlug(text) {
+        if (!text) return '';
+        let str = text.toLocaleLowerCase('tr-TR');
+        str = str.replace(/-[ıi]/g, ''); // -ı, -i eklerini temizle
+        
+        const turkishMap = {
+            'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u'
+        };
+        
+        str = str.split('').map(char => turkishMap[char] || char).join('');
+        str = str.replace(/[^a-z0-9]+/g, '_'); // Alfasayısal olmayanları alt çizgi yap
+        str = str.replace(/^_+|_+$/g, '');     // Baştaki/sondaki alt çizgileri temizle
+        return str;
+    }
+
+    // Kurumlar Sekmesi Durum Yönetim Yardımcıları
+    function showOrgsLoader() {
+        document.getElementById('organizations-loader')?.classList.remove('hidden');
+        document.getElementById('organizations-error-container')?.classList.add('hidden');
+        document.getElementById('organizations-empty-container')?.classList.add('hidden');
+        document.getElementById('organizations-list')?.classList.add('hidden');
+    }
+
+    function showOrgsError() {
+        document.getElementById('organizations-loader')?.classList.add('hidden');
+        document.getElementById('organizations-error-container')?.classList.remove('hidden');
+        document.getElementById('organizations-empty-container')?.classList.add('hidden');
+        document.getElementById('organizations-list')?.classList.add('hidden');
+    }
+
+    function showOrgsEmpty() {
+        document.getElementById('organizations-loader')?.classList.add('hidden');
+        document.getElementById('organizations-error-container')?.classList.add('hidden');
+        document.getElementById('organizations-empty-container')?.classList.remove('hidden');
+        document.getElementById('organizations-list')?.classList.add('hidden');
+    }
+
+    function hideOrgsStates() {
+        document.getElementById('organizations-loader')?.classList.add('hidden');
+        document.getElementById('organizations-error-container')?.classList.add('hidden');
+        document.getElementById('organizations-empty-container')?.classList.add('hidden');
+        document.getElementById('organizations-list')?.classList.remove('hidden');
+    }
+
+    // Tüm Kurumları Yükle (Aktif + Pasif)
+    async function loadAdminOrganizations() {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        showOrgsLoader();
+
+        try {
+            console.log("Loading all organizations from Supabase...");
+            const { data, error } = await supabaseClient
+                .from('organizations')
+                .select('*');
+
+            if (error) throw error;
+
+            loadedOrganizations = data || [];
+            // Türkçe sıralama
+            loadedOrganizations.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
+
+            renderOrgs(loadedOrganizations);
+
+            // İstatistikleri Güncelle
+            const activeOrgsCount = loadedOrganizations.filter(o => o.status === 'active').length;
+            const passiveOrgsCount = loadedOrganizations.length - activeOrgsCount;
+
+            const statsActive = document.getElementById('stats-active-orgs-val');
+            const statsPassive = document.getElementById('stats-passive-orgs-val');
+            if (statsActive) statsActive.textContent = activeOrgsCount;
+            if (statsPassive) statsPassive.textContent = passiveOrgsCount;
+
+        } catch (err) {
+            console.error("Kurum listesi yüklenemedi:", err);
+            showOrgsError();
+        }
+    }
+
+    // Kurum Kartlarını Render Et
+    function renderOrgs(orgs) {
+        const list = document.getElementById('organizations-list');
+        const count = document.getElementById('organizations-count');
+        if (!list) return;
+
+        list.innerHTML = '';
+        if (count) count.textContent = orgs.length;
+
+        if (orgs.length === 0) {
+            showOrgsEmpty();
+            return;
+        }
+
+        hideOrgsStates();
+
+        orgs.forEach(org => {
+            const card = document.createElement('div');
+            card.className = 'suggestion-card org-card';
+            if (org.status === 'inactive') {
+                card.classList.add('org-card-inactive');
+            }
+
+            const statusText = org.status === 'active' ? 'Aktif' : 'Pasif';
+            const statusClass = org.status === 'active' ? 'status-badge status-approved' : 'status-badge status-rejected';
+
+            // Logo Önizleme veya Baş Harf Kutusu
+            let logoHtml = '';
+            const initials = (org.name || 'K').trim().substring(0, 2).toUpperCase();
+            if (org.logo_url) {
+                logoHtml = `
+                    <div class="org-logo-wrapper">
+                        <img src="${escapeHtml(org.logo_url)}" alt="${escapeHtml(org.name)} Logosu" onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                        <div class="org-logo-placeholder" style="display:none;">${escapeHtml(initials)}</div>
+                    </div>
+                `;
+            } else {
+                logoHtml = `
+                    <div class="org-logo-wrapper">
+                        <div class="org-logo-placeholder" style="display:flex;">${escapeHtml(initials)}</div>
+                    </div>
+                `;
+            }
+
+            // Sosyal ve Bağlantı İkonları
+            let linksHtml = '';
+            if (org.website) {
+                linksHtml += `<a href="${escapeHtml(org.website)}" target="_blank" class="org-link-icon" title="Website"><i class="fa-solid fa-globe"></i></a>`;
+            }
+            if (org.instagram) {
+                const igUrl = org.instagram.startsWith('http') ? org.instagram : `https://instagram.com/${org.instagram}`;
+                linksHtml += `<a href="${escapeHtml(igUrl)}" target="_blank" class="org-link-icon" title="Instagram"><i class="fa-brands fa-instagram"></i></a>`;
+            }
+            if (org.youtube) {
+                const ytUrl = org.youtube.startsWith('http') ? org.youtube : `https://youtube.com/${org.youtube}`;
+                linksHtml += `<a href="${escapeHtml(ytUrl)}" target="_blank" class="org-link-icon" title="YouTube"><i class="fa-brands fa-youtube"></i></a>`;
+            }
+            if (org.whatsapp) {
+                const cleanWa = org.whatsapp.replace(/\D/g, '');
+                const waUrl = `https://wa.me/${cleanWa.startsWith('90') || cleanWa.length > 10 ? cleanWa : '90' + cleanWa}`;
+                linksHtml += `<a href="${escapeHtml(waUrl)}" target="_blank" class="org-link-icon" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>`;
+            }
+            if (org.google_maps) {
+                linksHtml += `<a href="${escapeHtml(org.google_maps)}" target="_blank" class="org-link-icon" title="Google Maps"><i class="fa-solid fa-map-location-dot"></i></a>`;
+            }
+
+            const statusActionText = org.status === 'active' ? 'Pasife Al' : 'Aktif Et';
+            const statusActionIcon = org.status === 'active' ? 'fa-eye-slash' : 'fa-eye';
+            const statusActionClass = org.status === 'active' ? 'btn-status-toggle btn-secondary' : 'btn-status-toggle btn-primary';
+
+            card.innerHTML = `
+                <div class="card-header-info" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <span class="${statusClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusText)}</span>
+                        <span class="category-badge" style="font-size: 11px; padding: 2px 8px; background-color: var(--md-secondary-container); color: var(--md-on-secondary-container); border-color: rgba(181, 141, 61, 0.2);">@${escapeHtml(org.slug || '')}</span>
+                    </div>
+                    <button class="btn-card-edit btn-org-edit" title="Kurumu Düzenle" style="background: transparent; border: none; color: var(--md-primary); cursor: pointer; font-size: 16px; padding: 4px;">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                </div>
+                
+                <div class="org-card-main-content">
+                    ${logoHtml}
+                    <div class="org-card-text-area">
+                        <h4 class="program-title" style="margin-bottom: 4px; font-size: 18px; font-weight: 700; color: var(--md-primary);">${escapeHtml(org.name || 'İsimsiz Kurum')}</h4>
+                        <p style="font-size: 14px; line-height: 1.4; color: var(--md-on-surface-variant); max-height: 60px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                            ${escapeHtml(org.description || 'Açıklama belirtilmemiş.')}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="org-card-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--md-outline); gap: 12px; width: 100%;">
+                    <div class="org-links-wrapper" style="display: flex; gap: 10px; font-size: 18px;">
+                        ${linksHtml || '<span style="font-size: 13px; color: var(--md-on-surface-variant);">Bağlantı yok</span>'}
+                    </div>
+                    <button class="btn btn-sm ${statusActionClass} btn-org-status-toggle" style="min-height: 36px; padding: 6px 12px; font-size: 13px;" data-id="${org.id}" data-status="${org.status}">
+                        <i class="fa-solid ${statusActionIcon}"></i> ${statusActionText}
+                    </button>
+                </div>
+            `;
+
+            // Düzenle Butonu Dinleyicisi
+            card.querySelector('.btn-org-edit').addEventListener('click', () => {
+                openOrgModal(org);
+            });
+
+            // Pasife Al / Aktif Et Butonu Dinleyicisi
+            card.querySelector('.btn-org-status-toggle').addEventListener('click', async () => {
+                const newStatus = org.status === 'active' ? 'inactive' : 'active';
+                await toggleOrgStatus(org.id, newStatus);
+            });
+
+            list.appendChild(card);
+        });
+    }
+
+    // Kurum Ekleme / Düzenleme Modalı Aç
+    function openOrgModal(org = null) {
+        const modal = document.getElementById('org-modal');
+        const title = document.getElementById('org-modal-title');
+        const idInput = document.getElementById('org-modal-id');
+        const nameInput = document.getElementById('org-modal-name-input');
+        const slugInput = document.getElementById('org-modal-slug-input');
+        const logoUrlInput = document.getElementById('org-modal-logo-url');
+        const websiteInput = document.getElementById('org-modal-website');
+        const instagramInput = document.getElementById('org-modal-instagram');
+        const youtubeInput = document.getElementById('org-modal-youtube');
+        const whatsappInput = document.getElementById('org-modal-whatsapp');
+        const googleMapsInput = document.getElementById('org-modal-google-maps');
+        const descriptionInput = document.getElementById('org-modal-description');
+        const statusInput = document.getElementById('org-modal-status');
+
+        // Reset logo inputs
+        const fileInput = document.getElementById('org-modal-logo-file');
+        if (fileInput) fileInput.value = '';
+        const fileNameDisp = document.getElementById('org-modal-logo-file-name');
+        if (fileNameDisp) fileNameDisp.textContent = 'Seçilen dosya yok';
+        const progressContainer = document.getElementById('org-modal-logo-upload-progress');
+        if (progressContainer) progressContainer.classList.add('hidden');
+
+        if (org) {
+            // DÜZENLEME MODU
+            if (title) title.textContent = "Kurum Bilgilerini Düzenle";
+            if (idInput) idInput.value = org.id || '';
+            if (nameInput) nameInput.value = org.name || '';
+            if (slugInput) slugInput.value = org.slug || '';
+            if (logoUrlInput) logoUrlInput.value = org.logo_url || '';
+            if (websiteInput) websiteInput.value = org.website || '';
+            if (instagramInput) instagramInput.value = org.instagram || '';
+            if (youtubeInput) youtubeInput.value = org.youtube || '';
+            if (whatsappInput) whatsappInput.value = org.whatsapp || '';
+            if (googleMapsInput) googleMapsInput.value = org.google_maps || '';
+            if (descriptionInput) descriptionInput.value = org.description || '';
+            if (statusInput) statusInput.value = org.status || 'active';
+
+            updateLogoPreview(
+                org.logo_url,
+                'org-modal-logo-preview-container',
+                'org-modal-logo-preview-img',
+                'org-modal-logo-preview-text',
+                'org-modal-logo-file-name'
+            );
+        } else {
+            // EKLEME MODU
+            if (title) title.textContent = "Yeni Kurum Ekle";
+            if (idInput) idInput.value = '';
+            if (nameInput) nameInput.value = '';
+            if (slugInput) slugInput.value = '';
+            if (logoUrlInput) logoUrlInput.value = '';
+            if (websiteInput) websiteInput.value = '';
+            if (instagramInput) instagramInput.value = '';
+            if (youtubeInput) youtubeInput.value = '';
+            if (whatsappInput) whatsappInput.value = '';
+            if (googleMapsInput) googleMapsInput.value = '';
+            if (descriptionInput) descriptionInput.value = '';
+            if (statusInput) statusInput.value = 'active';
+
+            updateLogoPreview(
+                '',
+                'org-modal-logo-preview-container',
+                'org-modal-logo-preview-img',
+                'org-modal-logo-preview-text',
+                'org-modal-logo-file-name'
+            );
+        }
+
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = "hidden";
+        }
+    }
+
+    // Modalı Kapat
+    function closeOrgModal() {
+        const modal = document.getElementById('org-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = "";
+        }
+    }
+
+    // Kurum Kaydet (Insert veya Update)
+    async function handleOrgSave() {
+        if (!supabaseClient) return;
+
+        const id = document.getElementById('org-modal-id').value;
+        const name = document.getElementById('org-modal-name-input').value.trim();
+        const slug = document.getElementById('org-modal-slug-input').value.trim();
+        const logo_url = document.getElementById('org-modal-logo-url').value.trim();
+        const website = document.getElementById('org-modal-website').value.trim();
+        const instagram = document.getElementById('org-modal-instagram').value.trim();
+        const youtube = document.getElementById('org-modal-youtube').value.trim();
+        const whatsapp = document.getElementById('org-modal-whatsapp').value.trim();
+        const google_maps = document.getElementById('org-modal-google-maps').value.trim();
+        const description = document.getElementById('org-modal-description').value.trim();
+        const status = document.getElementById('org-modal-status').value;
+
+        if (!name) {
+            showToast("Kurum adı alanı zorunludur.", "error");
+            return;
+        }
+        if (!slug) {
+            showToast("Slug alanı zorunludur.", "error");
+            return;
+        }
+
+        const saveBtn = document.getElementById('org-modal-btn-save');
+        const cancelBtn = document.getElementById('org-modal-btn-cancel');
+
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kaydediliyor...';
+        }
+        if (cancelBtn) cancelBtn.disabled = true;
+
+        try {
+            const orgPayload = {
+                name,
+                slug,
+                logo_url,
+                website,
+                instagram,
+                youtube,
+                whatsapp,
+                google_maps,
+                description,
+                status
+            };
+
+            let success = false;
+            let responseError = null;
+            let attempt = 0;
+
+            while (attempt < 5) {
+                console.log(`Org save attempt #${attempt + 1}, Payload:`, orgPayload);
+                
+                let res;
+                if (id) {
+                    res = await supabaseClient
+                        .from('organizations')
+                        .update(orgPayload)
+                        .eq('id', id)
+                        .select();
+                } else {
+                    res = await supabaseClient
+                        .from('organizations')
+                        .insert(orgPayload)
+                        .select();
+                }
+
+                if (!res.error) {
+                    success = true;
+                    break;
+                }
+
+                responseError = res.error;
+                console.warn(`Org save attempt #${attempt + 1} failed:`, res.error);
+
+                // Hata mesajından eksik kolonları ayıkla ve payload'u temizle
+                const errMsg = (res.error.message || '').toLowerCase();
+                let columnRemoved = false;
+
+                const quoteMatches = errMsg.match(/['"`]([a-z0-9_]+)['"`]/g) || [];
+                const extractedWords = quoteMatches.map(m => m.replace(/['"`]/g, ''));
+                const allWords = errMsg.split(/[^a-z0-9_]/);
+                const candidates = new Set([...extractedWords, ...allWords]);
+
+                for (const key of Object.keys(orgPayload)) {
+                    if (candidates.has(key.toLowerCase()) || errMsg.includes(key.toLowerCase())) {
+                        console.log(`Offending column '${key}' detected for organizations table. Pruning.`);
+                        delete orgPayload[key];
+                        columnRemoved = true;
+                    }
+                }
+
+                if (!columnRemoved) {
+                    // Hiçbiri doğrudan eşleşmiyorsa opsiyonel sosyal ağları sırayla kaldır
+                    const optionalKeys = ['website', 'instagram', 'youtube', 'whatsapp', 'google_maps', 'description', 'logo_url', 'slug'];
+                    for (const optKey of optionalKeys) {
+                        if (optKey in orgPayload) {
+                            console.log(`Fallback: Pruning optional column '${optKey}' from organizations.`);
+                            delete orgPayload[optKey];
+                            columnRemoved = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!columnRemoved) {
+                    break;
+                }
+                attempt++;
+            }
+
+            if (!success) throw responseError;
+
+            showToast("Kurum başarıyla kaydedildi.", "success");
+            closeOrgModal();
+
+            // Yenile
+            await loadAdminOrganizations();
+            await loadOrganizations();
+
+        } catch (err) {
+            console.error("Kurum kaydedilemedi:", err);
+            showToast("Kurum kaydedilirken bir hata oluştu: " + (err.message || ''), "error");
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fa-solid fa-floppy-disk"></i> Kaydet';
+            }
+            if (cancelBtn) cancelBtn.disabled = false;
+        }
+    }
+
+    // Durum Değişikliği (Aktif / Pasif)
+    async function toggleOrgStatus(orgId, newStatus) {
+        if (!supabaseClient) return;
+
+        try {
+            const { error } = await supabaseClient
+                .from('organizations')
+                .update({ status: newStatus })
+                .eq('id', orgId);
+
+            if (error) throw error;
+
+            showToast(`Kurum başarıyla ${newStatus === 'active' ? 'aktifleştirildi' : 'pasifleştirildi'}.`, "success");
+
+            // Listeleri ve dropdown'ları yenile
+            await loadAdminOrganizations();
+            await loadOrganizations();
+
+        } catch (err) {
+            console.error("Kurum durumu değiştirilemedi:", err);
+            showToast("Kurum durumu değiştirilirken hata oluştu.", "error");
+        }
+    }
+
+    // Kurumlar Dinleyicileri
+    function initOrgListeners() {
+        // Yeni Kurum Modalı Aç
+        document.getElementById('add-organization-btn')?.addEventListener('click', () => {
+            openOrgModal();
+        });
+
+        // Kurumları Yenile butonu
+        document.getElementById('organizations-refresh-btn')?.addEventListener('click', async () => {
+            await loadAdminOrganizations();
+        });
+
+        // Retry butonu
+        document.getElementById('organizations-retry-btn')?.addEventListener('click', async () => {
+            await loadAdminOrganizations();
+        });
+
+        // Modal kapatma butonları
+        document.getElementById('org-modal-close-top')?.addEventListener('click', closeOrgModal);
+        document.getElementById('org-modal-btn-cancel')?.addEventListener('click', closeOrgModal);
+        document.getElementById('org-modal-btn-save')?.addEventListener('click', handleOrgSave);
+
+        // Arka plana tıklayarak modalı kapatma
+        document.getElementById('org-modal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'org-modal') {
+                closeOrgModal();
+            }
+        });
+
+        // Kurum Adı yazılırken otomatik slug oluştur
+        const nameInput = document.getElementById('org-modal-name-input');
+        const slugInput = document.getElementById('org-modal-slug-input');
+        const idInput = document.getElementById('org-modal-id');
+
+        nameInput?.addEventListener('input', () => {
+            if (!idInput || !idInput.value) { // Sadece yeni kayıtlarda otomatik oluştur
+                if (slugInput) {
+                    slugInput.value = generateSlug(nameInput.value);
+                }
+            }
+        });
+
+        // Logo Dosya Yükleyici Ayarı
+        const uploadTrigger = document.getElementById('org-modal-logo-upload-trigger');
+        const fileInput = document.getElementById('org-modal-logo-file');
+        const removeBtn = document.getElementById('org-modal-logo-remove-btn');
+        const urlInput = document.getElementById('org-modal-logo-url');
+
+        uploadTrigger?.addEventListener('click', () => {
+            fileInput?.click();
+        });
+
+        fileInput?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await uploadProgramLogo(
+                    file,
+                    'org-modal-logo-upload-progress',
+                    'org-modal-logo-file-name',
+                    'org-modal-logo-preview-img',
+                    'org-modal-logo-preview-text',
+                    'org-modal-logo-preview-container',
+                    'org-modal-logo-url'
+                );
+            }
+        });
+
+        removeBtn?.addEventListener('click', () => {
+            if (fileInput) fileInput.value = '';
+            const fileName = document.getElementById('org-modal-logo-file-name');
+            if (fileName) fileName.textContent = 'Seçilen dosya yok';
+            const previewContainer = document.getElementById('org-modal-logo-preview-container');
+            if (previewContainer) previewContainer.classList.add('hidden');
+            const previewImg = document.getElementById('org-modal-logo-preview-img');
+            if (previewImg) {
+                previewImg.src = '';
+                previewImg.style.display = 'none';
+            }
+            const previewText = document.getElementById('org-modal-logo-preview-text');
+            if (previewText) {
+                previewText.classList.add('hidden');
+                previewText.style.display = 'none';
+            }
+            if (urlInput) {
+                urlInput.value = '';
+                urlInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+
+        urlInput?.addEventListener('input', (e) => {
+            updateLogoPreview(
+                e.target.value,
+                'org-modal-logo-preview-container',
+                'org-modal-logo-preview-img',
+                'org-modal-logo-preview-text',
+                'org-modal-logo-file-name'
+            );
+        });
+    }
+
     // Initial Load
     initViewSelector();
     initFilterListeners();
@@ -3513,6 +4050,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initLogoUploadListeners();
     initOrganizationListeners();
     initDistrictWarningListeners();
+    initOrgListeners();
     loadOrganizations();
     loadData();
 });
