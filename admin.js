@@ -33,6 +33,25 @@ document.addEventListener('DOMContentLoaded', () => {
     let knownColumns = ['id', 'program_name', 'venue_name', 'city', 'district', 'day', 'time', 'teacher', 'organization', 'women_friendly', 'address', 'google_maps_link', 'description', 'contact_name', 'contact_phone', 'photo_url', 'status', 'created_at', 'updated_at', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
     let activeOrganizations = [];
     
+    const SAKARYA_DISTRICTS = [
+        "Adapazarı",
+        "Akyazı",
+        "Arifiye",
+        "Erenler",
+        "Ferizli",
+        "Geyve",
+        "Hendek",
+        "Karapürçek",
+        "Karasu",
+        "Kaynarca",
+        "Kocaali",
+        "Pamukova",
+        "Sapanca",
+        "Serdivan",
+        "Söğütlü",
+        "Taraklı"
+    ];
+    
     // ROADMAP: İleride sık kullanılan programlar için is_pinned alanı eklenebilir.
     let currentViewMode = localStorage.getItem('cennetBahceleriProgramsViewMode') || 'card';
 
@@ -618,7 +637,21 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('edit-program-name').value = currentSuggestion.program_name || '';
         document.getElementById('edit-venue-name').value = currentSuggestion.venue_name || '';
         document.getElementById('edit-city').value = currentSuggestion.city || 'Sakarya';
-        document.getElementById('edit-district').value = currentSuggestion.district || '';
+        
+        const currentDistrict = currentSuggestion.district ? currentSuggestion.district.trim() : '';
+        const editDistrictSelect = document.getElementById('edit-district');
+        const editDistrictWarning = document.getElementById('edit-district-warning');
+        if (editDistrictSelect) {
+            const foundDistrict = SAKARYA_DISTRICTS.find(d => d.toLocaleLowerCase('tr-TR') === currentDistrict.toLocaleLowerCase('tr-TR'));
+            if (foundDistrict) {
+                editDistrictSelect.value = foundDistrict;
+                if (editDistrictWarning) editDistrictWarning.classList.add('hidden');
+            } else {
+                editDistrictSelect.value = ''; // Reset to "İlçe Seçiniz"
+                if (editDistrictWarning) editDistrictWarning.classList.remove('hidden');
+            }
+        }
+
         document.getElementById('edit-day').value = currentSuggestion.day || '';
         document.getElementById('edit-time').value = currentSuggestion.time || '';
         
@@ -703,6 +736,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!program_name || !venue_name || !city || !district || !day || !time) {
                 showToast("Lütfen zorunlu alanları doldurun.", "error");
                 throw new Error("Gerekli alanlar boş bırakılamaz.");
+            }
+
+            if (!SAKARYA_DISTRICTS.includes(district)) {
+                showToast("Lütfen geçerli bir ilçe seçiniz.", "error");
+                throw new Error("Geçersiz veya boş ilçe seçimi.");
             }
 
             // Build safe payload with columns we are certain exist (city is excluded completely from database payload)
@@ -1164,6 +1202,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!program_name || !venue_name || !city || !district || !day || !time) {
             showToast("Lütfen zorunlu alanları doldurun.", "error");
+            return;
+        }
+
+        if (!SAKARYA_DISTRICTS.includes(district)) {
+            showToast("Lütfen geçerli bir ilçe seçiniz.", "error");
             return;
         }
 
@@ -2457,7 +2500,18 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cityInput) cityInput.value = item.city || 'Sakarya';
 
         const districtInput = document.getElementById('edit-program-district');
-        if (districtInput) districtInput.value = item.district || '';
+        const editProgramDistrictWarning = document.getElementById('edit-program-district-warning');
+        if (districtInput) {
+            const currentDistrict = item.district ? item.district.trim() : '';
+            const foundDistrict = SAKARYA_DISTRICTS.find(d => d.toLocaleLowerCase('tr-TR') === currentDistrict.toLocaleLowerCase('tr-TR'));
+            if (foundDistrict) {
+                districtInput.value = foundDistrict;
+                if (editProgramDistrictWarning) editProgramDistrictWarning.classList.add('hidden');
+            } else {
+                districtInput.value = ''; // Reset to "İlçe Seçiniz"
+                if (editProgramDistrictWarning) editProgramDistrictWarning.classList.remove('hidden');
+            }
+        }
 
         const dayInput = document.getElementById('edit-program-day');
         if (dayInput) dayInput.value = item.day || '';
@@ -2639,8 +2693,8 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast("İl alanı zorunludur.", "error");
             return;
         }
-        if (!district) {
-            showToast("İlçe zorunludur.", "error");
+        if (!district || !SAKARYA_DISTRICTS.includes(district)) {
+            showToast("Lütfen geçerli bir ilçe seçiniz.", "error");
             return;
         }
         if (!day) {
@@ -3431,6 +3485,24 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function initDistrictWarningListeners() {
+        const editDistrictSelect = document.getElementById('edit-district');
+        const editDistrictWarning = document.getElementById('edit-district-warning');
+        editDistrictSelect?.addEventListener('change', () => {
+            if (editDistrictSelect.value && editDistrictWarning) {
+                editDistrictWarning.classList.add('hidden');
+            }
+        });
+
+        const editProgramDistrictSelect = document.getElementById('edit-program-district');
+        const editProgramDistrictWarning = document.getElementById('edit-program-district-warning');
+        editProgramDistrictSelect?.addEventListener('change', () => {
+            if (editProgramDistrictSelect.value && editProgramDistrictWarning) {
+                editProgramDistrictWarning.classList.add('hidden');
+            }
+        });
+    }
+
     // Initial Load
     initViewSelector();
     initFilterListeners();
@@ -3440,6 +3512,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initPhotoUploadListeners();
     initLogoUploadListeners();
     initOrganizationListeners();
+    initDistrictWarningListeners();
     loadOrganizations();
     loadData();
 });
