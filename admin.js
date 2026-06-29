@@ -3352,12 +3352,13 @@ document.addEventListener('DOMContentLoaded', () => {
             const { data, error } = await supabaseClient
                 .from('organizations')
                 .select('id, name, logo_url')
-                .eq('status', 'active')
-                .order('name', { ascending: true });
+                .eq('status', 'active');
 
             if (error) throw error;
 
             activeOrganizations = data || [];
+            // Türk alfabesine göre mükemmel alfabetik sıralama (Ç, Ğ, İ, Ö, Ş, Ü dahil)
+            activeOrganizations.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
 
             let optionsHtml = '<option value="">Kurum seçilmedi</option>';
             if (activeOrganizations.length === 0) {
