@@ -37,7 +37,19 @@
     </header>
 
     <main class="admin-main container">
-        <section class="page-title-section">
+        <!-- Ana Sekmeler (Öneriler / Programlar) -->
+        <div class="main-navigation-tabs">
+            <button id="main-tab-suggestions" class="main-tab-btn active">
+                <i class="fa-solid fa-envelope-open-text"></i> Öneriler
+            </button>
+            <button id="main-tab-programs" class="main-tab-btn">
+                <i class="fa-solid fa-mosque"></i> Programlar
+            </button>
+        </div>
+
+        <!-- Öneriler (Suggestions) Sekmesi İçeriği -->
+        <div id="suggestions-tab-content">
+            <section class="page-title-section">
             <div class="page-title-container">
                 <h2>Bekleyen İlim Meclisi Önerileri</h2>
                 <p class="section-desc">Vatandaşlar tarafından form aracılığıyla gönderilen ve onay bekleyen program önerileri.</p>
@@ -120,6 +132,61 @@
                 <!-- Suggestion cards will be injected here dynamically -->
             </div>
         </section>
+        </div>
+
+        <!-- Programlar (Programs) Sekmesi İçeriği -->
+        <div id="programs-tab-content" class="hidden">
+            <section class="page-title-section">
+                <div class="page-title-container">
+                    <h2>Programlar Yönetim Paneli</h2>
+                    <p class="section-desc">Canlı programs tablosundaki kayıtlar burada yönetilecektir.</p>
+                </div>
+            </section>
+
+            <!-- Skeleton Info Cards -->
+            <section class="programs-skeleton-grid">
+                <div class="skeleton-card">
+                    <div class="skeleton-icon"><i class="fa-solid fa-list-ul"></i></div>
+                    <div class="skeleton-info">
+                        <h4>Listeleme</h4>
+                        <p>Supabase programs tablosundaki tüm aktif ve pasif meclis programları burada listelenecektir.</p>
+                    </div>
+                    <div class="skeleton-badge">Hazırlanıyor</div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
+                    <div class="skeleton-info">
+                        <h4>Arama / Filtreleme</h4>
+                        <p>İlçe, gün, hoca ve kategori bazında hızlı arama ve filtreleme altyapısı kurulacaktır.</p>
+                    </div>
+                    <div class="skeleton-badge">Hazırlanıyor</div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-icon"><i class="fa-solid fa-pen-to-square"></i></div>
+                    <div class="skeleton-info">
+                        <h4>Düzenleme</h4>
+                        <p>Mevcut programların bilgilerini (saat, yer, hoca vb.) doğrudan güncelleme ekranı sağlanacaktır.</p>
+                    </div>
+                    <div class="skeleton-badge">Hazırlanıyor</div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-icon"><i class="fa-solid fa-toggle-on"></i></div>
+                    <div class="skeleton-info">
+                        <h4>Aktif / Pasif</h4>
+                        <p>Geçici olarak iptal edilen veya yeni başlayan programları tek tıkla gizleme/gösterme.</p>
+                    </div>
+                    <div class="skeleton-badge">Hazırlanıyor</div>
+                </div>
+                <div class="skeleton-card">
+                    <div class="skeleton-icon"><i class="fa-solid fa-trash-can"></i></div>
+                    <div class="skeleton-info">
+                        <h4>Silme</h4>
+                        <p>Geçerliliğini tamamen yitiren programları veri tabanından güvenli şekilde kaldırma özelliği.</p>
+                    </div>
+                    <div class="skeleton-badge">Hazırlanıyor</div>
+                </div>
+            </section>
+        </div>
     </main>
 
     <footer class="admin-footer">
