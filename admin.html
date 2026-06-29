@@ -177,6 +177,52 @@
                     </button>
                 </div>
 
+                <!-- Filtre ve Arama Paneli (Paket H3) -->
+                <div class="filter-panel" id="programs-filter-panel">
+                    <div class="filter-row">
+                        <div class="filter-group search-group">
+                            <label for="filter-search"><i class="fa-solid fa-magnifying-glass"></i> Arama</label>
+                            <input type="text" id="filter-search" class="form-control" placeholder="Program, mekan, hoca, kurum, ilçe, açıklama...">
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
+                            <select id="filter-district" class="form-control">
+                                <option value="">Tüm İlçeler</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-day"><i class="fa-regular fa-calendar-days"></i> Gün</label>
+                            <select id="filter-day" class="form-control">
+                                <option value="">Tüm Günler</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-status"><i class="fa-solid fa-circle-info"></i> Durum</label>
+                            <select id="filter-status" class="form-control">
+                                <option value="">Tüm Durumlar</option>
+                                <option value="active">Aktif</option>
+                                <option value="passive">Pasif</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-source"><i class="fa-solid fa-database"></i> Kaynak</label>
+                            <select id="filter-source" class="form-control">
+                                <option value="">Tüm Kaynaklar</option>
+                                <option value="app_migration">APP</option>
+                                <option value="admin_manual">MANUEL</option>
+                                <option value="suggestion">ÖNERİ</option>
+                                <option value="unknown">KAYNAK YOK</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="filter-actions-row">
+                        <span id="filter-info-text" class="filter-info-text">Yükleniyor...</span>
+                        <button id="filter-clear-btn" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-filter-circle-xmark"></i> Filtreleri Temizle
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Loader -->
                 <div id="programs-loader" class="state-container hidden">
                     <div class="spinner"></div>
