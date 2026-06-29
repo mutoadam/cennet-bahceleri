@@ -179,7 +179,23 @@
                     <!-- Kurum -->
                     <div class="form-group">
                         <label for="organization"><i class="fa-solid fa-building"></i> Kurum / Dernek / Vakıf</label>
-                        <input type="text" id="organization" class="form-control" placeholder="Örn: İlim Yayma Cemiyeti vb.">
+                        <select id="organization" class="form-control">
+                            <option value="">Kurum seçiniz</option>
+                            <option value="Asr-ı Saadet">Asr-ı Saadet</option>
+                            <option value="Ümmetder">Ümmetder</option>
+                            <option value="Diyanet">Diyanet</option>
+                            <option value="İFAM">İFAM</option>
+                            <option value="Ahbab-ı Kehf">Ahbab-ı Kehf</option>
+                            <option value="M. Mahmud Efendi Külliyesi">M. Mahmud Efendi Külliyesi</option>
+                            <option value="Mukadder">Mukadder</option>
+                            <option value="Darusselam Gençlik">Darusselam Gençlik</option>
+                            <option value="Hisar Kapısı">Hisar Kapısı</option>
+                            <option value="İsmailağa">İsmailağa</option>
+                            <option value="Diğer">Diğer</option>
+                        </select>
+                        <div id="other-org-container" class="hidden">
+                            <input type="text" id="other_organization" class="form-control" placeholder="Diğer kurum adını yazınız">
+                        </div>
                     </div>
 
                     <!-- Hanımlara Uygunluk -->
