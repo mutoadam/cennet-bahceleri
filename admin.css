@@ -2027,3 +2027,15 @@ body {
     }
 }
 
+/* Çöp Kutusu / Soft-Delete Styles (Paket H6.2) */
+.status-deleted {
+    background-color: #ffebee !important;
+    color: #c2185b !important;
+    border: 1px solid rgba(194, 24, 91, 0.2) !important;
+}
+
+.filter-panel.trash-view-active .filter-group:not(.search-group),
+.filter-panel.trash-view-active .filter-actions-row {
+    display: none !important;
+}
+
