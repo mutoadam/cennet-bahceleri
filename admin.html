@@ -139,51 +139,68 @@
             <section class="page-title-section">
                 <div class="page-title-container">
                     <h2>Programlar Yönetim Paneli</h2>
-                    <p class="section-desc">Canlı programs tablosundaki kayıtlar burada yönetilecektir.</p>
+                    <p class="section-desc">Canlı programs tablosundaki tüm aktif ve pasif meclis programları burada listelenmektedir.</p>
                 </div>
             </section>
 
-            <!-- Skeleton Info Cards -->
-            <section class="programs-skeleton-grid">
-                <div class="skeleton-card">
-                    <div class="skeleton-icon"><i class="fa-solid fa-list-ul"></i></div>
-                    <div class="skeleton-info">
-                        <h4>Listeleme</h4>
-                        <p>Supabase programs tablosundaki tüm aktif ve pasif meclis programları burada listelenecektir.</p>
+            <!-- Stats Section -->
+            <section class="stats-grid">
+                <div class="stats-card card-total">
+                    <div class="stats-icon"><i class="fa-solid fa-layer-group"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Toplam Program</span>
+                        <h3 id="stats-total-programs-val" class="stats-value">-</h3>
                     </div>
-                    <div class="skeleton-badge">Hazırlanıyor</div>
                 </div>
-                <div class="skeleton-card">
-                    <div class="skeleton-icon"><i class="fa-solid fa-magnifying-glass"></i></div>
-                    <div class="skeleton-info">
-                        <h4>Arama / Filtreleme</h4>
-                        <p>İlçe, gün, hoca ve kategori bazında hızlı arama ve filtreleme altyapısı kurulacaktır.</p>
+                <div class="stats-card card-approved">
+                    <div class="stats-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Aktif Program</span>
+                        <h3 id="stats-active-programs-val" class="stats-value">-</h3>
                     </div>
-                    <div class="skeleton-badge">Hazırlanıyor</div>
                 </div>
-                <div class="skeleton-card">
-                    <div class="skeleton-icon"><i class="fa-solid fa-pen-to-square"></i></div>
-                    <div class="skeleton-info">
-                        <h4>Düzenleme</h4>
-                        <p>Mevcut programların bilgilerini (saat, yer, hoca vb.) doğrudan güncelleme ekranı sağlanacaktır.</p>
+                <div class="stats-card card-rejected">
+                    <div class="stats-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Pasif Program</span>
+                        <h3 id="stats-passive-programs-val" class="stats-value">-</h3>
                     </div>
-                    <div class="skeleton-badge">Hazırlanıyor</div>
                 </div>
-                <div class="skeleton-card">
-                    <div class="skeleton-icon"><i class="fa-solid fa-toggle-on"></i></div>
-                    <div class="skeleton-info">
-                        <h4>Aktif / Pasif</h4>
-                        <p>Geçici olarak iptal edilen veya yeni başlayan programları tek tıkla gizleme/gösterme.</p>
-                    </div>
-                    <div class="skeleton-badge">Hazırlanıyor</div>
+            </section>
+
+            <!-- Programs List Section -->
+            <section class="suggestions-section">
+                <div class="section-header">
+                    <h3>Program Listesi (<span id="programs-count">0</span>)</h3>
+                    <button id="programs-refresh-btn" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-rotate"></i> Programları Yenile
+                    </button>
                 </div>
-                <div class="skeleton-card">
-                    <div class="skeleton-icon"><i class="fa-solid fa-trash-can"></i></div>
-                    <div class="skeleton-info">
-                        <h4>Silme</h4>
-                        <p>Geçerliliğini tamamen yitiren programları veri tabanından güvenli şekilde kaldırma özelliği.</p>
-                    </div>
-                    <div class="skeleton-badge">Hazırlanıyor</div>
+
+                <!-- Loader -->
+                <div id="programs-loader" class="state-container hidden">
+                    <div class="spinner"></div>
+                    <p>Programlar yükleniyor, lütfen bekleyin...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="programs-error-container" class="state-container state-error hidden">
+                    <i class="fa-solid fa-triangle-exclamation state-icon"></i>
+                    <h4>Programlar yüklenirken bir hata oluştu.</h4>
+                    <p>Lütfen internet bağlantınızı ve Supabase yapılandırmanızı kontrol edip tekrar deneyin.</p>
+                    <button id="programs-retry-btn" class="btn btn-primary">Tekrar Dene</button>
+                </div>
+
+                <!-- Empty State -->
+                <div id="programs-empty-container" class="state-container state-empty hidden">
+                    <i class="fa-solid fa-clipboard-question state-icon"></i>
+                    <h4>Şu anda kayıtlı program bulunmuyor.</h4>
+                    <p>Veri tabanında kayıtlı herhangi bir program bulunmamaktadır.</p>
+                </div>
+
+                <!-- List Container -->
+                <div id="programs-list" class="suggestions-list grid-list">
+                    <!-- Program cards will be injected here dynamically -->
                 </div>
             </section>
         </div>
