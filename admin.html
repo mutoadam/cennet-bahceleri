@@ -175,6 +175,18 @@
                         <h3>Program Listesi</h3>
                         <p class="subtitle-text"><span id="programs-count">0</span> Program gösteriliyor</p>
                     </div>
+                    <!-- Görünüm Seçici (Package H5.2) -->
+                    <div class="view-selector-container">
+                        <button id="view-btn-card" class="view-btn active" data-view="card" title="Kart Görünümü">
+                            <i class="fa-solid fa-table-cells"></i> <span>Kart Görünümü</span>
+                        </button>
+                        <button id="view-btn-list" class="view-btn" data-view="list" title="Liste Görünümü">
+                            <i class="fa-solid fa-list"></i> <span>Liste Görünümü</span>
+                        </button>
+                        <button id="view-btn-compact" class="view-btn" data-view="compact" title="Kompakt Görünüm">
+                            <i class="fa-solid fa-align-justify"></i> <span>Kompakt Görünüm</span>
+                        </button>
+                    </div>
                     <button id="programs-refresh-btn" class="btn btn-secondary btn-sm">
                         <i class="fa-solid fa-rotate"></i> Programları Yenile
                     </button>
@@ -202,9 +214,9 @@
                         <div class="filter-group">
                             <label for="filter-status"><i class="fa-solid fa-circle-info"></i> Durum</label>
                             <select id="filter-status" class="form-control">
-                                <option value="">Tüm Durumlar</option>
-                                <option value="active">Devam Ediyor</option>
-                                <option value="passive">Ara Verildi</option>
+                                <option value="active" selected>Devam Eden</option>
+                                <option value="passive">Ara Verilen</option>
+                                <option value="">Tümü</option>
                             </select>
                         </div>
                         <div class="filter-group">
@@ -702,6 +714,45 @@
                 <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
                     <button id="status-confirm-cancel-btn" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Vazgeç</button>
                     <button id="status-confirm-ok-btn" class="btn btn-action btn-approve" style="min-height: 40px; padding: 8px 16px; background-color: var(--md-secondary); border-color: var(--md-secondary);">Evet, Devam Et</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Program Delete Confirmation Modal -->
+    <div id="delete-confirm-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header" style="background-color: var(--md-error);">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-trash-can" style="color: white;"></i>
+                    <div>
+                        <h3 id="delete-confirm-title">Programı Sil</h3>
+                    </div>
+                </div>
+                <button id="delete-confirm-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <p style="font-size: 16px; color: var(--md-error); font-weight: bold; margin-bottom: 15px;">
+                    <i class="fa-solid fa-triangle-exclamation"></i> Bu işlem geri alınamaz.
+                </p>
+                <div style="background-color: var(--md-surface); border: 1px solid var(--md-outline); border-radius: var(--radius-sm); padding: 16px; margin-bottom: 20px;">
+                    <h4 style="margin-top: 0; margin-bottom: 12px; color: var(--md-primary); font-size: 16px;">Silinecek Program:</h4>
+                    <p style="margin: 6px 0; font-size: 14px;"><strong>Program Adı:</strong> <span id="delete-confirm-name">-</span></p>
+                    <p style="margin: 6px 0; font-size: 14px;"><strong>Mekan:</strong> <span id="delete-confirm-venue">-</span></p>
+                    <p style="margin: 6px 0; font-size: 14px;"><strong>İlçe:</strong> <span id="delete-confirm-district">-</span></p>
+                    <p style="margin: 6px 0; font-size: 14px;"><strong>Gün:</strong> <span id="delete-confirm-day">-</span></p>
+                    <p style="margin: 6px 0; font-size: 14px;"><strong>Saat:</strong> <span id="delete-confirm-time">-</span></p>
+                </div>
+                <p style="font-size: 15px; color: var(--md-on-surface); line-height: 1.5; margin: 0;">
+                    Gerçekten silmek istiyor musunuz?
+                </p>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px;">
+                <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
+                    <button id="delete-confirm-cancel-btn" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Vazgeç</button>
+                    <button id="delete-confirm-ok-btn" class="btn btn-action btn-reject" style="min-height: 40px; padding: 8px 16px; background-color: var(--md-error);">Programı Sil</button>
                 </div>
             </div>
         </div>
