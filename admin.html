@@ -554,9 +554,31 @@
                             <option value="inactive">Ara Verildi</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label for="edit-program-photo-url"><i class="fa-solid fa-image"></i> Fotoğraf Linki</label>
-                        <input type="url" id="edit-program-photo-url" class="form-control" placeholder="Örn: https://...">
+                    <div class="form-group full-width photo-upload-group" style="grid-column: span 2;">
+                        <label><i class="fa-solid fa-camera"></i> Program Fotoğrafı Yükle</label>
+                        <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
+                            <input type="file" id="edit-program-photo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;">
+                            <button type="button" id="edit-program-photo-upload-trigger" class="btn btn-secondary btn-sm upload-trigger-btn" style="min-height: 38px; padding: 8px 16px;">
+                                <i class="fa-solid fa-upload"></i> Fotoğraf Seç...
+                            </button>
+                            <span id="edit-program-photo-file-name" class="file-name-display" style="font-size: 14px; color: var(--md-on-surface-variant);">Seçilen dosya yok</span>
+                            <div class="upload-progress-container hidden" id="edit-upload-progress" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--md-primary);">
+                                <div class="spinner spinner-xs" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                                <span class="progress-text">Yükleniyor...</span>
+                            </div>
+                        </div>
+                        <div id="edit-program-photo-preview-container" class="photo-preview-container hidden" style="position: relative; max-width: 200px; margin-top: 12px; border: 1px solid var(--md-outline); border-radius: var(--radius-sm); overflow: hidden;">
+                            <img id="edit-program-photo-preview-img" src="" alt="Önizleme" style="width: 100%; height: auto; display: block; max-height: 150px; object-fit: cover;">
+                            <button type="button" id="edit-program-photo-remove-btn" class="btn-remove-photo" title="Fotoğrafı Kaldır" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: background 0.2s;">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                        <details class="advanced-photo-url" style="margin-top: 12px; cursor: pointer;">
+                            <summary style="font-size: 13px; color: var(--md-on-surface-variant); font-weight: 500;">Gelişmiş: Fotoğraf URL</summary>
+                            <div style="margin-top: 8px; cursor: default;">
+                                <input type="url" id="edit-program-photo-url" class="form-control" placeholder="Örn: https://...">
+                            </div>
+                        </details>
                     </div>
                     <div class="form-group">
                         <label for="edit-program-logo-url"><i class="fa-solid fa-building-columns"></i> Logo Linki</label>
@@ -663,9 +685,31 @@
                             <option value="yes">Evet (Hanımlara Uygundur)</option>
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label for="add-photo-url"><i class="fa-solid fa-image"></i> Fotoğraf Linki</label>
-                        <input type="url" id="add-photo-url" class="form-control" placeholder="Örn: https://...">
+                    <div class="form-group full-width photo-upload-group" style="grid-column: span 2;">
+                        <label><i class="fa-solid fa-camera"></i> Program Fotoğrafı Yükle</label>
+                        <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
+                            <input type="file" id="add-photo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;">
+                            <button type="button" id="add-photo-upload-trigger" class="btn btn-secondary btn-sm upload-trigger-btn" style="min-height: 38px; padding: 8px 16px;">
+                                <i class="fa-solid fa-upload"></i> Fotoğraf Seç...
+                            </button>
+                            <span id="add-photo-file-name" class="file-name-display" style="font-size: 14px; color: var(--md-on-surface-variant);">Seçilen dosya yok</span>
+                            <div class="upload-progress-container hidden" id="add-upload-progress" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--md-primary);">
+                                <div class="spinner spinner-xs" style="width: 16px; height: 16px; border-width: 2px;"></div>
+                                <span class="progress-text">Yükleniyor...</span>
+                            </div>
+                        </div>
+                        <div id="add-photo-preview-container" class="photo-preview-container hidden" style="position: relative; max-width: 200px; margin-top: 12px; border: 1px solid var(--md-outline); border-radius: var(--radius-sm); overflow: hidden;">
+                            <img id="add-photo-preview-img" src="" alt="Önizleme" style="width: 100%; height: auto; display: block; max-height: 150px; object-fit: cover;">
+                            <button type="button" id="add-photo-remove-btn" class="btn-remove-photo" title="Fotoğrafı Kaldır" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: background 0.2s;">
+                                <i class="fa-solid fa-trash-can"></i>
+                            </button>
+                        </div>
+                        <details class="advanced-photo-url" style="margin-top: 12px; cursor: pointer;">
+                            <summary style="font-size: 13px; color: var(--md-on-surface-variant); font-weight: 500;">Gelişmiş: Fotoğraf URL</summary>
+                            <div style="margin-top: 8px; cursor: default;">
+                                <input type="url" id="add-photo-url" class="form-control" placeholder="Örn: https://...">
+                            </div>
+                        </details>
                     </div>
                     <div class="form-group">
                         <label for="add-contact-name"><i class="fa-solid fa-user"></i> Yetkili / Gönderen</label>
