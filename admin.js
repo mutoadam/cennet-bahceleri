@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let supabaseClient = null;
     let currentSuggestion = null;
     let currentTabStatus = 'pending';
+    let loadedPrograms = [];
     let knownColumns = ['id', 'program_name', 'venue_name', 'city', 'district', 'day', 'time', 'teacher', 'organization', 'women_friendly', 'address', 'google_maps_link', 'description', 'contact_name', 'contact_phone', 'photo_url', 'status', 'created_at', 'updated_at', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
 
     // 1. Supabase Client Initialization
@@ -1421,6 +1422,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function processPrograms(programs) {
+        loadedPrograms = programs; // Cache loaded programs
+
         const totalCount = programs.length;
         const activeCount = programs.filter(p => (p.status || '').toLowerCase() === 'active').length;
         const passiveCount = totalCount - activeCount;
@@ -1433,7 +1436,141 @@ document.addEventListener('DOMContentLoaded', () => {
         if (statsActiveVal) statsActiveVal.textContent = activeCount;
         if (statsPassiveVal) statsPassiveVal.textContent = passiveCount;
 
-        renderPrograms(programs);
+        populateFilterOptions(programs);
+        applyFilters();
+    }
+
+    function populateFilterOptions(programs) {
+        const districtSelect = document.getElementById('filter-district');
+        const daySelect = document.getElementById('filter-day');
+
+        if (districtSelect) {
+            const currentSelected = districtSelect.value;
+            districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
+            
+            // Unique trimmed districts sorted Turkish-safely
+            const districts = [...new Set(programs.map(p => (p.district || '').trim()).filter(Boolean))];
+            districts.sort((a, b) => a.localeCompare(b, 'tr'));
+            
+            districts.forEach(d => {
+                const option = document.createElement('option');
+                option.value = d;
+                option.textContent = d;
+                districtSelect.appendChild(option);
+            });
+            
+            if (districts.includes(currentSelected)) {
+                districtSelect.value = currentSelected;
+            } else {
+                districtSelect.value = '';
+            }
+        }
+
+        if (daySelect) {
+            const currentSelected = daySelect.value;
+            daySelect.innerHTML = '<option value="">Tüm Günler</option>';
+            
+            const uniqueDays = [...new Set(programs.map(p => (p.day || '').trim()).filter(Boolean))];
+            
+            // Standard days in Turkish
+            const standardDays = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+            const foundDays = [];
+            standardDays.forEach(sd => {
+                const match = uniqueDays.find(ud => ud.toLowerCase() === sd.toLowerCase());
+                if (match) {
+                    foundDays.push(match);
+                }
+            });
+            const otherDays = uniqueDays.filter(ud => !standardDays.some(sd => sd.toLowerCase() === ud.toLowerCase()));
+            otherDays.sort((a, b) => a.localeCompare(b, 'tr'));
+            const finalDays = [...foundDays, ...otherDays];
+            
+            finalDays.forEach(d => {
+                const option = document.createElement('option');
+                option.value = d;
+                option.textContent = d;
+                daySelect.appendChild(option);
+            });
+
+            if (finalDays.includes(currentSelected)) {
+                daySelect.value = currentSelected;
+            } else {
+                daySelect.value = '';
+            }
+        }
+    }
+
+    function applyFilters() {
+        const searchQuery = document.getElementById('filter-search')?.value.trim().toLowerCase() || '';
+        const selectedDistrict = document.getElementById('filter-district')?.value || '';
+        const selectedDay = document.getElementById('filter-day')?.value || '';
+        const selectedStatus = document.getElementById('filter-status')?.value || '';
+        const selectedSource = document.getElementById('filter-source')?.value || '';
+
+        const filtered = loadedPrograms.filter(item => {
+            // 1. Search filter
+            if (searchQuery) {
+                const name = (item.program_name || '').toLowerCase();
+                const venue = (item.venue_name || '').toLowerCase();
+                const teacher = (item.teacher || '').toLowerCase();
+                const org = (item.organization || '').toLowerCase();
+                const dist = (item.district || '').toLowerCase();
+                const desc = (item.description || '').toLowerCase();
+                
+                if (!name.includes(searchQuery) &&
+                    !venue.includes(searchQuery) &&
+                    !teacher.includes(searchQuery) &&
+                    !org.includes(searchQuery) &&
+                    !dist.includes(searchQuery) &&
+                    !desc.includes(searchQuery)) {
+                    return false;
+                }
+            }
+
+            // 2. District filter
+            if (selectedDistrict && (item.district || '').trim() !== selectedDistrict) {
+                return false;
+            }
+
+            // 3. Day filter
+            if (selectedDay && (item.day || '').trim() !== selectedDay) {
+                return false;
+            }
+
+            // 4. Status filter
+            if (selectedStatus) {
+                const statusVal = (item.status || '').toLowerCase();
+                if (selectedStatus === 'active') {
+                    if (statusVal !== 'active') return false;
+                } else if (selectedStatus === 'passive') {
+                    if (statusVal !== 'passive' && statusVal !== 'inactive') return false;
+                }
+            }
+
+            // 5. Source filter
+            if (selectedSource) {
+                const source = item.source;
+                if (selectedSource === 'app_migration') {
+                    if (source !== 'app_migration') return false;
+                } else if (selectedSource === 'admin_manual') {
+                    if (source !== 'admin_manual') return false;
+                } else if (selectedSource === 'suggestion') {
+                    if (source !== 'approved_suggestion' && source !== 'suggestion') return false;
+                } else if (selectedSource === 'unknown') {
+                    if (source === 'app_migration' || source === 'admin_manual' || source === 'approved_suggestion' || source === 'suggestion') return false;
+                }
+            }
+
+            return true;
+        });
+
+        // Req 9: Show filter info text
+        const infoText = document.getElementById('filter-info-text');
+        if (infoText) {
+            infoText.textContent = `${loadedPrograms.length} program içinden ${filtered.length} kayıt gösteriliyor.`;
+        }
+
+        renderPrograms(filtered);
     }
 
     function renderPrograms(programs) {
@@ -1459,7 +1596,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const card = document.createElement('div');
             card.className = 'suggestion-card';
             
-            const createdDate = item.created_at ? formatDate(item.created_at) : 'Bilinmeyen Tarih';
             const sourceBadge = getSourceBadge(item.source);
             const statusBadge = getStatusBadge(item.status);
 
@@ -1484,7 +1620,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
                         ${ladiesMarkup}
                     </div>
-                    <span class="date-badge"><i class="fa-regular fa-calendar-days"></i> ${createdDate}</span>
+                    <button class="btn-card-edit" title="Düzenleme H4 paketinde eklenecek" disabled>
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
                 </div>
                 
                 <h4 class="program-title">${escapeHtml(item.program_name || 'İsimsiz Program')}</h4>
@@ -1492,19 +1630,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div class="details-grid">
                     <div class="detail-item">
-                        <span class="detail-label">İlçe:</span>
+                        <span class="detail-label"><i class="fa-solid fa-location-dot" style="color: var(--md-secondary); margin-right: 6px;"></i> İlçe:</span>
                         <span class="detail-value">${escapeHtml(item.district || '-')}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">Gün & Saat:</span>
+                        <span class="detail-label"><i class="fa-regular fa-clock" style="color: var(--md-secondary); margin-right: 6px;"></i> Gün & Saat:</span>
                         <span class="detail-value">${escapeHtml(item.day || '-')} - ${escapeHtml(item.time || '-')}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">Hoca:</span>
+                        <span class="detail-label"><i class="fa-solid fa-user-tie" style="color: var(--md-secondary); margin-right: 6px;"></i> Hoca:</span>
                         <span class="detail-value">${escapeHtml(item.teacher || '-')}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label">Kurum / Dernek:</span>
+                        <span class="detail-label"><i class="fa-solid fa-building" style="color: var(--md-secondary); margin-right: 6px;"></i> Kurum / Dernek:</span>
                         <span class="detail-value">${escapeHtml(item.organization || '-')}</span>
                     </div>
                 </div>
@@ -1564,6 +1702,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (list) list.classList.remove('hidden');
     }
 
+    function initFilterListeners() {
+        document.getElementById('filter-search')?.addEventListener('input', applyFilters);
+        document.getElementById('filter-district')?.addEventListener('change', applyFilters);
+        document.getElementById('filter-day')?.addEventListener('change', applyFilters);
+        document.getElementById('filter-status')?.addEventListener('change', applyFilters);
+        document.getElementById('filter-source')?.addEventListener('change', applyFilters);
+        
+        document.getElementById('filter-clear-btn')?.addEventListener('click', () => {
+            const searchInput = document.getElementById('filter-search');
+            if (searchInput) searchInput.value = '';
+
+            const districtSelect = document.getElementById('filter-district');
+            if (districtSelect) districtSelect.value = '';
+
+            const daySelect = document.getElementById('filter-day');
+            if (daySelect) daySelect.value = '';
+
+            const statusSelect = document.getElementById('filter-status');
+            if (statusSelect) statusSelect.value = '';
+
+            const sourceSelect = document.getElementById('filter-source');
+            if (sourceSelect) sourceSelect.value = '';
+
+            applyFilters();
+        });
+    }
+
     // Primary Tab Switcher (Öneriler vs. Programlar)
     function initMainNavigation() {
         const tabSuggestions = document.getElementById('main-tab-suggestions');
@@ -1590,6 +1755,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Initial Load
+    initFilterListeners();
     initMainNavigation();
     initTabs();
     loadData();
