@@ -227,7 +227,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 district: district,
                 day: day,
                 time: time,
-                teacher: teacher || null,
+                speaker: teacher || null,
                 organization: organization || null,
                 women_friendly: womenFriendly,
                 address: address,
@@ -236,7 +236,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 contact_name: contactName || null,
                 contact_phone: contactPhone || null,
                 photo_url: photoUrl || null,
-                status: 'pending' // Required for admin review
+                status: 'pending', // Required for admin review
+                source: 'web_form'
             };
 
             console.log("Inserting suggestion data:", suggestionPayload);
