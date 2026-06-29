@@ -455,6 +455,133 @@
         </div>
     </div>
 
+    <!-- Edit Program Modal (Program Düzenleme Modalı - Paket H4) -->
+    <div id="edit-program-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-pen-to-square"></i>
+                    <div>
+                        <h3>Program Düzenle</h3>
+                        <span id="edit-program-source-badge" class="category-badge" style="background-color: var(--md-primary-container); color: var(--md-primary); font-size: 12px; display: inline-block;">Kaynak</span>
+                    </div>
+                </div>
+                <button id="edit-program-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="edit-program-form" class="edit-form-grid" onsubmit="return false;">
+                    <!-- Sadece Okunabilir Alanlar -->
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-fingerprint"></i> Program ID (Sadece Okunabilir)</label>
+                        <input type="text" id="edit-program-id" class="form-control" style="background-color: #f5f5f5; cursor: not-allowed;" readonly>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-link"></i> Öneri ID (Sadece Okunabilir)</label>
+                        <input type="text" id="edit-program-suggestion-id" class="form-control" style="background-color: #f5f5f5; cursor: not-allowed;" readonly placeholder="Bağlı öneri yok">
+                    </div>
+                    
+                    <!-- Düzenlenebilir Alanlar -->
+                    <div class="form-group">
+                        <label for="edit-program-name-input"><i class="fa-solid fa-file-invoice"></i> Program Adı *</label>
+                        <input type="text" id="edit-program-name-input" class="form-control" placeholder="Örn: Tefsir Sohbeti" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-venue-name"><i class="fa-solid fa-mosque"></i> Mekân Adı *</label>
+                        <input type="text" id="edit-program-venue-name" class="form-control" placeholder="Örn: Orhan Camii" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-city"><i class="fa-solid fa-city"></i> İl *</label>
+                        <input type="text" id="edit-program-city" class="form-control" value="Sakarya" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
+                        <input type="text" id="edit-program-district" class="form-control" placeholder="Örn: Adapazarı" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-day"><i class="fa-regular fa-calendar-days"></i> Gün *</label>
+                        <input type="text" id="edit-program-day" class="form-control" placeholder="Örn: Her Pazar" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-time"><i class="fa-regular fa-clock"></i> Saat *</label>
+                        <input type="text" id="edit-program-time" class="form-control" placeholder="Örn: 14:00" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-teacher"><i class="fa-solid fa-user-tie"></i> Hoca</label>
+                        <input type="text" id="edit-program-teacher" class="form-control" placeholder="Örn: Ahmet Hoca">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-organization"><i class="fa-solid fa-building"></i> Kurum / Dernek</label>
+                        <input type="text" id="edit-program-organization" class="form-control" placeholder="Örn: İlim Yayma Cemiyeti">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-ladies"><i class="fa-solid fa-person-dress"></i> Hanımlara Uygun mu?</label>
+                        <select id="edit-program-ladies" class="form-control">
+                            <option value="false">Belirtilmemiş / Hayır</option>
+                            <option value="true">Evet (Hanımlara Uygundur)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-status"><i class="fa-solid fa-circle-info"></i> Yayın Durumu *</label>
+                        <select id="edit-program-status" class="form-control" required>
+                            <option value="active">Aktif</option>
+                            <option value="passive">Pasif</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-photo-url"><i class="fa-solid fa-image"></i> Fotoğraf Linki</label>
+                        <input type="url" id="edit-program-photo-url" class="form-control" placeholder="Örn: https://...">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-logo-url"><i class="fa-solid fa-building-columns"></i> Logo Linki</label>
+                        <input type="url" id="edit-program-logo-url" class="form-control" placeholder="Örn: https://...">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-contact-name"><i class="fa-solid fa-user"></i> Yetkili / Gönderen</label>
+                        <input type="text" id="edit-program-contact-name" class="form-control" placeholder="Örn: Mehmet Bey">
+                    </div>
+                    <div class="form-group">
+                        <label for="edit-program-contact-phone"><i class="fa-solid fa-phone"></i> Telefon / WhatsApp</label>
+                        <input type="text" id="edit-program-contact-phone" class="form-control" placeholder="Örn: 05xx xxx xx xx">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="edit-program-google-maps-link"><i class="fa-solid fa-map-pin"></i> Google Maps Linki</label>
+                        <input type="url" id="edit-program-google-maps-link" class="form-control" placeholder="Örn: https://maps.app.goo.gl/...">
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="edit-program-address"><i class="fa-solid fa-map-location-dot"></i> Açık Adres</label>
+                        <textarea id="edit-program-address" class="form-control" rows="2" placeholder="Sokak, mahalle, no detayları..."></textarea>
+                    </div>
+                    <div class="form-group full-width">
+                        <label for="edit-program-description"><i class="fa-solid fa-align-left"></i> Açıklama</label>
+                        <textarea id="edit-program-description" class="form-control" rows="3" placeholder="Program içeriği, detaylar..."></textarea>
+                    </div>
+                    
+                    <!-- Sadece Okunabilir Küçük Bilgiler -->
+                    <div class="form-group full-width" style="margin-top: 10px; padding: 12px; background-color: rgba(0,0,0,0.02); border-radius: var(--radius-sm); border: 1px solid var(--md-outline);">
+                        <p style="font-size: 13px; color: var(--md-on-surface-variant); margin: 0; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+                            <span id="edit-program-created-at-display">Oluşturulma Tarihi: -</span>
+                            <span id="edit-program-updated-at-display">Güncellenme Tarihi: -</span>
+                        </p>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-container">
+                    <div class="footer-actions-left">
+                        <button id="edit-program-btn-save" class="btn btn-action btn-save">
+                            <i class="fa-solid fa-floppy-disk"></i> Kaydet
+                        </button>
+                        <button id="edit-program-btn-cancel" class="btn btn-action btn-cancel">
+                            <i class="fa-solid fa-ban"></i> Vazgeç
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Program Modal (Yeni Program Ekle Modalı) -->
     <div id="add-modal" class="modal-overlay hidden">
         <div class="modal-card">
