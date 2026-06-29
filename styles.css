@@ -505,6 +505,13 @@ select.form-control {
     color: var(--danger-color);
 }
 
+#other-org-container {
+    margin-top: 10px;
+}
+#other-org-container:not(.hidden) {
+    animation: fadeIn 0.25s ease-out forwards;
+}
+
 /* Footer styling */
 .admin-footer {
     background-color: var(--accent-light);
