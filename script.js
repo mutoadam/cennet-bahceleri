@@ -224,7 +224,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const suggestionPayload = {
                 program_name: programName,
                 venue_name: venueName,
-                city: 'Sakarya',
                 district: district,
                 day: day,
                 time: time,
