@@ -2,6 +2,7 @@
   Cennet Bahçeleri - Yönetim Paneli Özel CSS (admin.css)
   Tasarım Dili: Modern Material 3 (M3) & Yaşlı Dostu Erişilebilirlik
   Renk Paleti: Güleryüzlü ve Güven Veren Yeşil, Sıcak Krem ve Altın Tonları
+  Sürüm: v2.1 (Paket H5.1 - Filtre Düzenlemeleri Uyumlu)
 */
 
 :root {
@@ -1633,3 +1634,270 @@ body {
     cursor: not-allowed;
     pointer-events: none;
 }
+
+/* Card Delete Button Styles (Paket H6) */
+.btn-delete-program {
+    background-color: var(--md-error-container) !important;
+    color: var(--md-error) !important;
+    border: 1px solid rgba(186, 26, 26, 0.2) !important;
+    font-size: 14px;
+    padding: 8px 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: var(--transition);
+}
+.btn-delete-program:hover {
+    background-color: var(--md-error) !important;
+    color: white !important;
+    box-shadow: 0 4px 6px rgba(186, 26, 26, 0.15);
+}
+
+/* ==========================================
+   Programs View Selector (Paket H5.2)
+   ========================================== */
+.view-selector-container {
+    display: inline-flex;
+    background-color: var(--md-surface);
+    border: 1px solid var(--md-outline);
+    border-radius: var(--radius-md);
+    padding: 4px;
+    gap: 4px;
+}
+
+.view-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-sm);
+    color: var(--md-on-surface-variant);
+    font-family: var(--font-family);
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: var(--transition);
+    min-height: 40px;
+}
+
+.view-btn:hover {
+    background-color: var(--md-primary-container);
+    color: var(--md-primary);
+}
+
+.view-btn.active {
+    background-color: var(--md-primary);
+    color: white;
+}
+
+@media (max-width: 992px) {
+    .view-selector-container {
+        order: 3;
+        width: 100%;
+        justify-content: space-around;
+        margin-top: 10px;
+    }
+}
+
+@media (max-width: 576px) {
+    .view-selector-container {
+        width: 100%;
+        justify-content: space-between;
+    }
+    .view-btn {
+        flex: 1;
+        justify-content: center;
+        padding: 8px 4px;
+        font-size: 12px;
+    }
+    .view-btn span {
+        display: none; /* Hide text on mobile to fit screen */
+    }
+}
+
+/* Responsive Grid for Card View */
+#programs-list.view-card {
+    display: grid !important;
+    grid-template-columns: repeat(5, 1fr) !important;
+    gap: 20px !important;
+}
+
+@media (max-width: 1400px) {
+    #programs-list.view-card {
+        grid-template-columns: repeat(4, 1fr) !important;
+    }
+}
+
+@media (max-width: 1100px) {
+    #programs-list.view-card {
+        grid-template-columns: repeat(3, 1fr) !important;
+    }
+}
+
+@media (max-width: 850px) {
+    #programs-list.view-card {
+        grid-template-columns: repeat(2, 1fr) !important;
+    }
+}
+
+@media (max-width: 576px) {
+    #programs-list.view-card {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Table Style for List and Compact Views */
+.programs-table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    background-color: var(--md-surface-card);
+    border: 1px solid var(--md-outline);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+    margin-top: 20px;
+}
+
+.programs-admin-table {
+    width: 100%;
+    border-collapse: collapse;
+    text-align: left;
+    font-family: var(--font-family);
+    color: var(--md-on-surface);
+}
+
+.programs-admin-table th,
+.programs-admin-table td {
+    border-bottom: 1px solid var(--md-outline);
+    vertical-align: middle;
+}
+
+/* List View Customizations */
+.list-view-table th {
+    background-color: var(--md-primary-container);
+    color: var(--md-primary);
+    font-weight: 700;
+    font-size: 14px;
+    padding: 14px 16px;
+    white-space: nowrap;
+}
+
+.list-view-table td {
+    padding: 14px 16px;
+    font-size: 15px;
+}
+
+.list-view-table tr:hover {
+    background-color: #faf9f6;
+}
+
+.list-view-table .table-program-name {
+    font-weight: 700;
+    color: var(--md-primary);
+    font-size: 16px;
+}
+
+.list-view-table .table-venue-name {
+    font-weight: 500;
+    color: var(--md-on-surface-variant);
+    font-size: 14px;
+}
+
+/* Compact View Customizations */
+.compact-view-table th {
+    background-color: #f1ebd9;
+    color: var(--md-on-secondary-container);
+    font-weight: 700;
+    font-size: 12px;
+    padding: 8px 10px;
+    text-transform: uppercase;
+}
+
+.compact-view-table td {
+    padding: 6px 10px;
+    font-size: 13px;
+    border-right: 1px dashed rgba(210, 203, 190, 0.6); /* vertical separator like "|" */
+}
+
+.compact-view-table td:last-child {
+    border-right: none;
+}
+
+.compact-view-table tr:hover {
+    background-color: #f7f5ee;
+}
+
+.compact-view-table .table-program-name {
+    font-weight: 700;
+    color: var(--md-primary);
+}
+
+/* Actions styling inside tables */
+.table-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: nowrap;
+}
+
+.table-actions .btn-status-toggle {
+    min-height: 32px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+}
+
+.table-actions .btn-table-delete {
+    min-height: 32px;
+    padding: 4px 10px;
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: var(--radius-sm);
+    background-color: var(--md-error-container);
+    color: var(--md-error);
+    border: 1px solid rgba(186, 26, 26, 0.2);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    transition: var(--transition);
+}
+
+.table-actions .btn-table-delete:hover {
+    background-color: var(--md-error);
+    color: white;
+}
+
+.table-actions .btn-table-edit {
+    background: transparent;
+    border: none;
+    color: var(--md-secondary);
+    cursor: pointer;
+    font-size: 16px;
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-sm);
+    transition: var(--transition);
+}
+
+.table-actions .btn-table-edit:hover {
+    background-color: var(--md-secondary-container);
+    color: var(--md-secondary-hover);
+}
+
+/* Extra small badges for compact view */
+.compact-view-table .status-badge {
+    padding: 2px 6px;
+    font-size: 11px;
+}
+
+.compact-view-table .source-badge {
+    padding: 2px 6px;
+    font-size: 10px;
+}
+
