@@ -2068,4 +2068,81 @@ body {
     animation: spin 0.8s linear infinite;
 }
 
+/* Kurum Kartları Özel CSS Kuralları */
+.org-card {
+    transition: var(--transition);
+}
+
+.org-card-inactive {
+    opacity: 0.65;
+    border-style: dashed;
+    background-color: #f7f5f2;
+}
+
+.org-logo-wrapper {
+    position: relative;
+    width: 64px;
+    height: 64px;
+    border-radius: var(--radius-full);
+    border: 2px solid var(--md-outline);
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #ffffff;
+    box-shadow: var(--shadow-sm);
+}
+
+.org-logo-wrapper img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.org-logo-placeholder {
+    width: 100%;
+    height: 100%;
+    background-color: var(--md-primary-container);
+    color: var(--md-primary);
+    font-weight: 700;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: -0.5px;
+}
+
+.org-card-main-content {
+    display: flex;
+    gap: 16px;
+    align-items: center;
+    margin: 16px 0;
+}
+
+.org-card-text-area {
+    flex: 1;
+}
+
+.org-link-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    background-color: var(--md-primary-container);
+    color: var(--md-primary) !important;
+    font-size: 16px;
+    transition: var(--transition);
+    border: 1px solid rgba(27, 67, 50, 0.1);
+}
+
+.org-link-icon:hover {
+    background-color: var(--md-secondary) !important;
+    color: white !important;
+    transform: scale(1.1);
+    border-color: transparent;
+}
+
 
