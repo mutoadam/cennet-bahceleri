@@ -1586,6 +1586,54 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (programs.length === 0) {
+            const emptyContainer = document.getElementById('programs-empty-container');
+            if (emptyContainer) {
+                if (loadedPrograms.length > 0) {
+                    const searchQuery = document.getElementById('filter-search')?.value.trim() || '';
+                    const selectedDistrict = document.getElementById('filter-district')?.value || '';
+                    const selectedDay = document.getElementById('filter-day')?.value || '';
+                    const selectedStatus = document.getElementById('filter-status')?.value || '';
+                    const selectedSource = document.getElementById('filter-source')?.value || '';
+
+                    let activeFiltersHtml = '';
+                    if (searchQuery) activeFiltersHtml += `<span class="active-filter-badge">Arama: "${escapeHtml(searchQuery)}"</span>`;
+                    if (selectedDistrict) activeFiltersHtml += `<span class="active-filter-badge">İlçe: ${escapeHtml(selectedDistrict)}</span>`;
+                    if (selectedDay) activeFiltersHtml += `<span class="active-filter-badge">Gün: ${escapeHtml(selectedDay)}</span>`;
+                    if (selectedStatus) {
+                        const statusText = selectedStatus === 'active' ? 'Aktif' : 'Pasif';
+                        activeFiltersHtml += `<span class="active-filter-badge">Durum: ${statusText}</span>`;
+                    }
+                    if (selectedSource) {
+                        let sourceText = 'Tüm Kaynaklar';
+                        if (selectedSource === 'app_migration') sourceText = 'APP';
+                        else if (selectedSource === 'admin_manual') sourceText = 'MANUEL';
+                        else if (selectedSource === 'suggestion') sourceText = 'ÖNERİ';
+                        else if (selectedSource === 'unknown') sourceText = 'KAYNAK YOK';
+                        activeFiltersHtml += `<span class="active-filter-badge">Kaynak: ${sourceText}</span>`;
+                    }
+
+                    emptyContainer.innerHTML = `
+                        <i class="fa-solid fa-filter-circle-xmark state-icon" style="color: var(--md-secondary); font-size: 48px;"></i>
+                        <h4>Filtreye uygun program bulunamadı.</h4>
+                        <p style="margin-bottom: 15px; color: var(--md-on-surface-variant);">Seçili filtreleri temizleyerek tüm programları tekrar görüntüleyebilirsiniz.</p>
+                        ${activeFiltersHtml ? `<div class="active-filters-container" style="display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; margin-bottom: 20px;">${activeFiltersHtml}</div>` : ''}
+                        <button id="empty-clear-filters-btn" class="btn btn-secondary btn-sm" style="border-radius: var(--radius-md);"><i class="fa-solid fa-filter-circle-xmark"></i> Filtreleri Temizle</button>
+                    `;
+
+                    const clearBtn = emptyContainer.querySelector('#empty-clear-filters-btn');
+                    if (clearBtn) {
+                        clearBtn.addEventListener('click', () => {
+                            document.getElementById('filter-clear-btn')?.click();
+                        });
+                    }
+                } else {
+                    emptyContainer.innerHTML = `
+                        <i class="fa-solid fa-clipboard-question state-icon"></i>
+                        <h4>Şu anda kayıtlı program bulunmuyor.</h4>
+                        <p>Veri tabanında kayıtlı herhangi bir program bulunmamaktadır.</p>
+                    `;
+                }
+            }
             showProgramsEmpty();
             return;
         }
@@ -1620,7 +1668,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
                         ${ladiesMarkup}
                     </div>
-                    <button class="btn-card-edit" title="Düzenleme H4 paketinde eklenecek" disabled>
+                    <button class="btn-card-edit" title="Program düzenleme H4 paketinde aktif olacaktır." disabled>
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
                 </div>
@@ -1630,19 +1678,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 <div class="details-grid">
                     <div class="detail-item">
-                        <span class="detail-label"><i class="fa-solid fa-location-dot" style="color: var(--md-secondary); margin-right: 6px;"></i> İlçe:</span>
+                        <span class="detail-label">📍 İlçe:</span>
                         <span class="detail-value">${escapeHtml(item.district || '-')}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label"><i class="fa-regular fa-clock" style="color: var(--md-secondary); margin-right: 6px;"></i> Gün & Saat:</span>
+                        <span class="detail-label">🕒 Gün & Saat:</span>
                         <span class="detail-value">${escapeHtml(item.day || '-')} - ${escapeHtml(item.time || '-')}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label"><i class="fa-solid fa-user-tie" style="color: var(--md-secondary); margin-right: 6px;"></i> Hoca:</span>
+                        <span class="detail-label">👤 Hoca:</span>
                         <span class="detail-value">${escapeHtml(item.teacher || '-')}</span>
                     </div>
                     <div class="detail-item">
-                        <span class="detail-label"><i class="fa-solid fa-building" style="color: var(--md-secondary); margin-right: 6px;"></i> Kurum / Dernek:</span>
+                        <span class="detail-label">🏢 Kurum / Dernek:</span>
                         <span class="detail-value">${escapeHtml(item.organization || '-')}</span>
                     </div>
                 </div>
