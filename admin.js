@@ -1043,6 +1043,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.key === 'Escape') {
             closeInspectModal();
             closeAddModal();
+            if (typeof closeProgramEditModal === 'function') {
+                closeProgramEditModal();
+            }
         }
     });
 
@@ -1668,7 +1671,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
                         ${ladiesMarkup}
                     </div>
-                    <button class="btn-card-edit" title="Program düzenleme H4 paketinde aktif olacaktır." disabled>
+                    <button class="btn-card-edit" title="Programı Düzenle">
                         <i class="fa-solid fa-pen-to-square"></i>
                     </button>
                 </div>
@@ -1697,6 +1700,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 ${photoMarkup}
             `;
+
+            // Bind click event to card edit button (Paket H4)
+            const cardEditBtn = card.querySelector('.btn-card-edit');
+            if (cardEditBtn) {
+                cardEditBtn.addEventListener('click', () => {
+                    openProgramEditModal(item);
+                });
+            }
 
             programsList.appendChild(card);
         });
@@ -1801,6 +1812,397 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
+    // Primary Tab Switcher (Öneriler vs. Programlar)
+    function initMainNavigation() {
+        const tabSuggestions = document.getElementById('main-tab-suggestions');
+        const tabPrograms = document.getElementById('main-tab-programs');
+        const suggestionsContent = document.getElementById('suggestions-tab-content');
+        const programsContent = document.getElementById('programs-tab-content');
+
+        if (tabSuggestions && tabPrograms && suggestionsContent && programsContent) {
+            tabSuggestions.addEventListener('click', () => {
+                tabSuggestions.classList.add('active');
+                tabPrograms.classList.remove('active');
+                suggestionsContent.classList.remove('hidden');
+                programsContent.classList.add('hidden');
+            });
+
+            tabPrograms.addEventListener('click', () => {
+                tabPrograms.classList.add('active');
+                tabSuggestions.classList.remove('active');
+                programsContent.classList.remove('hidden');
+                suggestionsContent.classList.add('hidden');
+                loadPrograms();
+            });
+        }
+    }
+
+    // ==========================================================
+    // Program Düzenleme Paneli İşlevleri (Paket H4)
+    // ==========================================================
+    let currentEditProgram = null;
+    let initialProgramState = null;
+
+    function openProgramEditModal(item) {
+        currentEditProgram = item;
+        initialProgramState = JSON.parse(JSON.stringify(item)); // Değişiklikleri izlemek için derin kopya alıyoruz
+
+        // Sadece okunabilir alanlar
+        const idInput = document.getElementById('edit-program-id');
+        if (idInput) idInput.value = item.id || '';
+
+        const suggIdInput = document.getElementById('edit-program-suggestion-id');
+        if (suggIdInput) suggIdInput.value = item.suggestion_id || '';
+
+        // Kaynak Rozeti (Source Mapping)
+        let sourceLabel = 'KAYNAK YOK';
+        if (item.source === 'app_migration') {
+            sourceLabel = 'APP';
+        } else if (item.source === 'admin_manual') {
+            sourceLabel = 'MANUEL';
+        } else if (item.source === 'approved_suggestion' || item.source === 'suggestion') {
+            sourceLabel = 'ÖNERİ';
+        }
+
+        const sourceBadge = document.getElementById('edit-program-source-badge');
+        if (sourceBadge) {
+            sourceBadge.textContent = sourceLabel;
+            // Kaynağa göre renk ayarı
+            if (item.source === 'app_migration') {
+                sourceBadge.style.backgroundColor = '#e3f2fd';
+                sourceBadge.style.color = '#0d47a1';
+            } else if (item.source === 'admin_manual') {
+                sourceBadge.style.backgroundColor = '#e8f5e9';
+                sourceBadge.style.color = '#1b5e20';
+            } else if (item.source === 'approved_suggestion' || item.source === 'suggestion') {
+                sourceBadge.style.backgroundColor = '#fff3e0';
+                sourceBadge.style.color = '#e65100';
+            } else {
+                sourceBadge.style.backgroundColor = '#f5f5f5';
+                sourceBadge.style.color = '#616161';
+            }
+        }
+
+        // Tarih Bilgileri
+        const createdAtDisplay = document.getElementById('edit-program-created-at-display');
+        const updatedAtDisplay = document.getElementById('edit-program-updated-at-display');
+        if (createdAtDisplay) {
+            createdAtDisplay.textContent = `Oluşturulma Tarihi: ${item.created_at ? formatDate(item.created_at) : '-'}`;
+        }
+        if (updatedAtDisplay) {
+            updatedAtDisplay.textContent = `Güncellenme Tarihi: ${item.updated_at ? formatDate(item.updated_at) : '-'}`;
+        }
+
+        // Form alanlarını doldur
+        const nameInput = document.getElementById('edit-program-name-input');
+        if (nameInput) nameInput.value = item.program_name || '';
+
+        const venueInput = document.getElementById('edit-program-venue-name');
+        if (venueInput) venueInput.value = item.venue_name || '';
+
+        const cityInput = document.getElementById('edit-program-city');
+        if (cityInput) cityInput.value = item.city || 'Sakarya';
+
+        const districtInput = document.getElementById('edit-program-district');
+        if (districtInput) districtInput.value = item.district || '';
+
+        const dayInput = document.getElementById('edit-program-day');
+        if (dayInput) dayInput.value = item.day || '';
+
+        const timeInput = document.getElementById('edit-program-time');
+        if (timeInput) timeInput.value = item.time || '';
+
+        const teacherInput = document.getElementById('edit-program-teacher');
+        if (teacherInput) teacherInput.value = item.teacher || '';
+
+        const orgInput = document.getElementById('edit-program-organization');
+        if (orgInput) orgInput.value = item.organization || '';
+
+        const ladiesInput = document.getElementById('edit-program-ladies');
+        if (ladiesInput) ladiesInput.value = item.women_friendly ? 'true' : 'false';
+
+        // Yayın Durumu (status)
+        const statusInput = document.getElementById('edit-program-status');
+        if (statusInput) {
+            const statusVal = (item.status || 'active').toLowerCase();
+            if (statusVal === 'active' || statusVal === 'aktif') {
+                statusInput.value = 'active';
+            } else {
+                statusInput.value = 'passive';
+            }
+        }
+
+        const photoInput = document.getElementById('edit-program-photo-url');
+        if (photoInput) photoInput.value = item.photo_url || '';
+
+        const logoInput = document.getElementById('edit-program-logo-url');
+        if (logoInput) logoInput.value = item.logo_url || '';
+
+        const contactNameInput = document.getElementById('edit-program-contact-name');
+        if (contactNameInput) contactNameInput.value = item.contact_name || '';
+
+        const contactPhoneInput = document.getElementById('edit-program-contact-phone');
+        if (contactPhoneInput) contactPhoneInput.value = item.contact_phone || '';
+
+        const mapsInput = document.getElementById('edit-program-google-maps-link');
+        if (mapsInput) mapsInput.value = item.google_maps_link || '';
+
+        const addressInput = document.getElementById('edit-program-address');
+        if (addressInput) addressInput.value = item.address || '';
+
+        const descInput = document.getElementById('edit-program-description');
+        if (descInput) descInput.value = item.description || '';
+
+        // Modalı göster
+        const modal = document.getElementById('edit-program-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = "hidden";
+        }
+    }
+
+    function closeProgramEditModal(force = false) {
+        if (!force && hasProgramChanges()) {
+            const confirmExit = confirm("Kaydedilmemiş değişiklikler var. Çıkmak istiyor musunuz?");
+            if (!confirmExit) return;
+        }
+
+        const modal = document.getElementById('edit-program-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = "";
+        }
+        currentEditProgram = null;
+        initialProgramState = null;
+    }
+
+    function hasProgramChanges() {
+        if (!initialProgramState) return false;
+
+        const program_name = document.getElementById('edit-program-name-input')?.value.trim() || '';
+        const venue_name = document.getElementById('edit-program-venue-name')?.value.trim() || '';
+        const city = document.getElementById('edit-program-city')?.value.trim() || 'Sakarya';
+        const district = document.getElementById('edit-program-district')?.value.trim() || '';
+        const day = document.getElementById('edit-program-day')?.value.trim() || '';
+        const time = document.getElementById('edit-program-time')?.value.trim() || '';
+        const teacher = document.getElementById('edit-program-teacher')?.value.trim() || '';
+        const organization = document.getElementById('edit-program-organization')?.value.trim() || '';
+        const women_friendly = document.getElementById('edit-program-ladies')?.value === 'true';
+        const status = document.getElementById('edit-program-status')?.value || 'active';
+        const photo_url = document.getElementById('edit-program-photo-url')?.value.trim() || '';
+        const logo_url = document.getElementById('edit-program-logo-url')?.value.trim() || '';
+        const contact_name = document.getElementById('edit-program-contact-name')?.value.trim() || '';
+        const contact_phone = document.getElementById('edit-program-contact-phone')?.value.trim() || '';
+        const google_maps_link = document.getElementById('edit-program-google-maps-link')?.value.trim() || '';
+        const address = document.getElementById('edit-program-address')?.value.trim() || '';
+        const description = document.getElementById('edit-program-description')?.value.trim() || '';
+
+        return (
+            program_name !== (initialProgramState.program_name || '') ||
+            venue_name !== (initialProgramState.venue_name || '') ||
+            city !== (initialProgramState.city || 'Sakarya') ||
+            district !== (initialProgramState.district || '') ||
+            day !== (initialProgramState.day || '') ||
+            time !== (initialProgramState.time || '') ||
+            teacher !== (initialProgramState.teacher || '') ||
+            organization !== (initialProgramState.organization || '') ||
+            women_friendly !== (!!initialProgramState.women_friendly) ||
+            status !== (initialProgramState.status || 'active') ||
+            photo_url !== (initialProgramState.photo_url || '') ||
+            logo_url !== (initialProgramState.logo_url || '') ||
+            contact_name !== (initialProgramState.contact_name || '') ||
+            contact_phone !== (initialProgramState.contact_phone || '') ||
+            google_maps_link !== (initialProgramState.google_maps_link || '') ||
+            address !== (initialProgramState.address || '') ||
+            description !== (initialProgramState.description || '')
+        );
+    }
+
+    async function handleProgramEditSave() {
+        if (!supabaseClient || !currentEditProgram) return;
+
+        const program_name = document.getElementById('edit-program-name-input').value.trim();
+        const venue_name = document.getElementById('edit-program-venue-name').value.trim();
+        const city = document.getElementById('edit-program-city').value.trim() || 'Sakarya';
+        const district = document.getElementById('edit-program-district').value.trim();
+        const day = document.getElementById('edit-program-day').value.trim();
+        const time = document.getElementById('edit-program-time').value.trim();
+
+        // Basit form validasyonu
+        if (!program_name) {
+            showToast("Program adı zorunludur.", "error");
+            return;
+        }
+        if (!venue_name) {
+            showToast("Mekân adı zorunludur.", "error");
+            return;
+        }
+        if (!city) {
+            showToast("İl alanı zorunludur.", "error");
+            return;
+        }
+        if (!district) {
+            showToast("İlçe zorunludur.", "error");
+            return;
+        }
+        if (!day) {
+            showToast("Gün zorunludur.", "error");
+            return;
+        }
+        if (!time) {
+            showToast("Saat zorunludur.", "error");
+            return;
+        }
+
+        const teacher = document.getElementById('edit-program-teacher').value.trim();
+        const organization = document.getElementById('edit-program-organization').value.trim();
+        const women_friendly = document.getElementById('edit-program-ladies').value === 'true';
+        const status = document.getElementById('edit-program-status').value;
+        const photo_url = document.getElementById('edit-program-photo-url').value.trim();
+        const logo_url = document.getElementById('edit-program-logo-url').value.trim();
+        const contact_name = document.getElementById('edit-program-contact-name').value.trim();
+        const contact_phone = document.getElementById('edit-program-contact-phone').value.trim();
+        const google_maps_link = document.getElementById('edit-program-google-maps-link').value.trim();
+        const address = document.getElementById('edit-program-address').value.trim();
+        const description = document.getElementById('edit-program-description').value.trim();
+
+        const saveBtn = document.getElementById('edit-program-btn-save');
+        const cancelBtn = document.getElementById('edit-program-btn-cancel');
+
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.classList.add('disabled');
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = true;
+            cancelBtn.classList.add('disabled');
+        }
+
+        const originalSaveHTML = saveBtn ? saveBtn.innerHTML : '';
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kaydediliyor...';
+        }
+
+        try {
+            // Güvenli payload oluşturulması
+            const updatePayload = {
+                program_name,
+                venue_name,
+                city,
+                district,
+                day,
+                time,
+                teacher,
+                organization,
+                women_friendly,
+                status,
+                photo_url,
+                logo_url,
+                contact_name,
+                contact_phone,
+                google_maps_link,
+                address,
+                description,
+                updated_at: new Date().toISOString()
+            };
+
+            console.log("Updating program payload:", updatePayload);
+
+            let attempt = 0;
+            let success = false;
+            let responseData = null;
+            let responseError = null;
+
+            while (attempt < 5) {
+                console.log(`Program update attempt #${attempt + 1}, Payload:`, updatePayload);
+                const { data, error } = await supabaseClient
+                    .from('programs')
+                    .update(updatePayload)
+                    .eq('id', currentEditProgram.id)
+                    .select();
+
+                if (!error) {
+                    responseData = data;
+                    success = true;
+                    break;
+                }
+
+                responseError = error;
+                console.warn(`Program update attempt #${attempt + 1} failed:`, error);
+
+                // Hata mesajını analiz edip bilinmeyen kolonları otomatik olarak kaldır
+                const errMsg = (error.message || '').toLowerCase();
+                let columnRemoved = false;
+
+                const quoteMatches = errMsg.match(/['"`]([a-z0-9_]+)['"`]/g) || [];
+                const extractedWords = quoteMatches.map(m => m.replace(/['"`]/g, ''));
+                const allWords = errMsg.split(/[^a-z0-9_]/);
+                const candidates = new Set([...extractedWords, ...allWords]);
+
+                for (const key of Object.keys(updatePayload)) {
+                    if (candidates.has(key.toLowerCase()) || errMsg.includes(key.toLowerCase())) {
+                        console.log(`Detected offending column '${key}' in programs error message, removing from update payload.`);
+                        delete updatePayload[key];
+                        columnRemoved = true;
+                    }
+                }
+
+                if (!columnRemoved) {
+                    // Hiçbir kolon doğrudan eşleşmiyorsa sırayla opsiyonel alanları kaldır
+                    const optionalKeys = ['logo_url', 'updated_at', 'photo_url', 'contact_name', 'contact_phone', 'google_maps_link', 'address', 'description', 'teacher', 'organization'];
+                    for (const optKey of optionalKeys) {
+                        if (optKey in updatePayload) {
+                            console.log(`Removing optional column '${optKey}' from programs update as fallback.`);
+                            delete updatePayload[optKey];
+                            columnRemoved = true;
+                            break;
+                        }
+                    }
+                }
+
+                if (!columnRemoved) {
+                    break;
+                }
+                attempt++;
+            }
+
+            if (!success) {
+                throw responseError;
+            }
+
+            showToast("Program başarıyla güncellendi.", "success");
+            closeProgramEditModal(true); // Değişiklik onayını bypass et
+
+            // Listeyi yenile
+            await loadPrograms();
+
+        } catch (error) {
+            console.error('Program güncellenirken hata oluştu:', error);
+            showToast("Program güncellenirken hata oluştu.", "error");
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('disabled');
+                saveBtn.innerHTML = originalSaveHTML;
+            }
+            if (cancelBtn) {
+                cancelBtn.disabled = false;
+                cancelBtn.classList.remove('disabled');
+            }
+        }
+    }
+
+    // Modal Kapatma Dinleyicileri
+    document.getElementById('edit-program-modal-close-top')?.addEventListener('click', () => closeProgramEditModal());
+    document.getElementById('edit-program-btn-cancel')?.addEventListener('click', () => closeProgramEditModal());
+    document.getElementById('edit-program-btn-save')?.addEventListener('click', () => handleProgramEditSave());
+
+    document.getElementById('edit-program-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'edit-program-modal') {
+            closeProgramEditModal();
+        }
+    });
 
     // Initial Load
     initFilterListeners();
