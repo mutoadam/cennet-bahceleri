@@ -24,6 +24,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
     let supabaseClient = null;
 
+    // Organization Toggle Logic
+    const organizationSelect = document.getElementById('organization');
+    const otherOrgContainer = document.getElementById('other-org-container');
+    const otherOrganizationInput = document.getElementById('other_organization');
+
+    if (organizationSelect && otherOrgContainer) {
+        organizationSelect.addEventListener('change', () => {
+            if (organizationSelect.value === 'Diğer') {
+                otherOrgContainer.classList.remove('hidden');
+                otherOrganizationInput.required = true;
+            } else {
+                otherOrgContainer.classList.add('hidden');
+                otherOrganizationInput.required = false;
+                otherOrganizationInput.value = '';
+            }
+        });
+    }
+
     // 1. Initialize Supabase Client
     function initSupabase() {
         try {
@@ -135,7 +153,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const day = document.getElementById('day').value;
         const time = document.getElementById('time').value.trim();
         const teacher = document.getElementById('teacher').value.trim();
-        const organization = document.getElementById('organization').value.trim();
+        
+        let organization = null;
+        const orgSelectValue = document.getElementById('organization').value;
+        if (orgSelectValue === 'Diğer') {
+            const otherVal = document.getElementById('other_organization').value.trim();
+            if (!otherVal) {
+                showError('Diğer kurum adını yazınız');
+                return;
+            }
+            organization = otherVal;
+        } else if (orgSelectValue) {
+            organization = orgSelectValue;
+        }
+
         const womenFriendly = document.getElementById('women_friendly').value === 'true';
         const googleMapsLink = document.getElementById('google_maps_link').value.trim();
         const address = document.getElementById('address').value.trim();
@@ -254,6 +285,14 @@ document.addEventListener('DOMContentLoaded', () => {
     newSuggestionBtn.addEventListener('click', () => {
         // Reset form inputs
         suggestionForm.reset();
+
+        // Hide conditional organization fields on reset
+        if (otherOrgContainer) {
+            otherOrgContainer.classList.add('hidden');
+        }
+        if (otherOrganizationInput) {
+            otherOrganizationInput.required = false;
+        }
 
         // Switch screens (HIDE Success, SHOW Form & Hero)
         successSection.classList.add('hidden');
