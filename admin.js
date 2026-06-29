@@ -3498,6 +3498,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Kurumlar (Organizations) Yönetim Paneli Modülü (H9-D)
     // ==========================================================
     let loadedOrganizations = [];
+    let detectedOrgColumns = [];
 
     // Türkçe Karakter Normalizasyonu ve Slug Oluşturucu
     function generateSlug(text) {
@@ -3561,6 +3562,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (error) throw error;
 
             loadedOrganizations = data || [];
+            if (loadedOrganizations.length > 0) {
+                detectedOrgColumns = Object.keys(loadedOrganizations[0]);
+                console.log("Detected organizations table columns:", detectedOrgColumns);
+            }
             // Türkçe sıralama
             loadedOrganizations.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
 
@@ -3627,24 +3632,30 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Sosyal ve Bağlantı İkonları
             let linksHtml = '';
-            if (org.website) {
-                linksHtml += `<a href="${escapeHtml(org.website)}" target="_blank" class="org-link-icon" title="Website"><i class="fa-solid fa-globe"></i></a>`;
+            const websiteVal = org.website_url || org.website || '';
+            const instagramVal = org.instagram_url || org.instagram || '';
+            const youtubeVal = org.youtube_url || org.youtube || '';
+            const whatsappVal = org.whatsapp_url || org.whatsapp || '';
+            const googleMapsVal = org.google_maps || org.google_maps_url || org.maps_link || '';
+
+            if (websiteVal) {
+                linksHtml += `<a href="${escapeHtml(websiteVal)}" target="_blank" class="org-link-icon" title="Website"><i class="fa-solid fa-globe"></i></a>`;
             }
-            if (org.instagram) {
-                const igUrl = org.instagram.startsWith('http') ? org.instagram : `https://instagram.com/${org.instagram}`;
+            if (instagramVal) {
+                const igUrl = instagramVal.startsWith('http') ? instagramVal : `https://instagram.com/${instagramVal}`;
                 linksHtml += `<a href="${escapeHtml(igUrl)}" target="_blank" class="org-link-icon" title="Instagram"><i class="fa-brands fa-instagram"></i></a>`;
             }
-            if (org.youtube) {
-                const ytUrl = org.youtube.startsWith('http') ? org.youtube : `https://youtube.com/${org.youtube}`;
+            if (youtubeVal) {
+                const ytUrl = youtubeVal.startsWith('http') ? youtubeVal : `https://youtube.com/${youtubeVal}`;
                 linksHtml += `<a href="${escapeHtml(ytUrl)}" target="_blank" class="org-link-icon" title="YouTube"><i class="fa-brands fa-youtube"></i></a>`;
             }
-            if (org.whatsapp) {
-                const cleanWa = org.whatsapp.replace(/\D/g, '');
+            if (whatsappVal) {
+                const cleanWa = whatsappVal.replace(/\D/g, '');
                 const waUrl = `https://wa.me/${cleanWa.startsWith('90') || cleanWa.length > 10 ? cleanWa : '90' + cleanWa}`;
                 linksHtml += `<a href="${escapeHtml(waUrl)}" target="_blank" class="org-link-icon" title="WhatsApp"><i class="fa-brands fa-whatsapp"></i></a>`;
             }
-            if (org.google_maps) {
-                linksHtml += `<a href="${escapeHtml(org.google_maps)}" target="_blank" class="org-link-icon" title="Google Maps"><i class="fa-solid fa-map-location-dot"></i></a>`;
+            if (googleMapsVal) {
+                linksHtml += `<a href="${escapeHtml(googleMapsVal)}" target="_blank" class="org-link-icon" title="Google Maps"><i class="fa-solid fa-map-location-dot"></i></a>`;
             }
 
             const statusActionText = org.status === 'active' ? 'Pasife Al' : 'Aktif Et';
@@ -3728,11 +3739,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (nameInput) nameInput.value = org.name || '';
             if (slugInput) slugInput.value = org.slug || '';
             if (logoUrlInput) logoUrlInput.value = org.logo_url || '';
-            if (websiteInput) websiteInput.value = org.website || '';
-            if (instagramInput) instagramInput.value = org.instagram || '';
-            if (youtubeInput) youtubeInput.value = org.youtube || '';
-            if (whatsappInput) whatsappInput.value = org.whatsapp || '';
-            if (googleMapsInput) googleMapsInput.value = org.google_maps || '';
+            if (websiteInput) websiteInput.value = org.website_url || org.website || '';
+            if (instagramInput) instagramInput.value = org.instagram_url || org.instagram || '';
+            if (youtubeInput) youtubeInput.value = org.youtube_url || org.youtube || '';
+            if (whatsappInput) whatsappInput.value = org.whatsapp_url || org.whatsapp || '';
+            if (googleMapsInput) googleMapsInput.value = org.google_maps || org.google_maps_url || org.maps_link || '';
             if (descriptionInput) descriptionInput.value = org.description || '';
             if (statusInput) statusInput.value = org.status || 'active';
 
@@ -3817,18 +3828,54 @@ document.addEventListener('DOMContentLoaded', () => {
         if (cancelBtn) cancelBtn.disabled = true;
 
         try {
+            // Ensure we have detected organizations columns to avoid speculative columns failing
+            if (!detectedOrgColumns || detectedOrgColumns.length === 0) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('organizations')
+                        .select('*')
+                        .limit(1);
+                    if (!error && data && data.length > 0) {
+                        detectedOrgColumns = Object.keys(data[0]);
+                        console.log("Successfully auto-detected organization columns on save:", detectedOrgColumns);
+                    }
+                } catch (e) {
+                    console.warn("Could not auto-detect organizations columns on save:", e);
+                }
+            }
+
             const orgPayload = {
                 name,
                 slug,
-                logo_url,
-                website,
-                instagram,
-                youtube,
-                whatsapp,
-                google_maps,
                 description,
                 status
             };
+
+            // Baştan doğru mapping kullanalım ve sadece tablodaki gerçek kolonları gönderelim
+            if (detectedOrgColumns.length > 0) {
+                if (detectedOrgColumns.includes('logo_url')) orgPayload.logo_url = logo_url;
+                if (detectedOrgColumns.includes('website_url')) orgPayload.website_url = website;
+                if (detectedOrgColumns.includes('instagram_url')) orgPayload.instagram_url = instagram;
+                if (detectedOrgColumns.includes('youtube_url')) orgPayload.youtube_url = youtube;
+                if (detectedOrgColumns.includes('whatsapp_url')) orgPayload.whatsapp_url = whatsapp;
+
+                // Google Maps alanı kontrolü ve birebir eşleme
+                if (detectedOrgColumns.includes('google_maps')) {
+                    orgPayload.google_maps = google_maps;
+                } else if (detectedOrgColumns.includes('google_maps_url')) {
+                    orgPayload.google_maps_url = google_maps;
+                } else if (detectedOrgColumns.includes('maps_link')) {
+                    orgPayload.maps_link = google_maps;
+                }
+            } else {
+                // Eğer kolonlar tespit edilemediyse (tablo boşsa vb.), en olası doğru isimleri gönderelim
+                orgPayload.logo_url = logo_url;
+                orgPayload.website_url = website;
+                orgPayload.instagram_url = instagram;
+                orgPayload.youtube_url = youtube;
+                orgPayload.whatsapp_url = whatsapp;
+                orgPayload.google_maps = google_maps;
+            }
 
             let success = false;
             let responseError = null;
@@ -3878,7 +3925,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!columnRemoved) {
                     // Hiçbiri doğrudan eşleşmiyorsa opsiyonel sosyal ağları sırayla kaldır
-                    const optionalKeys = ['website', 'instagram', 'youtube', 'whatsapp', 'google_maps', 'description', 'logo_url', 'slug'];
+                    const optionalKeys = [
+                        'website_url', 'instagram_url', 'youtube_url', 'whatsapp_url',
+                        'website', 'instagram', 'youtube', 'whatsapp',
+                        'google_maps', 'google_maps_url', 'maps_link',
+                        'description', 'logo_url', 'slug'
+                    ];
                     for (const optKey of optionalKeys) {
                         if (optKey in orgPayload) {
                             console.log(`Fallback: Pruning optional column '${optKey}' from organizations.`);
