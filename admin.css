@@ -1542,7 +1542,7 @@ body {
     border-color: var(--md-secondary);
 }
 
-/* Disabled Edit Button on Card (H4 Preparation) */
+/* Disabled/Enabled Edit Button on Card (H4) */
 .btn-card-edit {
     background: transparent;
     border: none;
@@ -1556,6 +1556,17 @@ body {
     justify-content: center;
     transition: var(--transition);
     opacity: 0.5;
+}
+
+.btn-card-edit:not(:disabled) {
+    cursor: pointer;
+    opacity: 1;
+    color: var(--md-secondary);
+}
+
+.btn-card-edit:not(:disabled):hover {
+    color: var(--md-secondary-hover);
+    background-color: var(--md-secondary-container);
 }
 
 /* Header Title and Subtitle Styling (H3.1) */
