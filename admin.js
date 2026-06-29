@@ -330,7 +330,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Sync Approved/Added Suggestion to Programs Table (Paket F2)
-    async function syncSuggestionToProgram(suggestion, sourceType) {
+    async function syncSuggestionToProgram(suggestion, sourceType, logoUrlOverride = null) {
         if (!supabaseClient) return;
         console.log("syncSuggestionToProgram başlatıldı - suggestion:", suggestion, "sourceType:", sourceType);
 
@@ -368,8 +368,9 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 3. Resolve photo_url
+        // 3. Resolve photo_url & logo_url
         const photo_url = suggestion.photo_url || suggestion.photoUrl || suggestion.image_url || suggestion.imageUrl || suggestion.photo || suggestion.image || null;
+        const logo_url = logoUrlOverride || suggestion.logo_url || suggestion.logoUrl || null;
 
         // 4. Construct programs payload
         const programPayload = {
@@ -389,20 +390,33 @@ document.addEventListener('DOMContentLoaded', () => {
             contact_name: suggestion.contact_name || suggestion.contact_person || suggestion.contactPerson || suggestion.sender_name || suggestion.sender || '',
             contact_phone: suggestion.contact_phone || suggestion.contactPhone || suggestion.phone || suggestion.whatsapp || suggestion.telefon || '',
             photo_url: photo_url,
+            logo_url: logo_url,
             status: 'active',
             source: sourceType
         };
 
         console.log("Programs tablosuna aktarılan veri:", programPayload);
 
-        // 5. Insert to programs
+        // 5. Insert to programs (robust fallback in case logo_url column doesn't exist yet)
         const { error: insertError } = await supabaseClient
             .from('programs')
             .insert(programPayload);
 
         if (insertError) {
             console.error("Programs tablosuna ekleme hatası:", insertError);
-            throw insertError;
+            const errMsg = (insertError.message || '').toLowerCase();
+            if (errMsg.includes('logo_url') && 'logo_url' in programPayload) {
+                console.warn("logo_url column seems to be missing in programs table. Retrying sync without logo_url.");
+                delete programPayload.logo_url;
+                const { error: retryError } = await supabaseClient
+                    .from('programs')
+                    .insert(programPayload);
+                if (retryError) {
+                    throw retryError;
+                }
+            } else {
+                throw insertError;
+            }
         }
     }
 
@@ -1083,6 +1097,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const addProgress = document.getElementById('add-upload-progress');
         if (addProgress) addProgress.classList.add('hidden');
 
+        // Reset logo upload elements
+        const addLogoFile = document.getElementById('add-program-logo-file');
+        if (addLogoFile) addLogoFile.value = '';
+        const addLogoFileName = document.getElementById('add-program-logo-file-name');
+        if (addLogoFileName) addLogoFileName.textContent = 'Seçilen dosya yok';
+        const addLogoPreviewContainer = document.getElementById('add-program-logo-preview-container');
+        if (addLogoPreviewContainer) addLogoPreviewContainer.classList.add('hidden');
+        const addLogoPreviewImg = document.getElementById('add-program-logo-preview-img');
+        if (addLogoPreviewImg) {
+            addLogoPreviewImg.src = '';
+            addLogoPreviewImg.style.display = 'none';
+        }
+        const addLogoPreviewText = document.getElementById('add-program-logo-preview-text');
+        if (addLogoPreviewText) {
+            addLogoPreviewText.classList.add('hidden');
+            addLogoPreviewText.style.display = 'none';
+        }
+        const addLogoProgress = document.getElementById('add-logo-upload-progress');
+        if (addLogoProgress) addLogoProgress.classList.add('hidden');
+        const addLogoUrl = document.getElementById('add-program-logo-url');
+        if (addLogoUrl) addLogoUrl.value = '';
+
         if (addModal) {
             addModal.classList.remove('hidden');
             document.body.style.overflow = "hidden";
@@ -1314,7 +1350,8 @@ document.addEventListener('DOMContentLoaded', () => {
             let syncSuccess = true;
             if (responseData && responseData.length > 0) {
                 try {
-                    await syncSuggestionToProgram(responseData[0], 'admin_manual');
+                    const logo_url = document.getElementById('add-program-logo-url')?.value.trim() || '';
+                    await syncSuggestionToProgram(responseData[0], 'admin_manual', logo_url);
                 } catch (syncError) {
                     syncSuccess = false;
                     console.error("Programs tablosuna aktarım hatası (manuel):", syncError);
@@ -2470,6 +2507,20 @@ document.addEventListener('DOMContentLoaded', () => {
         const logoInput = document.getElementById('edit-program-logo-url');
         if (logoInput) logoInput.value = item.logo_url || '';
 
+        // Reset logo upload input
+        const editLogoFile = document.getElementById('edit-program-logo-file');
+        if (editLogoFile) editLogoFile.value = '';
+        const editLogoProgress = document.getElementById('edit-logo-upload-progress');
+        if (editLogoProgress) editLogoProgress.classList.add('hidden');
+
+        updateLogoPreview(
+            item.logo_url,
+            'edit-program-logo-preview-container',
+            'edit-program-logo-preview-img',
+            'edit-program-logo-preview-text',
+            'edit-program-logo-file-name'
+        );
+
         const contactNameInput = document.getElementById('edit-program-contact-name');
         if (contactNameInput) contactNameInput.value = item.contact_name || '';
 
@@ -3013,6 +3064,263 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    async function uploadProgramLogo(logoFile, progressElementId, fileNameElementId, previewImgElementId, previewTextElementId, previewContainerId, urlInputElementId) {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        const progressEl = document.getElementById(progressElementId);
+        const fileNameEl = document.getElementById(fileNameElementId);
+        const previewImgEl = document.getElementById(previewImgElementId);
+        const previewTextEl = document.getElementById(previewTextElementId);
+        const previewContainerEl = document.getElementById(previewContainerId);
+        const urlInputEl = document.getElementById(urlInputElementId);
+
+        if (!logoFile) return;
+
+        // Validation: jpg, jpeg, png, webp
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(logoFile.type)) {
+            showToast("Geçersiz dosya tipi. Lütfen JPG, JPEG, PNG veya WEBP seçin.", "error");
+            return;
+        }
+
+        const maxSize = 2 * 1024 * 1024; // 2 MB
+        if (logoFile.size > maxSize) {
+            showToast("Logo boyutu 2 MB'dan küçük olmalıdır.", "error");
+            return;
+        }
+
+        if (fileNameEl) {
+            fileNameEl.textContent = logoFile.name;
+        }
+
+        if (progressEl) {
+            progressEl.classList.remove('hidden');
+        }
+
+        try {
+            const fileExt = logoFile.name.split('.').pop();
+            const randomStr = Math.random().toString(36).substring(2, 7);
+            const filePath = `logos/${Date.now()}_${randomStr}.${fileExt}`;
+
+            console.log("Uploading logo to storage:", filePath);
+
+            // Upload directly to "program-logos" bucket
+            const { data, error } = await supabaseClient.storage
+                .from('program-logos')
+                .upload(filePath, logoFile);
+
+            if (error) {
+                throw error;
+            }
+
+            // Resolve public URL
+            const { data: publicUrlData } = supabaseClient.storage
+                .from('program-logos')
+                .getPublicUrl(filePath);
+
+            const logoUrl = publicUrlData.publicUrl;
+            console.log("Resolved public logo URL:", logoUrl);
+
+            if (urlInputEl) {
+                urlInputEl.value = logoUrl;
+                // Trigger change event
+                urlInputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+
+            updateLogoPreview(
+                logoUrl,
+                previewContainerId,
+                previewImgElementId,
+                previewTextElementId,
+                fileNameElementId
+            );
+
+            showToast("Logo başarıyla yüklendi.", "success");
+        } catch (err) {
+            console.error("Logo upload error:", err);
+            showToast("Logo yüklenirken hata oluştu.", "error");
+            if (fileNameEl) {
+                fileNameEl.textContent = "Hata oluştu";
+            }
+        } finally {
+            if (progressEl) {
+                progressEl.classList.add('hidden');
+            }
+        }
+    }
+
+    function updateLogoPreview(logoUrlValue, previewContainerId, previewImgId, previewTextId, fileNameId = null) {
+        const previewContainer = document.getElementById(previewContainerId);
+        const previewImg = document.getElementById(previewImgId);
+        const previewText = document.getElementById(previewTextId);
+        
+        if (!previewContainer) return;
+
+        const val = (logoUrlValue || '').trim();
+
+        if (val) {
+            previewContainer.classList.remove('hidden');
+            // Check if it's a full URL (http:// or https:// or starts with /)
+            const isFullUrl = val.startsWith('http://') || val.startsWith('https://') || val.startsWith('/');
+            if (isFullUrl) {
+                if (previewImg) {
+                    previewImg.src = val;
+                    previewImg.classList.remove('hidden');
+                    previewImg.style.display = 'block';
+                }
+                if (previewText) {
+                    previewText.classList.add('hidden');
+                    previewText.style.display = 'none';
+                }
+            } else {
+                // Short code
+                if (previewImg) {
+                    previewImg.src = '';
+                    previewImg.classList.add('hidden');
+                    previewImg.style.display = 'none';
+                }
+                if (previewText) {
+                    previewText.textContent = `Logo kodu: ${val}`;
+                    previewText.classList.remove('hidden');
+                    previewText.style.display = 'block';
+                }
+            }
+        } else {
+            previewContainer.classList.add('hidden');
+            if (previewImg) {
+                previewImg.src = '';
+                previewImg.classList.add('hidden');
+                previewImg.style.display = 'none';
+            }
+            if (previewText) {
+                previewText.classList.add('hidden');
+                previewText.style.display = 'none';
+            }
+            const fileNameEl = fileNameId ? document.getElementById(fileNameId) : null;
+            if (fileNameEl) {
+                fileNameEl.textContent = 'Seçilen dosya yok';
+            }
+        }
+    }
+
+    function initLogoUploadListeners() {
+        // --- Add Modal ---
+        const addLogoUploadTrigger = document.getElementById('add-program-logo-upload-trigger');
+        const addLogoFile = document.getElementById('add-program-logo-file');
+        const addLogoRemoveBtn = document.getElementById('add-program-logo-remove-btn');
+        const addLogoUrlInput = document.getElementById('add-program-logo-url');
+
+        addLogoUploadTrigger?.addEventListener('click', () => {
+            addLogoFile?.click();
+        });
+
+        addLogoFile?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await uploadProgramLogo(
+                    file,
+                    'add-logo-upload-progress',
+                    'add-program-logo-file-name',
+                    'add-program-logo-preview-img',
+                    'add-program-logo-preview-text',
+                    'add-program-logo-preview-container',
+                    'add-program-logo-url'
+                );
+            }
+        });
+
+        addLogoRemoveBtn?.addEventListener('click', () => {
+            if (addLogoFile) addLogoFile.value = '';
+            const addLogoFileName = document.getElementById('add-program-logo-file-name');
+            if (addLogoFileName) addLogoFileName.textContent = 'Seçilen dosya yok';
+            const addLogoPreviewContainer = document.getElementById('add-program-logo-preview-container');
+            if (addLogoPreviewContainer) addLogoPreviewContainer.classList.add('hidden');
+            const addLogoPreviewImg = document.getElementById('add-program-logo-preview-img');
+            if (addLogoPreviewImg) {
+                addLogoPreviewImg.src = '';
+                addLogoPreviewImg.style.display = 'none';
+            }
+            const addLogoPreviewText = document.getElementById('add-program-logo-preview-text');
+            if (addLogoPreviewText) {
+                addLogoPreviewText.classList.add('hidden');
+                addLogoPreviewText.style.display = 'none';
+            }
+            if (addLogoUrlInput) {
+                addLogoUrlInput.value = '';
+                addLogoUrlInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+
+        addLogoUrlInput?.addEventListener('input', (e) => {
+            updateLogoPreview(
+                e.target.value,
+                'add-program-logo-preview-container',
+                'add-program-logo-preview-img',
+                'add-program-logo-preview-text',
+                'add-program-logo-file-name'
+            );
+        });
+
+        // --- Edit Modal ---
+        const editLogoUploadTrigger = document.getElementById('edit-program-logo-upload-trigger');
+        const editLogoFile = document.getElementById('edit-program-logo-file');
+        const editLogoRemoveBtn = document.getElementById('edit-program-logo-remove-btn');
+        const editLogoUrlInput = document.getElementById('edit-program-logo-url');
+
+        editLogoUploadTrigger?.addEventListener('click', () => {
+            editLogoFile?.click();
+        });
+
+        editLogoFile?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await uploadProgramLogo(
+                    file,
+                    'edit-logo-upload-progress',
+                    'edit-program-logo-file-name',
+                    'edit-program-logo-preview-img',
+                    'edit-program-logo-preview-text',
+                    'edit-program-logo-preview-container',
+                    'edit-program-logo-url'
+                );
+            }
+        });
+
+        editLogoRemoveBtn?.addEventListener('click', () => {
+            if (editLogoFile) editLogoFile.value = '';
+            const editLogoFileName = document.getElementById('edit-program-logo-file-name');
+            if (editLogoFileName) editLogoFileName.textContent = 'Seçilen dosya yok';
+            const editLogoPreviewContainer = document.getElementById('edit-program-logo-preview-container');
+            if (editLogoPreviewContainer) editLogoPreviewContainer.classList.add('hidden');
+            const editLogoPreviewImg = document.getElementById('edit-program-logo-preview-img');
+            if (editLogoPreviewImg) {
+                editLogoPreviewImg.src = '';
+                editLogoPreviewImg.style.display = 'none';
+            }
+            const editLogoPreviewText = document.getElementById('edit-program-logo-preview-text');
+            if (editLogoPreviewText) {
+                editLogoPreviewText.classList.add('hidden');
+                editLogoPreviewText.style.display = 'none';
+            }
+            if (editLogoUrlInput) {
+                editLogoUrlInput.value = '';
+                editLogoUrlInput.dispatchEvent(new Event('change', { bubbles: true }));
+            }
+        });
+
+        editLogoUrlInput?.addEventListener('input', (e) => {
+            updateLogoPreview(
+                e.target.value,
+                'edit-program-logo-preview-container',
+                'edit-program-logo-preview-img',
+                'edit-program-logo-preview-text',
+                'edit-program-logo-file-name'
+            );
+        });
+    }
+
     // Initial Load
     initViewSelector();
     initFilterListeners();
@@ -3020,5 +3328,6 @@ document.addEventListener('DOMContentLoaded', () => {
     initTrashBinListeners();
     initTabs();
     initPhotoUploadListeners();
+    initLogoUploadListeners();
     loadData();
 });
