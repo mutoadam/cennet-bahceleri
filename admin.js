@@ -991,6 +991,10 @@ document.addEventListener('DOMContentLoaded', () => {
     refreshBtn.addEventListener('click', loadData);
     retryBtn.addEventListener('click', loadData);
 
+    // Programs Event Listeners
+    document.getElementById('programs-refresh-btn')?.addEventListener('click', loadPrograms);
+    document.getElementById('programs-retry-btn')?.addEventListener('click', loadPrograms);
+
     // Modal Action Buttons (Paket B)
     document.getElementById('modal-btn-approve')?.addEventListener('click', async () => {
         if (!currentSuggestion) return;
@@ -1348,6 +1352,218 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ==========================================================
+    // Programlar (Programs) H2 Custom Implementation
+    // ==========================================================
+
+    function getSourceBadge(source) {
+        let label = 'KAYNAK YOK';
+        let badgeClass = 'source-badge source-unknown';
+        
+        if (source === 'app_migration') {
+            label = 'APP';
+            badgeClass = 'source-badge source-app';
+        } else if (source === 'admin_manual') {
+            label = 'MANUEL';
+            badgeClass = 'source-badge source-manual';
+        } else if (source === 'approved_suggestion' || source === 'suggestion') {
+            label = 'ÖNERİ';
+            badgeClass = 'source-badge source-suggestion';
+        }
+        return { label, badgeClass };
+    }
+
+    function getStatusBadge(status) {
+        let label = 'Durum belirsiz';
+        let badgeClass = 'status-badge status-unknown';
+        
+        const statusVal = (status || '').toLowerCase();
+        if (statusVal === 'active') {
+            label = 'Aktif';
+            badgeClass = 'status-badge status-approved';
+        } else if (statusVal === 'passive' || statusVal === 'inactive') {
+            label = 'Pasif';
+            badgeClass = 'status-badge status-rejected';
+        }
+        return { label, badgeClass };
+    }
+
+    async function loadPrograms() {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        showProgramsLoader();
+
+        try {
+            console.log("Fetching program records from public.programs...");
+            const { data: programsData, error: fetchError } = await supabaseClient
+                .from('programs')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (fetchError) {
+                console.warn("created_at sorting failed, trying program_name sorting:", fetchError);
+                const { data: altProgramsData, error: altFetchError } = await supabaseClient
+                    .from('programs')
+                    .select('*')
+                    .order('program_name', { ascending: true });
+                
+                if (altFetchError) throw altFetchError;
+                processPrograms(altProgramsData);
+            } else {
+                processPrograms(programsData);
+            }
+        } catch (error) {
+            console.error('Programlar yüklenirken hata oluştu:', error);
+            showProgramsError();
+        }
+    }
+
+    function processPrograms(programs) {
+        const totalCount = programs.length;
+        const activeCount = programs.filter(p => (p.status || '').toLowerCase() === 'active').length;
+        const passiveCount = totalCount - activeCount;
+
+        const statsTotalVal = document.getElementById('stats-total-programs-val');
+        const statsActiveVal = document.getElementById('stats-active-programs-val');
+        const statsPassiveVal = document.getElementById('stats-passive-programs-val');
+
+        if (statsTotalVal) statsTotalVal.textContent = totalCount;
+        if (statsActiveVal) statsActiveVal.textContent = activeCount;
+        if (statsPassiveVal) statsPassiveVal.textContent = passiveCount;
+
+        renderPrograms(programs);
+    }
+
+    function renderPrograms(programs) {
+        const programsList = document.getElementById('programs-list');
+        const programsCount = document.getElementById('programs-count');
+
+        if (!programsList) return;
+
+        programsList.innerHTML = '';
+
+        if (programsCount) {
+            programsCount.textContent = programs.length;
+        }
+
+        if (programs.length === 0) {
+            showProgramsEmpty();
+            return;
+        }
+
+        hideProgramsStates();
+
+        programs.forEach(item => {
+            const card = document.createElement('div');
+            card.className = 'suggestion-card';
+            
+            const createdDate = item.created_at ? formatDate(item.created_at) : 'Bilinmeyen Tarih';
+            const sourceBadge = getSourceBadge(item.source);
+            const statusBadge = getStatusBadge(item.status);
+
+            let photoMarkup = '';
+            if (item.photo_url) {
+                photoMarkup = `
+                    <div class="suggestion-photo-preview">
+                        <img src="${item.photo_url}" alt="Program Fotoğrafı" onerror="this.style.display='none';">
+                    </div>
+                `;
+            }
+
+            let ladiesMarkup = '';
+            if (item.women_friendly || item.ladies_suitable || item.is_ladies_suitable) {
+                ladiesMarkup = `<span class="category-badge" style="background-color: #fce4ec; color: #c2185b; border-color: rgba(194, 24, 91, 0.2);"><i class="fa-solid fa-person-dress"></i> Hanımlara Uygun</span>`;
+            }
+
+            card.innerHTML = `
+                <div class="card-header-info">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                        <span class="${sourceBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(sourceBadge.label)}</span>
+                        <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
+                        ${ladiesMarkup}
+                    </div>
+                    <span class="date-badge"><i class="fa-regular fa-calendar-days"></i> ${createdDate}</span>
+                </div>
+                
+                <h4 class="program-title">${escapeHtml(item.program_name || 'İsimsiz Program')}</h4>
+                <p class="venue-info"><i class="fa-solid fa-location-dot"></i> <strong>${escapeHtml(item.venue_name || 'Bilinmeyen Mekân')}</strong></p>
+                
+                <div class="details-grid">
+                    <div class="detail-item">
+                        <span class="detail-label">İlçe:</span>
+                        <span class="detail-value">${escapeHtml(item.district || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Gün & Saat:</span>
+                        <span class="detail-value">${escapeHtml(item.day || '-')} - ${escapeHtml(item.time || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Hoca:</span>
+                        <span class="detail-value">${escapeHtml(item.teacher || '-')}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="detail-label">Kurum / Dernek:</span>
+                        <span class="detail-value">${escapeHtml(item.organization || '-')}</span>
+                    </div>
+                </div>
+
+                ${photoMarkup}
+            `;
+
+            programsList.appendChild(card);
+        });
+    }
+
+    function showProgramsLoader() {
+        const loader = document.getElementById('programs-loader');
+        const errorContainer = document.getElementById('programs-error-container');
+        const emptyContainer = document.getElementById('programs-empty-container');
+        const list = document.getElementById('programs-list');
+
+        if (loader) loader.classList.remove('hidden');
+        if (errorContainer) errorContainer.classList.add('hidden');
+        if (emptyContainer) emptyContainer.classList.add('hidden');
+        if (list) list.classList.add('hidden');
+    }
+
+    function showProgramsError() {
+        const loader = document.getElementById('programs-loader');
+        const errorContainer = document.getElementById('programs-error-container');
+        const emptyContainer = document.getElementById('programs-empty-container');
+        const list = document.getElementById('programs-list');
+
+        if (loader) loader.classList.add('hidden');
+        if (errorContainer) errorContainer.classList.remove('hidden');
+        if (emptyContainer) emptyContainer.classList.add('hidden');
+        if (list) list.classList.add('hidden');
+    }
+
+    function showProgramsEmpty() {
+        const loader = document.getElementById('programs-loader');
+        const errorContainer = document.getElementById('programs-error-container');
+        const emptyContainer = document.getElementById('programs-empty-container');
+        const list = document.getElementById('programs-list');
+
+        if (loader) loader.classList.add('hidden');
+        if (errorContainer) errorContainer.classList.add('hidden');
+        if (emptyContainer) emptyContainer.classList.remove('hidden');
+        if (list) list.classList.add('hidden');
+    }
+
+    function hideProgramsStates() {
+        const loader = document.getElementById('programs-loader');
+        const errorContainer = document.getElementById('programs-error-container');
+        const emptyContainer = document.getElementById('programs-empty-container');
+        const list = document.getElementById('programs-list');
+
+        if (loader) loader.classList.add('hidden');
+        if (errorContainer) errorContainer.classList.add('hidden');
+        if (emptyContainer) emptyContainer.classList.add('hidden');
+        if (list) list.classList.remove('hidden');
+    }
+
     // Primary Tab Switcher (Öneriler vs. Programlar)
     function initMainNavigation() {
         const tabSuggestions = document.getElementById('main-tab-suggestions');
@@ -1368,6 +1584,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 tabSuggestions.classList.remove('active');
                 programsContent.classList.remove('hidden');
                 suggestionsContent.classList.add('hidden');
+                loadPrograms();
             });
         }
     }
