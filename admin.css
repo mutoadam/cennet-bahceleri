@@ -1622,3 +1622,14 @@ body {
     font-size: 12px;
     font-weight: 600;
 }
+
+/* Status Toggle Button Styles (Paket H5) */
+.btn-status-toggle {
+    transition: var(--transition);
+    border: 1px solid transparent;
+}
+.btn-status-toggle.disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    pointer-events: none;
+}
