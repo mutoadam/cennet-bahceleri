@@ -1070,6 +1070,19 @@ document.addEventListener('DOMContentLoaded', () => {
             const cityInput = document.getElementById('add-city');
             if (cityInput) cityInput.value = 'Sakarya';
         }
+        
+        // Reset photo upload elements
+        const addPhotoFile = document.getElementById('add-photo-file');
+        if (addPhotoFile) addPhotoFile.value = '';
+        const addFileName = document.getElementById('add-photo-file-name');
+        if (addFileName) addFileName.textContent = 'Seçilen dosya yok';
+        const addPreviewContainer = document.getElementById('add-photo-preview-container');
+        if (addPreviewContainer) addPreviewContainer.classList.add('hidden');
+        const addPreviewImg = document.getElementById('add-photo-preview-img');
+        if (addPreviewImg) addPreviewImg.src = '';
+        const addProgress = document.getElementById('add-upload-progress');
+        if (addProgress) addProgress.classList.add('hidden');
+
         if (addModal) {
             addModal.classList.remove('hidden');
             document.body.style.overflow = "hidden";
@@ -2435,6 +2448,25 @@ document.addEventListener('DOMContentLoaded', () => {
         const photoInput = document.getElementById('edit-program-photo-url');
         if (photoInput) photoInput.value = item.photo_url || '';
 
+        // Handle photo upload UI setup for edit modal
+        const editPhotoFile = document.getElementById('edit-program-photo-file');
+        if (editPhotoFile) editPhotoFile.value = '';
+        const editFileName = document.getElementById('edit-program-photo-file-name');
+        const editPreviewContainer = document.getElementById('edit-program-photo-preview-container');
+        const editPreviewImg = document.getElementById('edit-program-photo-preview-img');
+        const editProgress = document.getElementById('edit-upload-progress');
+        if (editProgress) editProgress.classList.add('hidden');
+
+        if (item.photo_url) {
+            if (editFileName) editFileName.textContent = 'Mevcut fotoğraf';
+            if (editPreviewImg) editPreviewImg.src = item.photo_url;
+            if (editPreviewContainer) editPreviewContainer.classList.remove('hidden');
+        } else {
+            if (editFileName) editFileName.textContent = 'Seçilen dosya yok';
+            if (editPreviewImg) editPreviewImg.src = '';
+            if (editPreviewContainer) editPreviewContainer.classList.add('hidden');
+        }
+
         const logoInput = document.getElementById('edit-program-logo-url');
         if (logoInput) logoInput.value = item.logo_url || '';
 
@@ -2778,11 +2810,215 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    async function uploadProgramPhoto(photoFile, progressElementId, fileNameElementId, previewImgElementId, previewContainerId, urlInputElementId) {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        const progressEl = document.getElementById(progressElementId);
+        const fileNameEl = document.getElementById(fileNameElementId);
+        const previewImgEl = document.getElementById(previewImgElementId);
+        const previewContainerEl = document.getElementById(previewContainerId);
+        const urlInputEl = document.getElementById(urlInputElementId);
+
+        if (!photoFile) return;
+
+        // Validation
+        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+        if (!allowedTypes.includes(photoFile.type)) {
+            showToast("Geçersiz dosya tipi. Lütfen JPG, JPEG, PNG veya WEBP seçin.", "error");
+            return;
+        }
+
+        const maxSize = 5 * 1024 * 1024; // 5 MB
+        if (photoFile.size > maxSize) {
+            showToast("Dosya boyutu 5 MB'dan küçük olmalıdır.", "error");
+            return;
+        }
+
+        if (fileNameEl) {
+            fileNameEl.textContent = photoFile.name;
+        }
+
+        if (progressEl) {
+            progressEl.classList.remove('hidden');
+        }
+
+        try {
+            const fileExt = photoFile.name.split('.').pop();
+            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+            const filePath = `programs/${fileName}`;
+
+            console.log("Uploading program photo to storage:", filePath);
+
+            // Try bucket "program-photos" first, fallback to "suggestion-photos" then "suggestions"
+            let uploadResult = null;
+            let finalBucket = 'program-photos';
+
+            try {
+                uploadResult = await supabaseClient.storage
+                    .from('program-photos')
+                    .upload(filePath, photoFile);
+                
+                if (uploadResult && uploadResult.error) {
+                    console.log("Failed in program-photos bucket, trying 'suggestion-photos' bucket.", uploadResult.error);
+                    finalBucket = 'suggestion-photos';
+                    uploadResult = await supabaseClient.storage
+                        .from('suggestion-photos')
+                        .upload(filePath, photoFile);
+                }
+
+                if (uploadResult && uploadResult.error) {
+                    console.log("Failed in suggestion-photos bucket, trying 'suggestions' bucket.", uploadResult.error);
+                    finalBucket = 'suggestions';
+                    uploadResult = await supabaseClient.storage
+                        .from('suggestions')
+                        .upload(filePath, photoFile);
+                }
+            } catch (uploadErr) {
+                console.warn("Storage upload error during direct attempt:", uploadErr);
+                // Try fallback suggestions buckets inside catch
+                try {
+                    finalBucket = 'suggestion-photos';
+                    uploadResult = await supabaseClient.storage
+                        .from('suggestion-photos')
+                        .upload(filePath, photoFile);
+                    
+                    if (uploadResult && uploadResult.error) {
+                        finalBucket = 'suggestions';
+                        uploadResult = await supabaseClient.storage
+                            .from('suggestions')
+                            .upload(filePath, photoFile);
+                    }
+                } catch (fallbackErr) {
+                    console.warn("Fallback upload error:", fallbackErr);
+                }
+            }
+
+            if (uploadResult && !uploadResult.error) {
+                // Try to resolve public URL
+                try {
+                    const { data: publicUrlData } = supabaseClient.storage
+                        .from(finalBucket)
+                        .getPublicUrl(filePath);
+                    
+                    const photoUrl = publicUrlData.publicUrl;
+                    console.log("Resolved public photo URL:", photoUrl);
+
+                    if (urlInputEl) {
+                        urlInputEl.value = photoUrl;
+                        // Fire change event to ensure any forms register the manual changes too
+                        urlInputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+
+                    if (previewImgEl) {
+                        previewImgEl.src = photoUrl;
+                    }
+
+                    if (previewContainerEl) {
+                        previewContainerEl.classList.remove('hidden');
+                    }
+
+                    showToast("Fotoğraf başarıyla yüklendi.", "success");
+                } catch (urlErr) {
+                    console.warn("Could not get public URL:", urlErr);
+                    showToast("Fotoğraf yüklendi fakat genel URL alınamadı.", "error");
+                }
+            } else {
+                console.error("Photo upload failed:", uploadResult ? uploadResult.error : "No upload result");
+                showToast("Fotoğraf yüklenirken hata oluştu.", "error");
+                if (fileNameEl) {
+                    fileNameEl.textContent = "Hata oluştu";
+                }
+            }
+        } catch (err) {
+            console.error("Photo upload try/catch error:", err);
+            showToast("Fotoğraf yüklenirken beklenmeyen bir hata oluştu.", "error");
+        } finally {
+            if (progressEl) {
+                progressEl.classList.add('hidden');
+            }
+        }
+    }
+
+    function initPhotoUploadListeners() {
+        // --- Add Modal ---
+        const addUploadTrigger = document.getElementById('add-photo-upload-trigger');
+        const addPhotoFile = document.getElementById('add-photo-file');
+        const addRemoveBtn = document.getElementById('add-photo-remove-btn');
+        const addUrlInput = document.getElementById('add-photo-url');
+
+        addUploadTrigger?.addEventListener('click', () => {
+            addPhotoFile?.click();
+        });
+
+        addPhotoFile?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await uploadProgramPhoto(
+                    file,
+                    'add-upload-progress',
+                    'add-photo-file-name',
+                    'add-photo-preview-img',
+                    'add-photo-preview-container',
+                    'add-photo-url'
+                );
+            }
+        });
+
+        addRemoveBtn?.addEventListener('click', () => {
+            if (addPhotoFile) addPhotoFile.value = '';
+            const addFileName = document.getElementById('add-photo-file-name');
+            if (addFileName) addFileName.textContent = 'Seçilen dosya yok';
+            const addPreviewContainer = document.getElementById('add-photo-preview-container');
+            if (addPreviewContainer) addPreviewContainer.classList.add('hidden');
+            const addPreviewImg = document.getElementById('add-photo-preview-img');
+            if (addPreviewImg) addPreviewImg.src = '';
+            if (addUrlInput) addUrlInput.value = '';
+        });
+
+        // --- Edit Modal ---
+        const editUploadTrigger = document.getElementById('edit-program-photo-upload-trigger');
+        const editPhotoFile = document.getElementById('edit-program-photo-file');
+        const editRemoveBtn = document.getElementById('edit-program-photo-remove-btn');
+        const editUrlInput = document.getElementById('edit-program-photo-url');
+
+        editUploadTrigger?.addEventListener('click', () => {
+            editPhotoFile?.click();
+        });
+
+        editPhotoFile?.addEventListener('change', async (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                await uploadProgramPhoto(
+                    file,
+                    'edit-upload-progress',
+                    'edit-program-photo-file-name',
+                    'edit-program-photo-preview-img',
+                    'edit-program-photo-preview-container',
+                    'edit-program-photo-url'
+                );
+            }
+        });
+
+        editRemoveBtn?.addEventListener('click', () => {
+            if (editPhotoFile) editPhotoFile.value = '';
+            const editFileName = document.getElementById('edit-program-photo-file-name');
+            if (editFileName) editFileName.textContent = 'Seçilen dosya yok';
+            const editPreviewContainer = document.getElementById('edit-program-photo-preview-container');
+            if (editPreviewContainer) editPreviewContainer.classList.add('hidden');
+            const editPreviewImg = document.getElementById('edit-program-photo-preview-img');
+            if (editPreviewImg) editPreviewImg.src = '';
+            if (editUrlInput) editUrlInput.value = '';
+        });
+    }
+
     // Initial Load
     initViewSelector();
     initFilterListeners();
     initMainNavigation();
     initTrashBinListeners();
     initTabs();
+    initPhotoUploadListeners();
     loadData();
 });
