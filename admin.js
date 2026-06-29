@@ -1383,13 +1383,82 @@ document.addEventListener('DOMContentLoaded', () => {
         
         const statusVal = (status || '').toLowerCase();
         if (statusVal === 'active') {
-            label = 'Aktif';
+            label = '🟢 Devam Ediyor';
             badgeClass = 'status-badge status-approved';
         } else if (statusVal === 'passive' || statusVal === 'inactive') {
-            label = 'Pasif';
+            label = '🌙 Ara Verildi';
             badgeClass = 'status-badge status-rejected';
         }
         return { label, badgeClass };
+    }
+
+    // ==========================================================
+    // Program Status Change Toggle Logic (Paket H5)
+    // ==========================================================
+    let programToToggle = null;
+
+    function openStatusConfirmModal(item) {
+        programToToggle = item;
+        const modal = document.getElementById('status-confirm-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = "hidden";
+        }
+    }
+
+    function closeStatusConfirmModal() {
+        const modal = document.getElementById('status-confirm-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = "";
+        }
+        programToToggle = null;
+    }
+
+    async function handleStatusConfirmOk() {
+        if (!programToToggle) return;
+        const programId = programToToggle.id;
+        closeStatusConfirmModal();
+        await updateProgramStatus(programId, 'inactive');
+    }
+
+    async function updateProgramStatus(programId, newStatus) {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        // Set loading state on the button
+        const buttons = document.querySelectorAll(`.btn-status-toggle[data-id="${programId}"]`);
+        buttons.forEach(btn => {
+            btn.disabled = true;
+            btn.classList.add('disabled');
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Güncelleniyor...';
+        });
+
+        try {
+            console.log(`Updating program ID ${programId} status to ${newStatus}...`);
+            const { error } = await supabaseClient
+                .from('programs')
+                .update({ status: newStatus, updated_at: new Date().toISOString() })
+                .eq('id', programId);
+
+            if (error) {
+                console.warn("Update with updated_at failed, trying status only:", error);
+                const retryRes = await supabaseClient
+                    .from('programs')
+                    .update({ status: newStatus })
+                    .eq('id', programId);
+                if (retryRes.error) throw retryRes.error;
+            }
+
+            showToast("Program başarıyla güncellendi.", "success");
+            await loadPrograms();
+
+        } catch (error) {
+            console.error('Program durum güncelleme hatası:', error);
+            showToast("Güncelleme sırasında hata oluştu.", "error");
+            await loadPrograms();
+        }
     }
 
     async function loadPrograms() {
@@ -1664,6 +1733,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 ladiesMarkup = `<span class="category-badge" style="background-color: #fce4ec; color: #c2185b; border-color: rgba(194, 24, 91, 0.2);"><i class="fa-solid fa-person-dress"></i> Hanımlara Uygun</span>`;
             }
 
+            const statusVal = (item.status || '').toLowerCase();
+            const toggleButtonHtml = statusVal === 'active'
+                ? `<button class="btn btn-secondary btn-status-toggle" data-id="${item.id}" data-action="pause" style="width: 100%;"><i class="fa-solid fa-moon"></i> 🌙 Ara Ver</button>`
+                : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="width: 100%;"><i class="fa-solid fa-play"></i> ▶️ Devam Ettir</button>`;
+
             card.innerHTML = `
                 <div class="card-header-info">
                     <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
@@ -1699,6 +1773,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 </div>
 
                 ${photoMarkup}
+
+                <div class="card-actions" style="margin-top: auto; display: flex; gap: 8px; width: 100%;">
+                    ${toggleButtonHtml}
+                </div>
             `;
 
             // Bind click event to card edit button (Paket H4)
@@ -1706,6 +1784,19 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cardEditBtn) {
                 cardEditBtn.addEventListener('click', () => {
                     openProgramEditModal(item);
+                });
+            }
+
+            // Bind click event to status toggle button (Paket H5)
+            const statusToggleBtn = card.querySelector('.btn-status-toggle');
+            if (statusToggleBtn) {
+                statusToggleBtn.addEventListener('click', async () => {
+                    const action = statusToggleBtn.getAttribute('data-action');
+                    if (action === 'pause') {
+                        openStatusConfirmModal(item);
+                    } else if (action === 'resume') {
+                        await updateProgramStatus(item.id, 'active');
+                    }
                 });
             }
 
@@ -1929,7 +2020,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (statusVal === 'active' || statusVal === 'aktif') {
                 statusInput.value = 'active';
             } else {
-                statusInput.value = 'passive';
+                statusInput.value = 'inactive';
             }
         }
 
@@ -2008,7 +2099,7 @@ document.addEventListener('DOMContentLoaded', () => {
             teacher !== (initialProgramState.teacher || '') ||
             organization !== (initialProgramState.organization || '') ||
             women_friendly !== (!!initialProgramState.women_friendly) ||
-            status !== (initialProgramState.status || 'active') ||
+            (status === 'active' ? 'active' : 'inactive') !== ((initialProgramState.status || 'active').toLowerCase() === 'active' ? 'active' : 'inactive') ||
             photo_url !== (initialProgramState.photo_url || '') ||
             logo_url !== (initialProgramState.logo_url || '') ||
             contact_name !== (initialProgramState.contact_name || '') ||
@@ -2201,6 +2292,16 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-program-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'edit-program-modal') {
             closeProgramEditModal();
+        }
+    });
+
+    // Status Confirmation Modal Listeners (Paket H5)
+    document.getElementById('status-confirm-close-top')?.addEventListener('click', closeStatusConfirmModal);
+    document.getElementById('status-confirm-cancel-btn')?.addEventListener('click', closeStatusConfirmModal);
+    document.getElementById('status-confirm-ok-btn')?.addEventListener('click', handleStatusConfirmOk);
+    document.getElementById('status-confirm-modal')?.addEventListener('click', (e) => {
+        if (e.target.id === 'status-confirm-modal') {
+            closeStatusConfirmModal();
         }
     });
 
