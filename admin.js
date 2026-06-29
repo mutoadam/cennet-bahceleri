@@ -1348,7 +1348,32 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Primary Tab Switcher (Öneriler vs. Programlar)
+    function initMainNavigation() {
+        const tabSuggestions = document.getElementById('main-tab-suggestions');
+        const tabPrograms = document.getElementById('main-tab-programs');
+        const suggestionsContent = document.getElementById('suggestions-tab-content');
+        const programsContent = document.getElementById('programs-tab-content');
+
+        if (tabSuggestions && tabPrograms && suggestionsContent && programsContent) {
+            tabSuggestions.addEventListener('click', () => {
+                tabSuggestions.classList.add('active');
+                tabPrograms.classList.remove('active');
+                suggestionsContent.classList.remove('hidden');
+                programsContent.classList.add('hidden');
+            });
+
+            tabPrograms.addEventListener('click', () => {
+                tabPrograms.classList.add('active');
+                tabSuggestions.classList.remove('active');
+                programsContent.classList.remove('hidden');
+                suggestionsContent.classList.add('hidden');
+            });
+        }
+    }
+
     // Initial Load
+    initMainNavigation();
     initTabs();
     loadData();
 });
