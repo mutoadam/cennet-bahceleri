@@ -1466,3 +1466,96 @@ body {
     border: 1px solid rgba(55, 71, 79, 0.2);
 }
 
+/* ==========================================
+   Programs Filter Panel (Paket H3)
+   ========================================== */
+.filter-panel {
+    background-color: #faf9f6;
+    border: 1px solid var(--md-outline);
+    border-radius: var(--radius-md);
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+}
+
+.filter-row {
+    display: grid;
+    grid-template-columns: 2fr repeat(4, 1fr);
+    gap: 16px;
+    align-items: flex-end;
+}
+
+@media (max-width: 992px) {
+    .filter-row {
+        grid-template-columns: 1fr 1fr;
+    }
+}
+
+@media (max-width: 576px) {
+    .filter-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.filter-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--md-secondary);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.filter-actions-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 16px;
+    padding-top: 16px;
+    border-top: 1px dashed var(--md-outline);
+}
+
+.filter-info-text {
+    font-size: 14px;
+    color: var(--md-on-surface-variant);
+    font-weight: 500;
+}
+
+#filter-clear-btn {
+    min-height: 38px;
+    padding: 8px 16px;
+    font-size: 14px;
+    border-radius: var(--radius-sm);
+    background-color: var(--md-secondary-container);
+    color: var(--md-on-secondary-container);
+    border: 1px solid var(--md-outline);
+}
+
+#filter-clear-btn:hover {
+    background-color: #f5edd7;
+    border-color: var(--md-secondary);
+}
+
+/* Disabled Edit Button on Card (H4 Preparation) */
+.btn-card-edit {
+    background: transparent;
+    border: none;
+    color: var(--md-on-surface-variant);
+    cursor: not-allowed;
+    padding: 6px;
+    font-size: 15px;
+    border-radius: var(--radius-sm);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    opacity: 0.5;
+}
+
+
