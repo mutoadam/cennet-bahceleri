@@ -1525,18 +1525,67 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             console.log(`Deleting program with ID: ${programId}`);
-            const { error } = await supabaseClient
-                .from('programs')
-                .delete()
-                .eq('id', programId);
+            let deletedRows = [];
+            let deleteError = null;
 
-            if (error) {
-                throw error;
+            // Try deleting with .select() to get immediate confirmation of deletion
+            try {
+                const { data, error } = await supabaseClient
+                    .from('programs')
+                    .delete()
+                    .eq('id', programId)
+                    .select();
+                
+                deleteError = error;
+                deletedRows = data;
+            } catch (err) {
+                console.warn("Delete with .select() failed, retrying simple delete:", err);
+                // Fallback to simple delete
+                const { error } = await supabaseClient
+                    .from('programs')
+                    .delete()
+                    .eq('id', programId);
+                
+                deleteError = error;
+                
+                // Verify if the program is actually deleted from the database
+                if (!deleteError) {
+                    const { data: checkData, error: checkError } = await supabaseClient
+                        .from('programs')
+                        .select('id')
+                        .eq('id', programId);
+                    
+                    if (!checkError) {
+                        if (checkData && checkData.length > 0) {
+                            throw new Error("Program veritabanından silinemedi (hâlâ mevcut). RLS politikalarını kontrol edin.");
+                        } else {
+                            deletedRows = [{ id: programId }];
+                        }
+                    } else {
+                        throw checkError;
+                    }
+                }
             }
 
+            if (deleteError) {
+                throw deleteError;
+            }
+
+            if (!deletedRows || deletedRows.length === 0) {
+                throw new Error("Program veritabanından silinemedi (kayıt bulunamadı veya RLS engelledi).");
+            }
+
+            // Successfully deleted
             showToast("Program başarıyla silindi.", "success");
             closeDeleteConfirmModal();
-            await loadPrograms();
+
+            // Sync local state
+            if (typeof loadedPrograms !== 'undefined' && Array.isArray(loadedPrograms)) {
+                loadedPrograms = loadedPrograms.filter(p => p.id !== programId);
+                processPrograms(loadedPrograms);
+            } else {
+                await loadPrograms();
+            }
 
         } catch (error) {
             console.error('Program silme hatası:', error);
