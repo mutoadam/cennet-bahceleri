@@ -1254,6 +1254,19 @@
                         </select>
                     </div>
                 </form>
+
+                <!-- Bu kuruma bağlı programlar (K-2A) -->
+                <div id="org-connected-programs-section" class="org-connected-programs-section hidden">
+                    <h4 style="margin-top: 24px; margin-bottom: 8px; color: var(--md-primary); display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 600; border-top: 1px solid var(--md-outline, #d2cbbe); padding-top: 16px;">
+                        <i class="fa-solid fa-calendar-days"></i> Bu kuruma bağlı programlar
+                    </h4>
+                    <div id="org-programs-loader" class="state-container hidden" style="padding: 16px 0;">
+                        <div class="spinner" style="width: 24px; height: 24px; border-width: 3px; margin: 0 auto;"></div>
+                    </div>
+                    <div id="org-programs-container">
+                        <!-- Dynamic programs table or empty state goes here -->
+                    </div>
+                </div>
             </div>
             <div class="modal-footer">
                 <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
