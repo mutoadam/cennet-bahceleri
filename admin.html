@@ -435,6 +435,21 @@
                         </select>
                     </div>
                     <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="mosques-filter-verification"><i class="fa-solid fa-circle-check"></i> Doğrulama</label>
+                        <select id="mosques-filter-verification" class="form-control">
+                            <option value="">Tüm Kayıtlar</option>
+                            <option value="verified">Doğrulandı</option>
+                            <option value="unverified">Doğrulanmadı</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="mosques-filter-unnamed"><i class="fa-solid fa-eye-slash"></i> İsimsizler</label>
+                        <select id="mosques-filter-unnamed" class="form-control">
+                            <option value="hide" selected>İsimsizleri Gizle</option>
+                            <option value="show">İsimsizleri Göster</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
                         <label for="mosques-filter-sort"><i class="fa-solid fa-sort"></i> Sıralama</label>
                         <select id="mosques-filter-sort" class="form-control">
                             <option value="az">A'dan Z'ye</option>
