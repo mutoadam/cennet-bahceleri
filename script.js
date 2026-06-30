@@ -91,8 +91,87 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    let suggestionsHasOrgId = false;
+
+    // Detect if suggestions table has organization_id column
+    async function detectSuggestionsOrgIdColumn() {
+        if (!supabaseClient) return;
+        try {
+            const { error } = await supabaseClient.from('suggestions').select('organization_id').limit(1);
+            suggestionsHasOrgId = !error;
+            console.log("Suggestions table has organization_id column:", suggestionsHasOrgId);
+        } catch (e) {
+            console.warn("Error detecting organization_id in suggestions:", e);
+            suggestionsHasOrgId = false;
+        }
+    }
+
+    // Load organizations from Supabase
+    async function loadOrganizations() {
+        if (!supabaseClient) return;
+        try {
+            let { data, error } = await supabaseClient
+                .from('organizations')
+                .select('id, name, status')
+                .eq('status', 'active')
+                .order('name', { ascending: true });
+
+            if (error) {
+                console.warn("Error fetching active organizations, trying without status filter:", error);
+                const fallbackResult = await supabaseClient
+                    .from('organizations')
+                    .select('id, name')
+                    .order('name', { ascending: true });
+                if (fallbackResult.error) throw fallbackResult.error;
+                data = fallbackResult.data;
+            }
+
+            const activeOrganizations = data || [];
+            populateOrganizationDropdown(activeOrganizations);
+        } catch (err) {
+            console.error("Failed to load organizations, keeping fallback options:", err);
+        }
+    }
+
+    // Populate organization dropdown
+    function populateOrganizationDropdown(orgList) {
+        if (!organizationSelect) return;
+
+        // Clear existing dynamic/static options except the first one "Kurum seçiniz"
+        organizationSelect.innerHTML = '<option value="">Kurum seçiniz</option>';
+
+        // Add "Bağımsız / Diğer" option
+        const independentOpt = document.createElement('option');
+        independentOpt.value = 'Bağımsız / Diğer';
+        independentOpt.textContent = 'Bağımsız / Diğer';
+        organizationSelect.appendChild(independentOpt);
+
+        // Sort orgList alphabetically by name in Turkish
+        const sortedList = [...orgList].sort((a, b) => 
+            (a.name || '').localeCompare(b.name || '', 'tr')
+        );
+
+        // Add each organization as an option
+        sortedList.forEach(org => {
+            const opt = document.createElement('option');
+            opt.value = org.id; // Store organization_id as the value
+            opt.textContent = org.name;
+            organizationSelect.appendChild(opt);
+        });
+
+        // Also add "Diğer" option at the end to allow custom input
+        const otherOpt = document.createElement('option');
+        otherOpt.value = 'Diğer';
+        otherOpt.textContent = 'Diğer (Kendiniz Yazın)';
+        organizationSelect.appendChild(otherOpt);
+    }
+
     // Initialize on load
-    initSupabase();
+    if (initSupabase()) {
+        detectSuggestionsOrgIdColumn().then(() => {
+            loadOrganizations();
+        });
+    }
 
     // Helper: Show Error
     function showError(message) {
@@ -155,6 +234,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const teacher = document.getElementById('teacher').value.trim();
         
         let organization = null;
+        let organizationId = null;
         const orgSelectValue = document.getElementById('organization').value;
         if (orgSelectValue === 'Diğer') {
             const otherVal = document.getElementById('other_organization').value.trim();
@@ -163,8 +243,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
             organization = otherVal;
+        } else if (orgSelectValue === 'Bağımsız / Diğer') {
+            organization = 'Bağımsız / Diğer';
         } else if (orgSelectValue) {
-            organization = orgSelectValue;
+            // It's a real organization from the database!
+            organizationId = orgSelectValue; // UUID
+            const selectedOpt = organizationSelect.options[organizationSelect.selectedIndex];
+            organization = selectedOpt ? selectedOpt.textContent : '';
         }
 
         const womenFriendly = document.getElementById('women_friendly').value === 'true';
@@ -239,6 +324,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 status: 'pending', // Required for admin review
                 source: 'web_form'
             };
+
+            if (suggestionsHasOrgId && organizationId) {
+                suggestionPayload.organization_id = organizationId;
+            }
 
             console.log("Inserting suggestion data:", suggestionPayload);
 
