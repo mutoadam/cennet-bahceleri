@@ -48,6 +48,9 @@
             <button id="main-tab-organizations" class="main-tab-btn">
                 <i class="fa-solid fa-building-columns"></i> Kurumlar
             </button>
+            <button id="main-tab-mosques" class="main-tab-btn">
+                <i class="fa-solid fa-map-location-dot"></i> Camii Konumları
+            </button>
         </div>
 
         <!-- Öneriler (Suggestions) Sekmesi İçeriği -->
@@ -348,6 +351,118 @@
                 <!-- List Container -->
                 <div id="organizations-list" class="suggestions-list grid-list">
                     <!-- Organization cards will be injected here dynamically -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Camii Konumları (Mosques) Sekmesi İçeriği -->
+        <div id="mosques-tab-content" class="hidden">
+            <section class="page-title-section">
+                <div class="page-title-container">
+                    <h2>Cami Konum Yönetimi</h2>
+                    <p class="section-desc">Yakındaki Camiler özelliği için harita koordinatları ve cami bilgilerini yönetebilirsiniz.</p>
+                </div>
+                <button id="add-mosque-btn" class="btn btn-secondary add-program-btn">
+                    <i class="fa-solid fa-plus"></i> Yeni Camii Ekle
+                </button>
+            </section>
+
+            <!-- İstatistik Kartları Grid Yapısı -->
+            <section class="stats-grid">
+                <div class="stats-card card-total" style="border-left: 6px solid var(--md-secondary);">
+                    <div class="stats-icon" style="background-color: var(--md-secondary-container); color: var(--md-secondary);"><i class="fa-solid fa-mosque"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Toplam Camii</span>
+                        <h3 id="stats-total-mosques-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-approved">
+                    <div class="stats-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Aktif Camii</span>
+                        <h3 id="stats-active-mosques-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-rejected">
+                    <div class="stats-icon"><i class="fa-solid fa-circle-xmark"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Pasif Camii</span>
+                        <h3 id="stats-passive-mosques-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Filtre ve Arama Paneli -->
+            <div class="filter-panel" id="mosques-filter-panel">
+                <div class="filter-row">
+                    <div class="filter-group search-group" style="flex: 2;">
+                        <label for="mosques-filter-search"><i class="fa-solid fa-magnifying-glass"></i> Arama</label>
+                        <input type="text" id="mosques-filter-search" class="form-control" placeholder="Cami adı, mahalle, adres...">
+                    </div>
+                    <div class="filter-group" style="flex: 1;">
+                        <label for="mosques-filter-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
+                        <select id="mosques-filter-district" class="form-control">
+                            <option value="">Tüm İlçeler</option>
+                            <option value="Adapazarı">Adapazarı</option>
+                            <option value="Akyazı">Akyazı</option>
+                            <option value="Arifiye">Arifiye</option>
+                            <option value="Erenler">Erenler</option>
+                            <option value="Ferizli">Ferizli</option>
+                            <option value="Geyve">Geyve</option>
+                            <option value="Hendek">Hendek</option>
+                            <option value="Karapürçek">Karapürçek</option>
+                            <option value="Karasu">Karasu</option>
+                            <option value="Kaynarca">Kaynarca</option>
+                            <option value="Kocaali">Kocaali</option>
+                            <option value="Pamukova">Pamukova</option>
+                            <option value="Sapanca">Sapanca</option>
+                            <option value="Serdivan">Serdivan</option>
+                            <option value="Söğütlü">Söğütlü</option>
+                            <option value="Taraklı">Taraklı</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Camiler List Section -->
+            <section class="suggestions-section">
+                <div class="section-header">
+                    <div class="header-title-wrapper">
+                        <h3>Camii Listesi</h3>
+                        <p class="subtitle-text"><span id="mosques-count">0</span> Cami konum kaydı listeleniyor</p>
+                    </div>
+                    <button id="mosques-refresh-btn" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-rotate"></i> Camileri Yenile
+                    </button>
+                </div>
+
+                <!-- Loader -->
+                <div id="mosques-loader" class="state-container hidden">
+                    <div class="spinner"></div>
+                    <p>Cami konumları yükleniyor, lütfen bekleyin...</p>
+                </div>
+
+                <!-- Error State / SQL Creation Info -->
+                <div id="mosques-error-container" class="state-container state-error hidden">
+                    <i class="fa-solid fa-triangle-exclamation state-icon"></i>
+                    <h4>Cami konumları yüklenirken bir hata oluştu.</h4>
+                    <p id="mosques-error-message">Lütfen veritabanı bağlantısını ve <code>mosque_locations</code> tablosunu kontrol edin.</p>
+                    <div id="mosques-sql-suggestion" class="sql-box hidden" style="margin-top: 15px; text-align: left; background: #1e1e1e; color: #ececec; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; max-width: 100%; overflow-x: auto; border: 1px solid #333; line-height: 1.4;">
+                        <!-- SQL will be loaded here if table missing -->
+                    </div>
+                    <button id="mosques-retry-btn" class="btn btn-primary" style="margin-top: 15px;">Tekrar Dene</button>
+                </div>
+
+                <!-- Empty State -->
+                <div id="mosques-empty-container" class="state-container state-empty hidden">
+                    <i class="fa-solid fa-map-location-dot state-icon"></i>
+                    <h4>Şu anda kayıtlı camii konumu bulunmuyor.</h4>
+                    <p>İlk cami konumunu eklemek için sağ üstteki "+ Yeni Camii Ekle" butonunu kullanabilirsiniz.</p>
+                </div>
+
+                <!-- List Container -->
+                <div id="mosques-list" class="suggestions-list grid-list">
+                    <!-- Mosque cards will be injected here dynamically -->
                 </div>
             </section>
         </div>
@@ -1101,6 +1216,105 @@
                 <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
                     <button id="org-modal-btn-cancel" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Vazgeç</button>
                     <button id="org-modal-btn-save" class="btn btn-action btn-save" style="min-height: 40px; padding: 8px 16px;">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mosque Modal (Yeni Camii & Düzenleme Modalı) -->
+    <div id="mosque-modal" class="modal-overlay hidden">
+        <div class="modal-card">
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-map-location-dot" style="font-size: 24px; color: var(--md-secondary);"></i>
+                    <div>
+                        <h3 id="mosque-modal-title">Yeni Camii Konumu Ekle</h3>
+                        <span class="category-badge" style="background-color: var(--md-primary-container); color: var(--md-primary); font-size: 12px; display: inline-block;">Cami Konumu</span>
+                    </div>
+                </div>
+                <button id="mosque-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="mosque-form" class="edit-form-grid" onsubmit="return false;">
+                    <!-- Hidden ID input for editing -->
+                    <input type="hidden" id="mosque-modal-id">
+                    
+                    <div class="form-group">
+                        <label for="mosque-modal-name-input"><i class="fa-solid fa-mosque"></i> Camii Adı *</label>
+                        <input type="text" id="mosque-modal-name-input" class="form-control" placeholder="Örn: Orhan Camii" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="mosque-modal-city-input"><i class="fa-solid fa-city"></i> İl</label>
+                        <input type="text" id="mosque-modal-city-input" class="form-control" value="Sakarya" required readonly style="background-color: #f5f5f5; cursor: not-allowed;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mosque-modal-district-input"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
+                        <select id="mosque-modal-district-input" class="form-control" required>
+                            <option value="" disabled selected>İlçe Seçiniz</option>
+                            <option value="Adapazarı">Adapazarı</option>
+                            <option value="Akyazı">Akyazı</option>
+                            <option value="Arifiye">Arifiye</option>
+                            <option value="Erenler">Erenler</option>
+                            <option value="Ferizli">Ferizli</option>
+                            <option value="Geyve">Geyve</option>
+                            <option value="Hendek">Hendek</option>
+                            <option value="Karapürçek">Karapürçek</option>
+                            <option value="Karasu">Karasu</option>
+                            <option value="Kaynarca">Kaynarca</option>
+                            <option value="Kocaali">Kocaali</option>
+                            <option value="Pamukova">Pamukova</option>
+                            <option value="Sapanca">Sapanca</option>
+                            <option value="Serdivan">Serdivan</option>
+                            <option value="Söğütlü">Söğütlü</option>
+                            <option value="Taraklı">Taraklı</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mosque-modal-neighborhood-input"><i class="fa-solid fa-map-pin"></i> Mahalle</label>
+                        <input type="text" id="mosque-modal-neighborhood-input" class="form-control" placeholder="Örn: Semerciler Mh.">
+                    </div>
+
+                    <div class="form-group full-width" style="grid-column: span 2;">
+                        <label for="mosque-modal-google-maps-input"><i class="fa-solid fa-link"></i> Google Maps Linki</label>
+                        <input type="url" id="mosque-modal-google-maps-input" class="form-control" placeholder="Google Maps'ten kopyaladığınız uzun linki buraya yapıştırın...">
+                        <div id="mosque-modal-link-warning" class="hidden" style="color: var(--md-warning); font-size: 13px; margin-top: 4px; font-weight: 500;">
+                            <i class="fa-solid fa-circle-info"></i> Kısa Google Maps linkleri otomatik çözümlenemiyor. Lütfen Google Maps’ten uzun bağlantıyı yapıştırın.
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mosque-modal-latitude-input"><i class="fa-solid fa-arrows-up-down"></i> Enlem (Latitude) *</label>
+                        <input type="number" step="any" id="mosque-modal-latitude-input" class="form-control" placeholder="Örn: 40.7821" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mosque-modal-longitude-input"><i class="fa-solid fa-arrows-left-right"></i> Boylam (Longitude) *</label>
+                        <input type="number" step="any" id="mosque-modal-longitude-input" class="form-control" placeholder="Örn: 30.4012" required>
+                    </div>
+
+                    <div class="form-group full-width" style="grid-column: span 2;">
+                        <label for="mosque-modal-address-input"><i class="fa-solid fa-house"></i> Açık Adres</label>
+                        <textarea id="mosque-modal-address-input" class="form-control" rows="2" placeholder="Caminin açık tarifi, adresi..."></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="mosque-modal-status-input"><i class="fa-solid fa-circle-check"></i> Yayın Durumu</label>
+                        <select id="mosque-modal-status-input" class="form-control">
+                            <option value="active">Aktif (Sistemde Listelenir)</option>
+                            <option value="inactive">Pasif (Gizlenir)</option>
+                        </select>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
+                    <button id="mosque-modal-btn-cancel" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Vazgeç</button>
+                    <button id="mosque-modal-btn-save" class="btn btn-action btn-save" style="min-height: 40px; padding: 8px 16px;">Kaydet</button>
                 </div>
             </div>
         </div>
