@@ -2245,4 +2245,87 @@ body {
     margin-top: 12px;
 }
 
+/* Kuruma Bağlı Program Kartları Görünümü (K-4 & K-5) */
+.org-programs-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 12px;
+    margin-top: 12px;
+}
+
+.org-program-card {
+    background-color: var(--md-surface-card, #ffffff);
+    border: 1px solid var(--md-outline-variant, #e0e0e0);
+    border-radius: var(--radius-md, 12px);
+    padding: 12px 14px;
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.org-program-card:hover {
+    border-color: var(--md-primary, #1b4332);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(27, 67, 50, 0.05);
+}
+
+.org-program-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+    padding-bottom: 6px;
+}
+
+.org-program-time-badge {
+    font-size: 12px;
+    color: var(--md-primary, #1b4332);
+    background-color: var(--md-primary-container, #e9f5ed);
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.org-program-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--md-on-surface, #1e1e1e);
+    margin: 0;
+    line-height: 1.3;
+}
+
+.org-program-card-meta {
+    font-size: 13px;
+    color: var(--md-on-surface-variant, #4a5d55);
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.org-program-venue {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.org-program-sube {
+    font-size: 12px;
+    color: var(--md-secondary, #b58d3d);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background-color: var(--md-secondary-container, #fcf8ee);
+    padding: 2px 8px;
+    border-radius: 4px;
+    width: fit-content;
+    font-weight: 500;
+    margin-top: 2px;
+}
+
 
