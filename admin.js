@@ -634,7 +634,50 @@ document.addEventListener('DOMContentLoaded', () => {
         if (editFooter) editFooter.classList.remove('hidden');
 
         // Populate form inputs
-        document.getElementById('edit-program-name').value = currentSuggestion.program_name || '';
+        const currentProgName = (currentSuggestion.program_name || '').trim();
+        const editProgNameSelect = document.getElementById('edit-program-name');
+        const editSuggHelper = document.getElementById('edit-suggestion-name-helper');
+        if (editProgNameSelect) {
+            const STANDARDIZED_PROGRAM_NAMES = [
+                "Haftalık Sohbet",
+                "Gençlik Sohbeti",
+                "Tarikat Sohbeti",
+                "Hadis Dersi",
+                "Fıkıh Dersi",
+                "Tefsir Dersi",
+                "İlmihal Dersi",
+                "Tefsir ve İlmihal",
+                "Zikir ve Sohbet",
+                "Mütalaa Dersi",
+                "Davet Ameli",
+                "Maruf Çalışması",
+                "Soru-Cevap",
+                "Sinevizyon Sohbeti",
+                "Diğer"
+            ];
+            if (currentProgName) {
+                const foundProg = STANDARDIZED_PROGRAM_NAMES.find(n => n.toLowerCase() === currentProgName.toLowerCase());
+                if (foundProg) {
+                    editProgNameSelect.value = foundProg;
+                    if (editSuggHelper) {
+                        editSuggHelper.classList.add('hidden');
+                        editSuggHelper.textContent = '';
+                    }
+                } else {
+                    editProgNameSelect.value = "Diğer";
+                    if (editSuggHelper) {
+                        editSuggHelper.classList.remove('hidden');
+                        editSuggHelper.innerHTML = `<i class="fa-solid fa-circle-info"></i> Orijinal Değer: <strong>${escapeHtml(currentProgName)}</strong> (Seçenekler arasında bulunmadığı için "Diğer" seçildi)`;
+                    }
+                }
+            } else {
+                editProgNameSelect.value = "";
+                if (editSuggHelper) {
+                    editSuggHelper.classList.add('hidden');
+                    editSuggHelper.textContent = '';
+                }
+            }
+        }
         document.getElementById('edit-venue-name').value = currentSuggestion.venue_name || '';
         document.getElementById('edit-city').value = currentSuggestion.city || 'Sakarya';
         
@@ -733,7 +776,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const address = document.getElementById('edit-address').value.trim();
             const description = document.getElementById('edit-description').value.trim();
 
-            if (!program_name || !venue_name || !city || !district || !day || !time) {
+            if (!program_name) {
+                showToast("Program Türü / Sohbet Adı seçilmesi zorunludur.", "error");
+                throw new Error("Program Türü / Sohbet Adı boş bırakılamaz.");
+            }
+
+            if (!venue_name || !city || !district || !day || !time) {
                 showToast("Lütfen zorunlu alanları doldurun.", "error");
                 throw new Error("Gerekli alanlar boş bırakılamaz.");
             }
@@ -1200,7 +1248,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const isLadiesSuitable = document.getElementById('add-ladies').value === 'yes';
         const photo_url = document.getElementById('add-photo-url').value.trim();
 
-        if (!program_name || !venue_name || !city || !district || !day || !time) {
+        if (!program_name) {
+            showToast("Program Türü / Sohbet Adı seçilmesi zorunludur.", "error");
+            return;
+        }
+
+        if (!venue_name || !city || !district || !day || !time) {
             showToast("Lütfen zorunlu alanları doldurun.", "error");
             return;
         }
@@ -2502,7 +2555,49 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Form alanlarını doldur
         const nameInput = document.getElementById('edit-program-name-input');
-        if (nameInput) nameInput.value = item.program_name || '';
+        const editProgHelper = document.getElementById('edit-program-name-helper');
+        if (nameInput) {
+            const currentProgName = (item.program_name || '').trim();
+            const STANDARDIZED_PROGRAM_NAMES = [
+                "Haftalık Sohbet",
+                "Gençlik Sohbeti",
+                "Tarikat Sohbeti",
+                "Hadis Dersi",
+                "Fıkıh Dersi",
+                "Tefsir Dersi",
+                "İlmihal Dersi",
+                "Tefsir ve İlmihal",
+                "Zikir ve Sohbet",
+                "Mütalaa Dersi",
+                "Davet Ameli",
+                "Maruf Çalışması",
+                "Soru-Cevap",
+                "Sinevizyon Sohbeti",
+                "Diğer"
+            ];
+            if (currentProgName) {
+                const foundProg = STANDARDIZED_PROGRAM_NAMES.find(n => n.toLowerCase() === currentProgName.toLowerCase());
+                if (foundProg) {
+                    nameInput.value = foundProg;
+                    if (editProgHelper) {
+                        editProgHelper.classList.add('hidden');
+                        editProgHelper.textContent = '';
+                    }
+                } else {
+                    nameInput.value = "Diğer";
+                    if (editProgHelper) {
+                        editProgHelper.classList.remove('hidden');
+                        editProgHelper.innerHTML = `<i class="fa-solid fa-circle-info"></i> Orijinal Değer: <strong>${escapeHtml(currentProgName)}</strong> (Seçenekler arasında bulunmadığı için "Diğer" seçildi)`;
+                    }
+                }
+            } else {
+                nameInput.value = '';
+                if (editProgHelper) {
+                    editProgHelper.classList.add('hidden');
+                    editProgHelper.textContent = '';
+                }
+            }
+        }
 
         const venueInput = document.getElementById('edit-program-venue-name');
         if (venueInput) venueInput.value = item.venue_name || '';
@@ -2693,7 +2788,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Basit form validasyonu
         if (!program_name) {
-            showToast("Program adı zorunludur.", "error");
+            showToast("Program Türü / Sohbet Adı seçilmesi zorunludur.", "error");
             return;
         }
         if (!venue_name) {
@@ -2863,6 +2958,36 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-program-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'edit-program-modal') {
             closeProgramEditModal();
+        }
+    });
+
+    document.getElementById('edit-program-name')?.addEventListener('change', (e) => {
+        const helper = document.getElementById('edit-suggestion-name-helper');
+        if (helper && e.target.value !== 'Diğer') {
+            helper.classList.add('hidden');
+        } else if (helper && e.target.value === 'Diğer' && currentSuggestion && currentSuggestion.program_name) {
+            const currentProgName = currentSuggestion.program_name.trim();
+            const STANDARDIZED_PROGRAM_NAMES = [
+                "Haftalık Sohbet", "Gençlik Sohbeti", "Tarikat Sohbeti", "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Tefsir ve İlmihal", "Zikir ve Sohbet", "Mütalaa Dersi", "Davet Ameli", "Maruf Çalışması", "Soru-Cevap", "Sinevizyon Sohbeti", "Diğer"
+            ];
+            if (!STANDARDIZED_PROGRAM_NAMES.includes(currentProgName)) {
+                helper.classList.remove('hidden');
+            }
+        }
+    });
+
+    document.getElementById('edit-program-name-input')?.addEventListener('change', (e) => {
+        const helper = document.getElementById('edit-program-name-helper');
+        if (helper && e.target.value !== 'Diğer') {
+            helper.classList.add('hidden');
+        } else if (helper && e.target.value === 'Diğer' && currentEditProgram && currentEditProgram.program_name) {
+            const currentProgName = currentEditProgram.program_name.trim();
+            const STANDARDIZED_PROGRAM_NAMES = [
+                "Haftalık Sohbet", "Gençlik Sohbeti", "Tarikat Sohbeti", "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Tefsir ve İlmihal", "Zikir ve Sohbet", "Mütalaa Dersi", "Davet Ameli", "Maruf Çalışması", "Soru-Cevap", "Sinevizyon Sohbeti", "Diğer"
+            ];
+            if (!STANDARDIZED_PROGRAM_NAMES.includes(currentProgName)) {
+                helper.classList.remove('hidden');
+            }
         }
     });
 
