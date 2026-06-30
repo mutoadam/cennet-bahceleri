@@ -641,18 +641,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const STANDARDIZED_PROGRAM_NAMES = [
                 "Haftalık Sohbet",
                 "Gençlik Sohbeti",
-                "Tarikat Sohbeti",
+                "Hanımlar Sohbeti",
                 "Hadis Dersi",
                 "Fıkıh Dersi",
                 "Tefsir Dersi",
                 "İlmihal Dersi",
                 "Tefsir ve İlmihal",
+                "Haftalık Ders ve Zikir",
                 "Zikir ve Sohbet",
                 "Mütalaa Dersi",
                 "Davet Ameli",
                 "Maruf Çalışması",
                 "Soru-Cevap",
                 "Sinevizyon Sohbeti",
+                "3 Günlük Sefer",
                 "Diğer"
             ];
             if (currentProgName) {
@@ -667,7 +669,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     editProgNameSelect.value = "Diğer";
                     if (editSuggHelper) {
                         editSuggHelper.classList.remove('hidden');
-                        editSuggHelper.innerHTML = `<i class="fa-solid fa-circle-info"></i> Orijinal Değer: <strong>${escapeHtml(currentProgName)}</strong> (Seçenekler arasında bulunmadığı için "Diğer" seçildi)`;
+                        editSuggHelper.innerHTML = `<i class="fa-solid fa-circle-info"></i> Mevcut değer: <strong>${escapeHtml(currentProgName)}</strong> (Seçenekler arasında bulunmadığı için "Diğer" seçildi)`;
                     }
                 }
             } else {
@@ -2561,18 +2563,20 @@ document.addEventListener('DOMContentLoaded', () => {
             const STANDARDIZED_PROGRAM_NAMES = [
                 "Haftalık Sohbet",
                 "Gençlik Sohbeti",
-                "Tarikat Sohbeti",
+                "Hanımlar Sohbeti",
                 "Hadis Dersi",
                 "Fıkıh Dersi",
                 "Tefsir Dersi",
                 "İlmihal Dersi",
                 "Tefsir ve İlmihal",
+                "Haftalık Ders ve Zikir",
                 "Zikir ve Sohbet",
                 "Mütalaa Dersi",
                 "Davet Ameli",
                 "Maruf Çalışması",
                 "Soru-Cevap",
                 "Sinevizyon Sohbeti",
+                "3 Günlük Sefer",
                 "Diğer"
             ];
             if (currentProgName) {
@@ -2587,7 +2591,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     nameInput.value = "Diğer";
                     if (editProgHelper) {
                         editProgHelper.classList.remove('hidden');
-                        editProgHelper.innerHTML = `<i class="fa-solid fa-circle-info"></i> Orijinal Değer: <strong>${escapeHtml(currentProgName)}</strong> (Seçenekler arasında bulunmadığı için "Diğer" seçildi)`;
+                        editProgHelper.innerHTML = `<i class="fa-solid fa-circle-info"></i> Mevcut değer: <strong>${escapeHtml(currentProgName)}</strong> (Seçenekler arasında bulunmadığı için "Diğer" seçildi)`;
                     }
                 }
             } else {
@@ -2968,7 +2972,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (helper && e.target.value === 'Diğer' && currentSuggestion && currentSuggestion.program_name) {
             const currentProgName = currentSuggestion.program_name.trim();
             const STANDARDIZED_PROGRAM_NAMES = [
-                "Haftalık Sohbet", "Gençlik Sohbeti", "Tarikat Sohbeti", "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Tefsir ve İlmihal", "Zikir ve Sohbet", "Mütalaa Dersi", "Davet Ameli", "Maruf Çalışması", "Soru-Cevap", "Sinevizyon Sohbeti", "Diğer"
+                "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Tefsir ve İlmihal", "Haftalık Ders ve Zikir", "Zikir ve Sohbet", "Mütalaa Dersi", "Davet Ameli", "Maruf Çalışması", "Soru-Cevap", "Sinevizyon Sohbeti", "3 Günlük Sefer", "Diğer"
             ];
             if (!STANDARDIZED_PROGRAM_NAMES.includes(currentProgName)) {
                 helper.classList.remove('hidden');
@@ -2983,7 +2987,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (helper && e.target.value === 'Diğer' && currentEditProgram && currentEditProgram.program_name) {
             const currentProgName = currentEditProgram.program_name.trim();
             const STANDARDIZED_PROGRAM_NAMES = [
-                "Haftalık Sohbet", "Gençlik Sohbeti", "Tarikat Sohbeti", "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Tefsir ve İlmihal", "Zikir ve Sohbet", "Mütalaa Dersi", "Davet Ameli", "Maruf Çalışması", "Soru-Cevap", "Sinevizyon Sohbeti", "Diğer"
+                "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Tefsir ve İlmihal", "Haftalık Ders ve Zikir", "Zikir ve Sohbet", "Mütalaa Dersi", "Davet Ameli", "Maruf Çalışması", "Soru-Cevap", "Sinevizyon Sohbeti", "3 Günlük Sefer", "Diğer"
             ];
             if (!STANDARDIZED_PROGRAM_NAMES.includes(currentProgName)) {
                 helper.classList.remove('hidden');
