@@ -5571,6 +5571,74 @@ out center;`;
         }
     }
 
+    // ==========================================
+    // Admin Basit Giriş Koruması (S-1)
+    // ==========================================
+    const CORRECT_USERNAME = "admin";
+    const CORRECT_PASSWORD = "cennet2026";
+    const SESSION_KEY = "cennet_admin_logged_in";
+
+    function checkAuth() {
+        const isLoggedIn = sessionStorage.getItem(SESSION_KEY) === "true" || localStorage.getItem(SESSION_KEY) === "true";
+        if (isLoggedIn) {
+            document.body.classList.remove('logged-out');
+            return true;
+        } else {
+            document.body.classList.add('logged-out');
+            return false;
+        }
+    }
+
+    function initAuth() {
+        const loginForm = document.getElementById('login-form-el');
+        const usernameInput = document.getElementById('login-username');
+        const passwordInput = document.getElementById('login-password');
+        const loginError = document.getElementById('login-error');
+        const logoutBtn = document.getElementById('logout-btn');
+
+        if (loginForm) {
+            loginForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const username = usernameInput.value.trim();
+                const password = passwordInput.value.trim();
+
+                if (username === CORRECT_USERNAME && password === CORRECT_PASSWORD) {
+                    sessionStorage.setItem(SESSION_KEY, "true");
+                    localStorage.setItem(SESSION_KEY, "true");
+                    
+                    if (loginError) loginError.classList.add('hidden');
+                    document.body.classList.remove('logged-out');
+                    
+                    // Run initial load after successful login
+                    loadOrganizations();
+                    loadData();
+                    if (typeof showToast === 'function') {
+                        showToast("Giriş başarılı. Hoş geldiniz!", "success");
+                    }
+                } else {
+                    if (loginError) loginError.classList.remove('hidden');
+                    if (typeof showToast === 'function') {
+                        showToast("Giriş başarısız! Hatalı bilgiler.", "error");
+                    }
+                }
+            });
+        }
+
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', () => {
+                sessionStorage.removeItem(SESSION_KEY);
+                localStorage.removeItem(SESSION_KEY);
+                document.body.classList.add('logged-out');
+                if (usernameInput) usernameInput.value = '';
+                if (passwordInput) passwordInput.value = '';
+                if (loginError) loginError.classList.add('hidden');
+                if (typeof showToast === 'function') {
+                    showToast("Oturum kapatıldı.", "success");
+                }
+            });
+        }
+    }
+
     // Initial Load
     initViewSelector();
     initFilterListeners();
@@ -5583,6 +5651,11 @@ out center;`;
     initDistrictWarningListeners();
     initOrgListeners();
     initMosqueListeners();
-    loadOrganizations();
-    loadData();
+    
+    // Auth and Data Loading
+    initAuth();
+    if (checkAuth()) {
+        loadOrganizations();
+        loadData();
+    }
 });
