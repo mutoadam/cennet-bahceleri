@@ -2383,32 +2383,38 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Primary Tab Switcher (Öneriler vs. Programlar vs. Kurumlar)
+    // Primary Tab Switcher (Öneriler vs. Programlar vs. Kurumlar vs. Camiler)
     function initMainNavigation() {
         const tabSuggestions = document.getElementById('main-tab-suggestions');
         const tabPrograms = document.getElementById('main-tab-programs');
         const tabOrganizations = document.getElementById('main-tab-organizations');
+        const tabMosques = document.getElementById('main-tab-mosques');
         const suggestionsContent = document.getElementById('suggestions-tab-content');
         const programsContent = document.getElementById('programs-tab-content');
         const organizationsContent = document.getElementById('organizations-tab-content');
+        const mosquesContent = document.getElementById('mosques-tab-content');
 
-        if (tabSuggestions && tabPrograms && tabOrganizations && suggestionsContent && programsContent && organizationsContent) {
+        if (tabSuggestions && tabPrograms && tabOrganizations && tabMosques && suggestionsContent && programsContent && organizationsContent && mosquesContent) {
             tabSuggestions.addEventListener('click', () => {
                 tabSuggestions.classList.add('active');
                 tabPrograms.classList.remove('active');
                 tabOrganizations.classList.remove('active');
+                tabMosques.classList.remove('active');
                 suggestionsContent.classList.remove('hidden');
                 programsContent.classList.add('hidden');
                 organizationsContent.classList.add('hidden');
+                mosquesContent.classList.add('hidden');
             });
 
             tabPrograms.addEventListener('click', () => {
                 tabPrograms.classList.add('active');
                 tabSuggestions.classList.remove('active');
                 tabOrganizations.classList.remove('active');
+                tabMosques.classList.remove('active');
                 programsContent.classList.remove('hidden');
                 suggestionsContent.classList.add('hidden');
                 organizationsContent.classList.add('hidden');
+                mosquesContent.classList.add('hidden');
                 loadPrograms();
             });
 
@@ -2416,10 +2422,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 tabOrganizations.classList.add('active');
                 tabSuggestions.classList.remove('active');
                 tabPrograms.classList.remove('active');
+                tabMosques.classList.remove('active');
                 organizationsContent.classList.remove('hidden');
                 suggestionsContent.classList.add('hidden');
                 programsContent.classList.add('hidden');
+                mosquesContent.classList.add('hidden');
                 loadAdminOrganizations();
+            });
+
+            tabMosques.addEventListener('click', () => {
+                tabMosques.classList.add('active');
+                tabSuggestions.classList.remove('active');
+                tabPrograms.classList.remove('active');
+                tabOrganizations.classList.remove('active');
+                mosquesContent.classList.remove('hidden');
+                suggestionsContent.classList.add('hidden');
+                programsContent.classList.add('hidden');
+                organizationsContent.classList.add('hidden');
+                loadMosques();
             });
         }
     }
@@ -4092,6 +4112,474 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // ==========================================================
+    // CAMII KONUM YÖNETİMİ İŞLEVLERİ (Faz 2 - H-M1)
+    // ==========================================================
+    let mosquesListCache = [];
+
+    function extractLatLngFromGoogleMapsLink(link) {
+        if (!link) return null;
+        
+        // Check for short goo.gl link and warn user
+        if (link.includes("maps.app.goo.gl") || link.includes("goo.gl/maps")) {
+            return { isShort: true };
+        }
+        
+        // Pattern 1: @40.8021,30.7456,17z or similar
+        const patternAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
+        const matchAt = link.match(patternAt);
+        if (matchAt && matchAt.length >= 3) {
+            return {
+                latitude: parseFloat(matchAt[1]),
+                longitude: parseFloat(matchAt[2])
+            };
+        }
+        
+        // Pattern 2: !3d40.8021!4d30.7456 or similar
+        const patternExcl = /!3d(-?\d+\.\d+).*!4d(-?\d+\.\d+)/;
+        const matchExcl = link.match(patternExcl);
+        if (matchExcl && matchExcl.length >= 3) {
+            return {
+                latitude: parseFloat(matchExcl[1]),
+                longitude: parseFloat(matchExcl[2])
+            };
+        }
+        
+        // Pattern 3: standard query param q=lat,lng or sll=lat,lng or ll=lat,lng
+        const patternQuery = /[?&](?:q|ll|sll)=(-?\d+\.\d+),(-?\d+\.\d+)/;
+        const matchQuery = link.match(patternQuery);
+        if (matchQuery && matchQuery.length >= 3) {
+            return {
+                latitude: parseFloat(matchQuery[1]),
+                longitude: parseFloat(matchQuery[2])
+            };
+        }
+        
+        return null;
+    }
+
+    async function loadMosques() {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        showMosquesLoader();
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('mosque_locations')
+                .select('*')
+                .order('mosque_name', { ascending: true });
+
+            if (error) throw error;
+
+            mosquesListCache = data || [];
+            updateMosqueStats(mosquesListCache);
+            applyMosqueFilters();
+
+        } catch (error) {
+            console.error("Cami konumları yüklenirken hata:", error);
+            showMosquesError();
+
+            const errMsg = (error.message || '').toLowerCase();
+            const isTableMissing = errMsg.includes('relation "public.mosque_locations" does not exist') || errMsg.includes('does not exist');
+
+            const errorMessage = document.getElementById('mosques-error-message');
+            const sqlSuggestion = document.getElementById('mosques-sql-suggestion');
+
+            if (isTableMissing) {
+                if (errorMessage) errorMessage.innerHTML = `<code>mosque_locations</code> tablosu veritabanınızda bulunamadı.<br>Lütfen aşağıdaki SQL'i Supabase SQL Editor üzerinde çalıştırıp tekrar deneyin:`;
+                if (sqlSuggestion) {
+                    sqlSuggestion.innerHTML = `CREATE TABLE IF NOT EXISTS public.mosque_locations (
+    id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    mosque_name text NOT NULL,
+    city text NOT NULL DEFAULT 'Sakarya',
+    district text NOT NULL,
+    neighborhood text,
+    address text,
+    google_maps_link text,
+    latitude double precision NOT NULL,
+    longitude double precision NOT NULL,
+    status text NOT NULL DEFAULT 'active',
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- RLS Etkinleştirme
+ALTER TABLE public.mosque_locations ENABLE ROW LEVEL SECURITY;
+
+-- Politikalar (Policies)
+CREATE POLICY "Public Read Access" ON public.mosque_locations FOR SELECT USING (true);
+CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (true);`;
+                    sqlSuggestion.classList.remove('hidden');
+                }
+            } else {
+                if (errorMessage) errorMessage.textContent = "Bağlantı hatası veya yetki yetersizliği. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.";
+                if (sqlSuggestion) sqlSuggestion.classList.add('hidden');
+            }
+        }
+    }
+
+    function updateMosqueStats(mosques) {
+        const totalCount = mosques.length;
+        const activeCount = mosques.filter(m => m.status === 'active').length;
+        const passiveCount = mosques.filter(m => m.status === 'inactive').length;
+
+        const totalVal = document.getElementById('stats-total-mosques-val');
+        const activeVal = document.getElementById('stats-active-mosques-val');
+        const passiveVal = document.getElementById('stats-passive-mosques-val');
+
+        if (totalVal) totalVal.textContent = totalCount;
+        if (activeVal) activeVal.textContent = activeCount;
+        if (passiveVal) passiveVal.textContent = passiveCount;
+    }
+
+    function applyMosqueFilters() {
+        const searchVal = (document.getElementById('mosques-filter-search')?.value || '').trim().toLocaleLowerCase('tr-TR');
+        const districtVal = document.getElementById('mosques-filter-district')?.value || '';
+
+        let filtered = mosquesListCache;
+
+        if (districtVal) {
+            filtered = filtered.filter(m => (m.district || '').toLocaleLowerCase('tr-TR') === districtVal.toLocaleLowerCase('tr-TR'));
+        }
+
+        if (searchVal) {
+            filtered = filtered.filter(m => {
+                const name = (m.mosque_name || '').toLocaleLowerCase('tr-TR');
+                const dist = (m.district || '').toLocaleLowerCase('tr-TR');
+                const neigh = (m.neighborhood || '').toLocaleLowerCase('tr-TR');
+                const addr = (m.address || '').toLocaleLowerCase('tr-TR');
+                return name.includes(searchVal) || dist.includes(searchVal) || neigh.includes(searchVal) || addr.includes(searchVal);
+            });
+        }
+
+        renderMosques(filtered);
+    }
+
+    function renderMosques(mosques) {
+        const list = document.getElementById('mosques-list');
+        const count = document.getElementById('mosques-count');
+        if (!list) return;
+
+        list.innerHTML = '';
+        if (count) count.textContent = mosques.length;
+
+        if (mosques.length === 0) {
+            showMosquesEmpty();
+            return;
+        }
+
+        hideMosquesStates();
+
+        mosques.forEach(m => {
+            const card = document.createElement('div');
+            card.className = 'suggestion-card';
+            if (m.status === 'inactive') {
+                card.classList.add('org-card-inactive');
+            }
+
+            const statusText = m.status === 'active' ? 'Aktif' : 'Pasif';
+            const statusClass = m.status === 'active' ? 'status-badge status-approved' : 'status-badge status-rejected';
+
+            const statusActionText = m.status === 'active' ? 'Pasife Al' : 'Aktif Et';
+            const statusActionIcon = m.status === 'active' ? 'fa-eye-slash' : 'fa-eye';
+            const statusActionClass = m.status === 'active' ? 'btn-status-toggle btn-secondary' : 'btn-status-toggle btn-primary';
+
+            let mapsLinkBtn = '';
+            if (m.google_maps_link) {
+                mapsLinkBtn = `<a href="${escapeHtml(m.google_maps_link)}" target="_blank" class="org-link-icon" style="color: var(--md-secondary); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" title="Google Maps"><i class="fa-solid fa-map-location-dot"></i> Haritada Aç</a>`;
+            } else {
+                mapsLinkBtn = `<a href="https://maps.google.com/?q=${m.latitude},${m.longitude}" target="_blank" class="org-link-icon" style="color: var(--md-secondary); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" title="Google Maps"><i class="fa-solid fa-map-location-dot"></i> Koordinatları Aç</a>`;
+            }
+
+            card.innerHTML = `
+                <div class="card-header-info" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <span class="${statusClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusText)}</span>
+                        <span class="category-badge" style="font-size: 11px; padding: 2px 8px; background-color: var(--md-secondary-container); color: var(--md-on-secondary-container); border-color: rgba(181, 141, 61, 0.2);">${escapeHtml(m.district || '')}</span>
+                    </div>
+                    <button class="btn-card-edit btn-mosque-edit" title="Camiyi Düzenle" style="background: transparent; border: none; color: var(--md-primary); cursor: pointer; font-size: 16px; padding: 4px;">
+                        <i class="fa-solid fa-pen-to-square"></i>
+                    </button>
+                </div>
+                
+                <div class="org-card-main-content" style="display: flex; gap: 16px; margin-top: 12px; align-items: flex-start;">
+                    <div class="org-logo-wrapper" style="width: 56px; height: 56px; border-radius: var(--radius-md); overflow: hidden; flex-shrink: 0; display: flex; align-items: center; justify-content: center; background-color: var(--md-primary-container); color: var(--md-primary);">
+                        <i class="fa-solid fa-mosque" style="font-size: 24px;"></i>
+                    </div>
+                    <div class="org-card-text-area" style="flex: 1;">
+                        <h4 class="program-title" style="margin-bottom: 4px; font-size: 18px; font-weight: 700; color: var(--md-primary); line-height: 1.3;">${escapeHtml(m.mosque_name || 'İsimsiz Camii')}</h4>
+                        <p style="font-size: 13px; font-weight: 500; color: var(--md-on-surface-variant); margin-bottom: 4px; display: flex; align-items: center; gap: 4px;">
+                            <i class="fa-solid fa-location-dot"></i> ${escapeHtml(m.city || 'Sakarya')} / ${escapeHtml(m.district || '')} ${m.neighborhood ? ' - ' + escapeHtml(m.neighborhood) : ''}
+                        </p>
+                        <p style="font-size: 12px; font-family: monospace; color: var(--md-on-surface-variant);">
+                            Koord: ${m.latitude}, ${m.longitude}
+                        </p>
+                        <p style="font-size: 14px; line-height: 1.4; color: var(--md-on-surface-variant); margin-top: 6px; max-height: 40px; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">
+                            ${escapeHtml(m.address || 'Adres belirtilmemiş.')}
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="org-card-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--md-outline); gap: 12px; width: 100%;">
+                    <div class="org-links-wrapper" style="display: flex; gap: 10px; font-size: 14px;">
+                        ${mapsLinkBtn}
+                    </div>
+                    <button class="btn btn-sm ${statusActionClass} btn-mosque-status-toggle" style="min-height: 36px; padding: 6px 12px; font-size: 13px;" data-id="${m.id}">
+                        <i class="fa-solid ${statusActionIcon}"></i> ${statusActionText}
+                    </button>
+                </div>
+            `;
+
+            // Edit button handler
+            card.querySelector('.btn-mosque-edit').addEventListener('click', () => {
+                openEditMosqueModal(m);
+            });
+
+            // Status toggle button handler
+            card.querySelector('.btn-mosque-status-toggle').addEventListener('click', async () => {
+                const newStatus = m.status === 'active' ? 'inactive' : 'active';
+                await toggleMosqueStatus(m.id, newStatus);
+            });
+
+            list.appendChild(card);
+        });
+    }
+
+    function showMosquesLoader() {
+        document.getElementById('mosques-loader')?.classList.remove('hidden');
+        document.getElementById('mosques-error-container')?.classList.add('hidden');
+        document.getElementById('mosques-empty-container')?.classList.add('hidden');
+        document.getElementById('mosques-list')?.classList.add('hidden');
+    }
+
+    function showMosquesError() {
+        document.getElementById('mosques-loader')?.classList.add('hidden');
+        document.getElementById('mosques-error-container')?.classList.remove('hidden');
+        document.getElementById('mosques-empty-container')?.classList.add('hidden');
+        document.getElementById('mosques-list')?.classList.add('hidden');
+    }
+
+    function showMosquesEmpty() {
+        document.getElementById('mosques-loader')?.classList.add('hidden');
+        document.getElementById('mosques-error-container')?.classList.add('hidden');
+        document.getElementById('mosques-empty-container')?.classList.remove('hidden');
+        document.getElementById('mosques-list')?.classList.add('hidden');
+    }
+
+    function hideMosquesStates() {
+        document.getElementById('mosques-loader')?.classList.add('hidden');
+        document.getElementById('mosques-error-container')?.classList.add('hidden');
+        document.getElementById('mosques-empty-container')?.classList.add('hidden');
+        document.getElementById('mosques-list')?.classList.remove('hidden');
+    }
+
+    function openAddMosqueModal() {
+        document.getElementById('mosque-modal-title').textContent = "Yeni Camii Konumu Ekle";
+        document.getElementById('mosque-modal-id').value = '';
+        document.getElementById('mosque-modal-name-input').value = '';
+        document.getElementById('mosque-modal-district-input').value = '';
+        document.getElementById('mosque-modal-neighborhood-input').value = '';
+        document.getElementById('mosque-modal-google-maps-input').value = '';
+        document.getElementById('mosque-modal-latitude-input').value = '';
+        document.getElementById('mosque-modal-longitude-input').value = '';
+        document.getElementById('mosque-modal-address-input').value = '';
+        document.getElementById('mosque-modal-status-input').value = 'active';
+        document.getElementById('mosque-modal-link-warning').classList.add('hidden');
+        
+        document.getElementById('mosque-modal').classList.remove('hidden');
+        document.body.style.overflow = "hidden";
+    }
+
+    function openEditMosqueModal(m) {
+        document.getElementById('mosque-modal-title').textContent = "Camii Konumunu Düzenle";
+        document.getElementById('mosque-modal-id').value = m.id;
+        document.getElementById('mosque-modal-name-input').value = m.mosque_name || '';
+        document.getElementById('mosque-modal-district-input').value = m.district || '';
+        document.getElementById('mosque-modal-neighborhood-input').value = m.neighborhood || '';
+        document.getElementById('mosque-modal-google-maps-input').value = m.google_maps_link || '';
+        document.getElementById('mosque-modal-latitude-input').value = m.latitude || '';
+        document.getElementById('mosque-modal-longitude-input').value = m.longitude || '';
+        document.getElementById('mosque-modal-address-input').value = m.address || '';
+        document.getElementById('mosque-modal-status-input').value = m.status || 'active';
+        document.getElementById('mosque-modal-link-warning').classList.add('hidden');
+        
+        document.getElementById('mosque-modal').classList.remove('hidden');
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeMosqueModal() {
+        document.getElementById('mosque-modal').classList.add('hidden');
+        document.body.style.overflow = "";
+    }
+
+    async function saveMosque() {
+        if (!supabaseClient) return;
+
+        const saveBtn = document.getElementById('mosque-modal-btn-save');
+        const cancelBtn = document.getElementById('mosque-modal-btn-cancel');
+
+        const id = document.getElementById('mosque-modal-id').value;
+        const mosque_name = document.getElementById('mosque-modal-name-input').value.trim();
+        const city = document.getElementById('mosque-modal-city-input').value.trim();
+        const district = document.getElementById('mosque-modal-district-input').value;
+        const neighborhood = document.getElementById('mosque-modal-neighborhood-input').value.trim();
+        const google_maps_link = document.getElementById('mosque-modal-google-maps-input').value.trim();
+        const latitudeStr = document.getElementById('mosque-modal-latitude-input').value.trim();
+        const longitudeStr = document.getElementById('mosque-modal-longitude-input').value.trim();
+        const address = document.getElementById('mosque-modal-address-input').value.trim();
+        const status = document.getElementById('mosque-modal-status-input').value;
+
+        if (!mosque_name || !district || !latitudeStr || !longitudeStr) {
+            showToast("Lütfen zorunlu alanları (*) doldurun.", "error");
+            return;
+        }
+
+        const latitude = parseFloat(latitudeStr);
+        const longitude = parseFloat(longitudeStr);
+
+        if (isNaN(latitude) || isNaN(longitude)) {
+            showToast("Lütfen geçerli enlem ve boylam koordinatları girin.", "error");
+            return;
+        }
+
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.classList.add('disabled');
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = true;
+            cancelBtn.classList.add('disabled');
+        }
+
+        const originalSaveHTML = saveBtn ? saveBtn.innerHTML : '';
+        if (saveBtn) {
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kaydediliyor...';
+        }
+
+        try {
+            const payload = {
+                mosque_name,
+                city,
+                district,
+                neighborhood,
+                address,
+                google_maps_link,
+                latitude,
+                longitude,
+                status,
+                updated_at: new Date().toISOString()
+            };
+
+            if (!id) {
+                // INSERT
+                payload.created_at = new Date().toISOString();
+                const { error } = await supabaseClient
+                    .from('mosque_locations')
+                    .insert(payload);
+
+                if (error) throw error;
+                showToast("Camii konumu kaydedildi.", "success");
+            } else {
+                // UPDATE
+                const { error } = await supabaseClient
+                    .from('mosque_locations')
+                    .update(payload)
+                    .eq('id', id);
+
+                if (error) throw error;
+                showToast("Camii konumu kaydedildi.", "success");
+            }
+
+            closeMosqueModal();
+            await loadMosques();
+
+        } catch (error) {
+            console.error("Cami konumu kaydedilemedi:", error);
+            showToast("Camii konumu kaydedilemedi.", "error");
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('disabled');
+                saveBtn.innerHTML = originalSaveHTML;
+            }
+            if (cancelBtn) {
+                cancelBtn.disabled = false;
+                cancelBtn.classList.remove('disabled');
+            }
+        }
+    }
+
+    async function toggleMosqueStatus(id, newStatus) {
+        if (!supabaseClient) return;
+
+        try {
+            const { error } = await supabaseClient
+                .from('mosque_locations')
+                .update({
+                    status: newStatus,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            showToast("Camii konumu kaydedildi.", "success");
+            await loadMosques();
+        } catch (error) {
+            console.error("Cami durumu değiştirilirken hata oluştu:", error);
+            showToast("Camii konumu kaydedilemedi.", "error");
+        }
+    }
+
+    function initMosqueListeners() {
+        // Add button
+        document.getElementById('add-mosque-btn')?.addEventListener('click', openAddMosqueModal);
+        
+        // Close modal
+        document.getElementById('mosque-modal-close-top')?.addEventListener('click', closeMosqueModal);
+        document.getElementById('mosque-modal-btn-cancel')?.addEventListener('click', closeMosqueModal);
+        
+        // Save modal
+        document.getElementById('mosque-modal-btn-save')?.addEventListener('click', saveMosque);
+        
+        // Refresh button
+        document.getElementById('mosques-refresh-btn')?.addEventListener('click', loadMosques);
+        document.getElementById('mosques-retry-btn')?.addEventListener('click', loadMosques);
+
+        // Filters
+        document.getElementById('mosques-filter-search')?.addEventListener('input', applyMosqueFilters);
+        document.getElementById('mosques-filter-district')?.addEventListener('change', applyMosqueFilters);
+
+        // Google Maps parsing
+        const googleMapsInput = document.getElementById('mosque-modal-google-maps-input');
+        if (googleMapsInput) {
+            googleMapsInput.addEventListener('input', (e) => {
+                const link = e.target.value.trim();
+                if (!link) {
+                    document.getElementById('mosque-modal-link-warning').classList.add('hidden');
+                    return;
+                }
+                
+                const parsed = extractLatLngFromGoogleMapsLink(link);
+                if (parsed) {
+                    if (parsed.isShort) {
+                        document.getElementById('mosque-modal-link-warning').classList.remove('hidden');
+                        showToast("Kısa Google Maps linkleri otomatik çözümlenemiyor. Lütfen Google Maps’ten uzun bağlantıyı yapıştırın.", "error");
+                    } else {
+                        document.getElementById('mosque-modal-link-warning').classList.add('hidden');
+                        document.getElementById('mosque-modal-latitude-input').value = parsed.latitude;
+                        document.getElementById('mosque-modal-longitude-input').value = parsed.longitude;
+                        showToast("Koordinatlar otomatik çözümlendi.", "success");
+                    }
+                } else {
+                    document.getElementById('mosque-modal-link-warning').classList.add('hidden');
+                }
+            });
+        }
+    }
+
     // Initial Load
     initViewSelector();
     initFilterListeners();
@@ -4103,6 +4591,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initOrganizationListeners();
     initDistrictWarningListeners();
     initOrgListeners();
+    initMosqueListeners();
     loadOrganizations();
     loadData();
 });
