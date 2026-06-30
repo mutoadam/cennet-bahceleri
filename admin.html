@@ -613,8 +613,26 @@
                 <div id="modal-edit-body" class="hidden">
                     <form id="edit-form" class="edit-form-grid">
                         <div class="form-group">
-                            <label for="edit-program-name"><i class="fa-solid fa-file-invoice"></i> Program Adı</label>
-                            <input type="text" id="edit-program-name" class="form-control" required>
+                            <label for="edit-program-name"><i class="fa-solid fa-file-invoice"></i> Program Türü / Sohbet Adı *</label>
+                            <select id="edit-program-name" class="form-control" required>
+                                <option value="">Program Türü / Sohbet Adı Seçiniz</option>
+                                <option value="Haftalık Sohbet">Haftalık Sohbet</option>
+                                <option value="Gençlik Sohbeti">Gençlik Sohbeti</option>
+                                <option value="Tarikat Sohbeti">Tarikat Sohbeti</option>
+                                <option value="Hadis Dersi">Hadis Dersi</option>
+                                <option value="Fıkıh Dersi">Fıkıh Dersi</option>
+                                <option value="Tefsir Dersi">Tefsir Dersi</option>
+                                <option value="İlmihal Dersi">İlmihal Dersi</option>
+                                <option value="Tefsir ve İlmihal">Tefsir ve İlmihal</option>
+                                <option value="Zikir ve Sohbet">Zikir ve Sohbet</option>
+                                <option value="Mütalaa Dersi">Mütalaa Dersi</option>
+                                <option value="Davet Ameli">Davet Ameli</option>
+                                <option value="Maruf Çalışması">Maruf Çalışması</option>
+                                <option value="Soru-Cevap">Soru-Cevap</option>
+                                <option value="Sinevizyon Sohbeti">Sinevizyon Sohbeti</option>
+                                <option value="Diğer">Diğer</option>
+                            </select>
+                            <small id="edit-suggestion-name-helper" class="form-text text-muted hidden" style="display: block; margin-top: 4px; color: var(--md-secondary);"></small>
                         </div>
                         <div class="form-group">
                             <label for="edit-venue-name"><i class="fa-solid fa-mosque"></i> Mekân Adı</label>
@@ -759,8 +777,26 @@
                     
                     <!-- Düzenlenebilir Alanlar -->
                     <div class="form-group">
-                        <label for="edit-program-name-input"><i class="fa-solid fa-file-invoice"></i> Program Adı *</label>
-                        <input type="text" id="edit-program-name-input" class="form-control" placeholder="Örn: Tefsir Sohbeti" required>
+                        <label for="edit-program-name-input"><i class="fa-solid fa-file-invoice"></i> Program Türü / Sohbet Adı *</label>
+                        <select id="edit-program-name-input" class="form-control" required>
+                            <option value="">Program Türü / Sohbet Adı Seçiniz</option>
+                            <option value="Haftalık Sohbet">Haftalık Sohbet</option>
+                            <option value="Gençlik Sohbeti">Gençlik Sohbeti</option>
+                            <option value="Tarikat Sohbeti">Tarikat Sohbeti</option>
+                            <option value="Hadis Dersi">Hadis Dersi</option>
+                            <option value="Fıkıh Dersi">Fıkıh Dersi</option>
+                            <option value="Tefsir Dersi">Tefsir Dersi</option>
+                            <option value="İlmihal Dersi">İlmihal Dersi</option>
+                            <option value="Tefsir ve İlmihal">Tefsir ve İlmihal</option>
+                            <option value="Zikir ve Sohbet">Zikir ve Sohbet</option>
+                            <option value="Mütalaa Dersi">Mütalaa Dersi</option>
+                            <option value="Davet Ameli">Davet Ameli</option>
+                            <option value="Maruf Çalışması">Maruf Çalışması</option>
+                            <option value="Soru-Cevap">Soru-Cevap</option>
+                            <option value="Sinevizyon Sohbeti">Sinevizyon Sohbeti</option>
+                            <option value="Diğer">Diğer</option>
+                        </select>
+                        <small id="edit-program-name-helper" class="form-text text-muted hidden" style="display: block; margin-top: 4px; color: var(--md-secondary);"></small>
                     </div>
                     <div class="form-group">
                         <label for="edit-program-venue-name"><i class="fa-solid fa-mosque"></i> Mekân Adı *</label>
@@ -945,8 +981,26 @@
             <div class="modal-body">
                 <form id="add-form" class="edit-form-grid" onsubmit="return false;">
                     <div class="form-group">
-                        <label for="add-program-name"><i class="fa-solid fa-file-invoice"></i> Program Adı *</label>
-                        <input type="text" id="add-program-name" class="form-control" placeholder="Örn: Tefsir Sohbeti" required>
+                        <label for="add-program-name"><i class="fa-solid fa-file-invoice"></i> Program Türü / Sohbet Adı *</label>
+                        <select id="add-program-name" class="form-control" required>
+                            <option value="">Program Türü / Sohbet Adı Seçiniz</option>
+                            <option value="Haftalık Sohbet">Haftalık Sohbet</option>
+                            <option value="Gençlik Sohbeti">Gençlik Sohbeti</option>
+                            <option value="Tarikat Sohbeti">Tarikat Sohbeti</option>
+                            <option value="Hadis Dersi">Hadis Dersi</option>
+                            <option value="Fıkıh Dersi">Fıkıh Dersi</option>
+                            <option value="Tefsir Dersi">Tefsir Dersi</option>
+                            <option value="İlmihal Dersi">İlmihal Dersi</option>
+                            <option value="Tefsir ve İlmihal">Tefsir ve İlmihal</option>
+                            <option value="Zikir ve Sohbet">Zikir ve Sohbet</option>
+                            <option value="Mütalaa Dersi">Mütalaa Dersi</option>
+                            <option value="Davet Ameli">Davet Ameli</option>
+                            <option value="Maruf Çalışması">Maruf Çalışması</option>
+                            <option value="Soru-Cevap">Soru-Cevap</option>
+                            <option value="Sinevizyon Sohbeti">Sinevizyon Sohbeti</option>
+                            <option value="Diğer">Diğer</option>
+                        </select>
+                        <small id="add-program-name-helper" class="form-text text-muted hidden" style="display: block; margin-top: 4px; color: var(--md-secondary);"></small>
                     </div>
                     <div class="form-group">
                         <label for="add-venue-name"><i class="fa-solid fa-mosque"></i> Mekân Adı *</label>
