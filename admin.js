@@ -3808,7 +3808,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (connectedSection) {
             if (org && org.id) {
                 connectedSection.classList.remove('hidden');
-                loadOrgConnectedPrograms(org.id);
+                loadOrgConnectedPrograms(org);
             } else {
                 connectedSection.classList.add('hidden');
                 const container = document.getElementById('org-programs-container');
@@ -3818,26 +3818,76 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Kuruma bağlı programları yükle ve listele (K-2A)
-    async function loadOrgConnectedPrograms(orgId) {
+    async function loadOrgConnectedPrograms(org) {
         const loader = document.getElementById('org-programs-loader');
         const container = document.getElementById('org-programs-container');
-        if (!supabaseClient || !container) return;
+        if (!supabaseClient || !container || !org || !org.id) return;
 
         if (loader) loader.classList.remove('hidden');
         container.innerHTML = '';
 
         try {
-            console.log(`Loading connected programs for organization ID: ${orgId}`);
+            console.log(`Loading connected programs for organization ID: ${org.id}, Name: ${org.name}`);
             const { data, error } = await supabaseClient
                 .from('programs')
-                .select('*')
-                .eq('organization_id', orgId);
+                .select('*');
 
             if (error) throw error;
 
             if (loader) loader.classList.add('hidden');
 
-            const activePrograms = (data || []).filter(p => p.status !== 'deleted');
+            const cleanStr = (str) => {
+                return (str || '')
+                    .trim()
+                    .toLowerCase()
+                    .replace(/i̇/g, 'i') // Turkish dotted-i combo
+                    .replace(/ı/g, 'i')
+                    .replace(/ğ/g, 'g')
+                    .replace(/ü/g, 'u')
+                    .replace(/ş/g, 's')
+                    .replace(/ö/g, 'o')
+                    .replace(/ç/g, 'c');
+            };
+
+            const orgId = org.id;
+            const orgName = (org.name || '').trim();
+            const cleanedOrgName = cleanStr(orgName);
+
+            const activePrograms = (data || []).filter(p => {
+                // Sadece silinmemiş (deleted olmayan) programlar
+                if (p.status === 'deleted') return false;
+
+                // 1. programs.organization_id = selectedOrganization.id ise eşleşsin
+                if (p.organization_id && p.organization_id === orgId) {
+                    return true;
+                }
+
+                // 2. programs.organization alanı selectedOrganization.name ile birebir eşleşiyorsa de listele (eski kayıtlar için fallback)
+                const pOrg = (p.organization || '').trim();
+                const cleanedPOrg = cleanStr(pOrg);
+
+                if (!cleanedPOrg || !cleanedOrgName) return false;
+
+                if (cleanedPOrg === cleanedOrgName) {
+                    return true;
+                }
+
+                // 3. Eğer selectedOrganization.name "Ümmetder" ise "Ümmetder Yenikent", "Ümmetder Hızırtepe" gibi organization alanı Ümmetder ile başlayan kayıtlar da gelsin.
+                if (cleanedOrgName === 'ummetder') {
+                    if (cleanedPOrg.startsWith('ummetder')) {
+                        return true;
+                    }
+                }
+
+                // 4. Eğer selectedOrganization.name "İsmailağa" ise "İsmailağa Sapanca", "İsmailağa Hendek" gibi kayıtlar da gelsin.
+                if (cleanedOrgName === 'ismailaga') {
+                    if (cleanedPOrg.startsWith('ismailaga')) {
+                        return true;
+                    }
+                }
+
+                return false;
+            });
 
             if (activePrograms.length === 0) {
                 container.innerHTML = `
