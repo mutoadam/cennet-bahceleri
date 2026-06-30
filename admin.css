@@ -2145,4 +2145,28 @@ body {
     border-color: transparent;
 }
 
+/* Mosque Location Management Styles */
+.sql-box {
+    margin-top: 15px;
+    text-align: left;
+    background: #1e1e1e;
+    color: #ececec;
+    padding: 15px;
+    border-radius: 8px;
+    font-family: monospace;
+    font-size: 13px;
+    max-width: 100%;
+    overflow-x: auto;
+    border: 1px solid #333;
+    line-height: 1.4;
+    white-space: pre-wrap;
+}
+
+#mosque-modal-link-warning {
+    color: var(--md-warning);
+    font-size: 13px;
+    margin-top: 4px;
+    font-weight: 500;
+}
+
 
