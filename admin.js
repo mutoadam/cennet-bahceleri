@@ -5572,6 +5572,206 @@ out center;`;
     }
 
     // ==========================================
+    // Admin Program SQL Dışa Aktarma Butonu (K-7)
+    // ==========================================
+    function escapeSqlString(val) {
+        if (val === undefined || val === null || val === '') {
+            return 'NULL';
+        }
+        if (typeof val === 'boolean') {
+            return val ? 'true' : 'false';
+        }
+        const str = String(val);
+        const escaped = str.replace(/'/g, "''");
+        return `'${escaped}'`;
+    }
+
+    function generateProgramSQL(item) {
+        if (!item) return '';
+
+        // Detaylı mapping kuralları:
+        // 1. Program Name
+        const program_name = item.program_name || '';
+        
+        // 2. Venue Name
+        const venue_name = item.venue_name || '';
+        
+        // 3. City
+        const city = item.city || 'Sakarya';
+        
+        // 4. District
+        const district = item.district || '';
+        
+        // 5. Day
+        const day = item.day || '';
+        
+        // 6. Time
+        const time = item.time || '';
+        
+        // 7. Teacher fallback
+        const teacher = item.teacher || item.speaker || item.hoca || item.lecturer || '';
+        
+        // 8. Organization
+        const organization = item.organization || item.institution || item.association || item.community || item.cemaat || item.dernek || item.kurum || '';
+        
+        // 9. Organization ID (UUID as string or NULL)
+        let organization_id = item.organization_id || item.organizationId || null;
+        if (organization_id && String(organization_id).trim() === '') {
+            organization_id = null;
+        }
+        
+        // 10. Women friendly
+        let women_friendly = false;
+        if (item.women_friendly === true || item.women_friendly === 'true' || item.is_ladies_suitable === true || item.isLadiesSuitable === true || item.ladies_suitable === true || item.ladies_only === true || item.ladiesOnly === true) {
+            women_friendly = true;
+        } else {
+            // Check textual fields
+            const fieldsToSearch = [
+                item.program_name,
+                item.description,
+                item.notes,
+                item.category,
+                item.venue_name
+            ].filter(Boolean).map(s => s.toLowerCase());
+            
+            women_friendly = fieldsToSearch.some(s => s.includes('hanım') || s.includes('bayan') || s.includes('kadın') || s.includes('kizler') || s.includes('kızlar'));
+        }
+        
+        // 11. Address
+        const address = item.address || item.location || '';
+        
+        // 12. Google Maps Link
+        const google_maps_link = item.google_maps_link || item.googleMapsLink || item.maps_link || item.mapsLink || item.map_link || item.mapLink || '';
+        
+        // 13. Description
+        const description = item.description || item.notes || '';
+        
+        // 14. Contact Name
+        const contact_name = item.contact_name || item.contact_person || item.contactPerson || item.sender_name || item.sender || '';
+        
+        // 15. Contact Phone
+        const contact_phone = item.contact_phone || item.contactPhone || item.phone || item.whatsapp || item.telefon || '';
+        
+        // 16. Photo Url
+        const photo_url = item.photo_url || item.photoUrl || item.image_url || item.imageUrl || item.photo || item.image || '';
+        
+        // 17. Logo Url
+        const logo_url = item.logo_url || item.logoUrl || '';
+        
+        // 18. Status
+        const status = item.status || 'active';
+        
+        // 19. Source
+        const source = item.source || 'admin_manual';
+
+        const fields = [
+            'program_name', 'venue_name', 'city', 'district', 'day', 'time',
+            'teacher', 'organization', 'organization_id', 'women_friendly',
+            'address', 'google_maps_link', 'description', 'contact_name',
+            'contact_phone', 'photo_url', 'logo_url', 'status', 'source'
+        ];
+
+        const values = [
+            escapeSqlString(program_name),
+            escapeSqlString(venue_name),
+            escapeSqlString(city),
+            escapeSqlString(district),
+            escapeSqlString(day),
+            escapeSqlString(time),
+            escapeSqlString(teacher),
+            escapeSqlString(organization),
+            organization_id ? escapeSqlString(organization_id) : 'NULL',
+            women_friendly ? 'true' : 'false',
+            escapeSqlString(address),
+            escapeSqlString(google_maps_link),
+            escapeSqlString(description),
+            escapeSqlString(contact_name),
+            escapeSqlString(contact_phone),
+            escapeSqlString(photo_url),
+            escapeSqlString(logo_url),
+            escapeSqlString(status),
+            escapeSqlString(source)
+        ];
+
+        return `INSERT INTO programs (${fields.join(', ')})\nVALUES (${values.join(', ')});`;
+    }
+
+    function copyTextToClipboard(text) {
+        if (!navigator.clipboard) {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast("SQL panoya kopyalandı.", "success");
+            } catch (err) {
+                console.error('Fallback kopyalama hatası:', err);
+                showToast("Kopyalama başarısız oldu.", "error");
+            }
+            document.body.removeChild(textArea);
+            return;
+        }
+        navigator.clipboard.writeText(text).then(() => {
+            showToast("SQL panoya kopyalandı.", "success");
+        }, (err) => {
+            console.error('Kopyalama hatası:', err);
+            showToast("Kopyalama başarısız oldu.", "error");
+        });
+    }
+
+    function initSqlExport() {
+        // 1. Inspect Modal (Detay İnceleme) SQL Kopyalama Butonu
+        const inspectCopyBtn = document.getElementById('modal-btn-copy-sql');
+        if (inspectCopyBtn) {
+            inspectCopyBtn.addEventListener('click', () => {
+                if (!currentSuggestion) {
+                    showToast("Aktif program kaydı bulunamadı.", "error");
+                    return;
+                }
+                const sql = generateProgramSQL(currentSuggestion);
+                copyTextToClipboard(sql);
+            });
+        }
+
+        // 2. Program Düzenleme Modalı SQL Kopyalama Butonu (Form verilerini canlı okur!)
+        const editCopyBtn = document.getElementById('edit-program-btn-copy-sql');
+        if (editCopyBtn) {
+            editCopyBtn.addEventListener('click', () => {
+                // Form alanlarından canlı okuyup SQL hazırlıyoruz
+                const liveProgram = {
+                    program_name: document.getElementById('edit-program-name-input')?.value.trim() || '',
+                    venue_name: document.getElementById('edit-program-venue-name')?.value.trim() || '',
+                    city: document.getElementById('edit-program-city')?.value.trim() || 'Sakarya',
+                    district: document.getElementById('edit-program-district')?.value.trim() || '',
+                    day: document.getElementById('edit-program-day')?.value.trim() || '',
+                    time: document.getElementById('edit-program-time')?.value.trim() || '',
+                    teacher: document.getElementById('edit-program-teacher')?.value.trim() || '',
+                    organization: document.getElementById('edit-program-organization')?.value.trim() || '',
+                    organization_id: document.getElementById('edit-program-org-select')?.value || currentEditProgram?.organization_id || currentEditProgram?.organizationId || null,
+                    women_friendly: document.getElementById('edit-program-ladies')?.value === 'true',
+                    address: document.getElementById('edit-program-address')?.value.trim() || '',
+                    google_maps_link: document.getElementById('edit-program-google-maps-link')?.value.trim() || '',
+                    description: document.getElementById('edit-program-description')?.value.trim() || '',
+                    contact_name: document.getElementById('edit-program-contact-name')?.value.trim() || '',
+                    contact_phone: document.getElementById('edit-program-contact-phone')?.value.trim() || '',
+                    photo_url: document.getElementById('edit-program-photo-url')?.value.trim() || '',
+                    logo_url: document.getElementById('edit-program-logo-url')?.value.trim() || '',
+                    status: document.getElementById('edit-program-status')?.value || 'active',
+                    source: currentEditProgram?.source || 'admin_manual'
+                };
+                
+                const sql = generateProgramSQL(liveProgram);
+                copyTextToClipboard(sql);
+            });
+        }
+    }
+
+    // ==========================================
     // Admin Basit Giriş Koruması (S-1)
     // ==========================================
     const CORRECT_USERNAME = "admin";
@@ -5651,6 +5851,7 @@ out center;`;
     initDistrictWarningListeners();
     initOrgListeners();
     initMosqueListeners();
+    initSqlExport();
     
     // Auth and Data Loading
     initAuth();
