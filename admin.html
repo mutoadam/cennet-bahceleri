@@ -362,9 +362,14 @@
                     <h2>Cami Konum Yönetimi</h2>
                     <p class="section-desc">Yakındaki Camiler özelliği için harita koordinatları ve cami bilgilerini yönetebilirsiniz.</p>
                 </div>
-                <button id="add-mosque-btn" class="btn btn-secondary add-program-btn">
-                    <i class="fa-solid fa-plus"></i> Yeni Camii Ekle
-                </button>
+                <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
+                    <button id="osm-import-btn" class="btn btn-secondary add-program-btn" style="background-color: var(--md-secondary-container); color: var(--md-on-secondary-container); border: 1px solid rgba(181, 141, 61, 0.3);">
+                        <i class="fa-solid fa-cloud-arrow-down"></i> OSM’den Camileri Getir
+                    </button>
+                    <button id="add-mosque-btn" class="btn btn-secondary add-program-btn" style="background-color: var(--md-primary-container); color: var(--md-primary); border: 1px solid rgba(22, 101, 52, 0.2);">
+                        <i class="fa-solid fa-plus"></i> Yeni Camii Ekle
+                    </button>
+                </div>
             </section>
 
             <!-- İstatistik Kartları Grid Yapısı -->
@@ -1315,6 +1320,105 @@
                 <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
                     <button id="mosque-modal-btn-cancel" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Vazgeç</button>
                     <button id="mosque-modal-btn-save" class="btn btn-action btn-save" style="min-height: 40px; padding: 8px 16px;">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- OSM Import Modal (OSM'den Camileri Getir) -->
+    <div id="osm-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 800px; width: 90%;">
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-cloud-arrow-down" style="font-size: 24px; color: var(--md-secondary);"></i>
+                    <div>
+                        <h3 id="osm-modal-title" style="margin: 0; font-size: 20px; font-weight: 700;">OSM’den Camileri Getir</h3>
+                        <span class="category-badge" style="background-color: var(--md-secondary-container); color: var(--md-secondary); font-size: 12px; display: inline-block; margin-top: 4px;">OpenStreetMap Overpass</span>
+                    </div>
+                </div>
+                <button id="osm-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="edit-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
+                    <div class="form-group">
+                        <label for="osm-modal-city-input"><i class="fa-solid fa-city"></i> İl</label>
+                        <input type="text" id="osm-modal-city-input" class="form-control" value="Sakarya" readonly style="background-color: #f5f5f5; cursor: not-allowed;">
+                    </div>
+                    <div class="form-group">
+                        <label for="osm-modal-district-input"><i class="fa-solid fa-location-dot"></i> İlçe Seçiniz</label>
+                        <select id="osm-modal-district-input" class="form-control">
+                            <option value="Adapazarı" selected>Adapazarı</option>
+                            <option value="Akyazı">Akyazı</option>
+                            <option value="Arifiye">Arifiye</option>
+                            <option value="Erenler">Erenler</option>
+                            <option value="Ferizli">Ferizli</option>
+                            <option value="Geyve">Geyve</option>
+                            <option value="Hendek">Hendek</option>
+                            <option value="Karapürçek">Karapürçek</option>
+                            <option value="Karasu">Karasu</option>
+                            <option value="Kaynarca">Kaynarca</option>
+                            <option value="Kocaali">Kocaali</option>
+                            <option value="Pamukova">Pamukova</option>
+                            <option value="Sapanca">Sapanca</option>
+                            <option value="Serdivan">Serdivan</option>
+                            <option value="Söğütlü">Söğütlü</option>
+                            <option value="Taraklı">Taraklı</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="display: flex; align-items: flex-end; justify-content: flex-end;">
+                        <button id="osm-fetch-btn" class="btn btn-secondary" style="width: 100%; min-height: 40px; display: inline-flex; align-items: center; justify-content: center; gap: 8px; background-color: var(--md-secondary); color: white;">
+                            <i class="fa-solid fa-magnifying-glass"></i> Camileri Bul (OSM)
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loader state inside Modal -->
+                <div id="osm-loader" class="state-container hidden" style="padding: 30px 0; text-align: center;">
+                    <div class="spinner" style="margin: 0 auto 10px;"></div>
+                    <p style="margin: 10px 0 0; font-weight: 500;">Overpass API üzerinden camiler aranıyor, lütfen bekleyin...</p>
+                </div>
+
+                <!-- Empty/No result state inside Modal -->
+                <div id="osm-empty" class="state-container hidden" style="padding: 30px 0; text-align: center;">
+                    <i class="fa-solid fa-circle-info" style="font-size: 32px; color: var(--md-secondary); margin-bottom: 10px;"></i>
+                    <h4 style="margin-bottom: 4px;">Bu ilçe için OSM’de cami kaydı bulunamadı.</h4>
+                    <p style="font-size: 14px; color: var(--md-on-surface-variant);">Başka bir ilçe seçip tekrar deneyebilir veya manuel ekleme yapabilirsiniz.</p>
+                </div>
+
+                <!-- Preview list section -->
+                <div id="osm-preview-section" class="hidden" style="margin-top: 15px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid var(--md-outline); padding-bottom: 8px;">
+                        <h4 style="margin: 0; font-size: 16px; color: var(--md-primary);">Bulunan Camiler (<span id="osm-found-count">0</span>)</h4>
+                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; cursor: pointer;">
+                            <input type="checkbox" id="osm-select-all" checked style="width: 16px; height: 16px; accent-color: var(--md-primary);"> Tümünü Seç
+                        </label>
+                    </div>
+
+                    <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--md-outline); border-radius: 8px; background-color: #fafafa;">
+                        <table class="osm-preview-table" style="width: 100%; border-collapse: collapse; font-size: 13px; text-align: left;">
+                            <thead>
+                                <tr style="background-color: #f0f0f0; border-bottom: 1px solid var(--md-outline); font-weight: 600; color: #444;">
+                                    <th style="padding: 10px; width: 45px; text-align: center;">Seç</th>
+                                    <th style="padding: 10px;">Cami Adı</th>
+                                    <th style="padding: 10px;">İlçe</th>
+                                    <th style="padding: 10px;">Mahalle / Adres</th>
+                                    <th style="padding: 10px; width: 150px;">Koordinat</th>
+                                </tr>
+                            </thead>
+                            <tbody id="osm-preview-list">
+                                <!-- Elements will be dynamically added here -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%; align-items: center;">
+                    <span id="osm-selection-summary" style="font-size: 13px; color: var(--md-on-surface-variant); font-weight: 500; margin-right: auto;"></span>
+                    <button id="osm-modal-btn-cancel" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Kapat</button>
+                    <button id="osm-modal-btn-save" class="btn btn-action btn-save hidden" style="min-height: 40px; padding: 8px 16px;">Seçilenleri Kaydet</button>
                 </div>
             </div>
         </div>
