@@ -775,7 +775,7 @@
             <div class="modal-footer">
                 <!-- View Mode Footer -->
                 <div id="modal-footer-view" class="modal-footer-container">
-                    <div class="footer-actions-left">
+                    <div class="footer-actions-left" style="display: flex; gap: 8px; align-items: center;">
                         <button id="modal-btn-approve" class="btn btn-action btn-approve" title="Öneriyi Onayla">
                             <i class="fa-solid fa-check"></i> Onayla
                         </button>
@@ -784,6 +784,9 @@
                         </button>
                         <button id="modal-btn-edit" class="btn btn-action btn-edit" title="Öneriyi Düzenle">
                             <i class="fa-solid fa-pen-to-square"></i> Düzenle
+                        </button>
+                        <button id="modal-btn-copy-sql" class="btn btn-action btn-copy-sql" title="SQL Kopyala" style="background-color: var(--md-secondary-container); color: var(--md-on-secondary-container); border: 1px solid var(--md-outline); min-height: 40px; padding: 8px 12px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; border-radius: var(--radius-sm); cursor: pointer;">
+                            <i class="fa-solid fa-code"></i> SQL Kopyala
                         </button>
                     </div>
                     
@@ -1047,13 +1050,16 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <div class="modal-footer-container">
-                    <div class="footer-actions-left">
+                <div class="modal-footer-container" style="width: 100%;">
+                    <div class="footer-actions-left" style="display: flex; gap: 12px; align-items: center; width: 100%;">
                         <button id="edit-program-btn-save" class="btn btn-action btn-save">
                             <i class="fa-solid fa-floppy-disk"></i> Kaydet
                         </button>
                         <button id="edit-program-btn-cancel" class="btn btn-action btn-cancel">
                             <i class="fa-solid fa-ban"></i> Vazgeç
+                        </button>
+                        <button id="edit-program-btn-copy-sql" class="btn btn-action btn-copy-sql" style="background-color: var(--md-secondary-container); color: var(--md-on-secondary-container); border: 1px solid var(--md-outline); min-height: 40px; padding: 8px 16px; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 6px; border-radius: var(--radius-sm); cursor: pointer; margin-left: auto;">
+                            <i class="fa-solid fa-code"></i> SQL Kopyala
                         </button>
                     </div>
                 </div>
