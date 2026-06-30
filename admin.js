@@ -3411,8 +3411,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             // Set Loading state
-            if (addSelect) addSelect.innerHTML = '<option value="">Kurumlar yükleniyor...</option>';
-            if (editSelect) editSelect.innerHTML = '<option value="">Kurumlar yükleniyor...</option>';
+            if (addSelect) addSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+            if (editSelect) editSelect.innerHTML = '<option value="">Yükleniyor...</option>';
 
             const { data, error } = await supabaseClient
                 .from('organizations')
@@ -3425,9 +3425,9 @@ document.addEventListener('DOMContentLoaded', () => {
             // Türk alfabesine göre mükemmel alfabetik sıralama (Ç, Ğ, İ, Ö, Ş, Ü dahil)
             activeOrganizations.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
 
-            let optionsHtml = '<option value="">Kurum seçilmedi</option>';
+            let optionsHtml = '<option value="">Kurum / Cemaat / Oluşum seçilmedi</option>';
             if (activeOrganizations.length === 0) {
-                optionsHtml = '<option value="">Kayıtlı aktif kurum bulunamadı</option>';
+                optionsHtml = '<option value="">Kayıtlı aktif kayıt bulunamadı</option>';
             } else {
                 activeOrganizations.forEach(org => {
                     optionsHtml += `<option value="${org.id}">${escapeHtml(org.name)}</option>`;
@@ -3440,7 +3440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error("Kurumlar yüklenirken hata oluştu (organizations tablosu olmayabilir):", err);
             activeOrganizations = [];
-            const errorOptionsHtml = '<option value="">Kurum listesi yüklenemedi</option>';
+            const errorOptionsHtml = '<option value="">Liste yüklenemedi</option>';
             if (addSelect) addSelect.innerHTML = errorOptionsHtml;
             if (editSelect) editSelect.innerHTML = errorOptionsHtml;
         }
@@ -3754,7 +3754,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (org) {
             // DÜZENLEME MODU
-            if (title) title.textContent = "Kurum Bilgilerini Düzenle";
+            if (title) title.textContent = "Kurum / Cemaat / Oluşum Bilgilerini Düzenle";
             if (idInput) idInput.value = org.id || '';
             if (nameInput) nameInput.value = org.name || '';
             if (slugInput) slugInput.value = org.slug || '';
@@ -3776,7 +3776,7 @@ document.addEventListener('DOMContentLoaded', () => {
             );
         } else {
             // EKLEME MODU
-            if (title) title.textContent = "Yeni Kurum Ekle";
+            if (title) title.textContent = "Yeni Kurum / Cemaat / Oluşum Ekle";
             if (idInput) idInput.value = '';
             if (nameInput) nameInput.value = '';
             if (slugInput) slugInput.value = '';
