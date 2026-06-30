@@ -4533,17 +4533,458 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         }
     }
 
+    // ==========================================================
+    // OSM TOPLU CAMİ GETİRME İŞLEVLERİ (Faz 2 - H-M2-A)
+    // ==========================================================
+    let osmResults = [];
+
+    function trNormalize(str) {
+        if (!str) return '';
+        return str
+            .toLocaleLowerCase('tr-TR')
+            .replace(/ı/g, 'i')
+            .replace(/ğ/g, 'g')
+            .replace(/ü/g, 'u')
+            .replace(/ş/g, 's')
+            .replace(/ö/g, 'o')
+            .replace(/ç/g, 'c')
+            .replace(/[^a-z0-9]/g, '')
+            .trim();
+    }
+
+    function isCloseLocation(lat1, lon1, lat2, lon2, threshold = 0.0005) {
+        return Math.abs(lat1 - lat2) < threshold && Math.abs(lon1 - lon2) < threshold;
+    }
+
+    function openOsmModal() {
+        document.getElementById('osm-preview-section')?.classList.add('hidden');
+        document.getElementById('osm-empty')?.classList.add('hidden');
+        document.getElementById('osm-loader')?.classList.add('hidden');
+        document.getElementById('osm-modal-btn-save')?.classList.add('hidden');
+        if (document.getElementById('osm-selection-summary')) {
+            document.getElementById('osm-selection-summary').textContent = '';
+        }
+        osmResults = [];
+        
+        document.getElementById('osm-modal').classList.remove('hidden');
+        document.body.style.overflow = "hidden";
+    }
+
+    function closeOsmModal() {
+        document.getElementById('osm-modal').classList.add('hidden');
+        document.body.style.overflow = "";
+    }
+
+    async function fetchOsmMosques() {
+        const district = document.getElementById('osm-modal-district-input')?.value;
+        const fetchBtn = document.getElementById('osm-fetch-btn');
+        
+        if (!district) {
+            showToast("Lütfen bir ilçe seçin.", "error");
+            return;
+        }
+
+        // Show loader and hide content areas
+        document.getElementById('osm-loader')?.classList.remove('hidden');
+        document.getElementById('osm-preview-section')?.classList.add('hidden');
+        document.getElementById('osm-empty')?.classList.add('hidden');
+        document.getElementById('osm-modal-btn-save')?.classList.add('hidden');
+        if (document.getElementById('osm-selection-summary')) {
+            document.getElementById('osm-selection-summary').textContent = '';
+        }
+
+        if (fetchBtn) {
+            fetchBtn.disabled = true;
+            fetchBtn.classList.add('disabled');
+            fetchBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Aranıyor...';
+        }
+
+        osmResults = [];
+
+        // Primary: Nested area query
+        const query = `[out:json][timeout:30];
+area["name"="Sakarya"]->.prov;
+area["name"="${district}"](area.prov)->.dist;
+(
+  node["amenity"="place_of_worship"]["religion"="muslim"](area.dist);
+  way["amenity"="place_of_worship"]["religion"="muslim"](area.dist);
+);
+out center;`;
+
+        // Fallback 1: Direct area query (if not correctly nested inside Sakarya on OSM)
+        const fallbackQuery = `[out:json][timeout:30];
+area["name"="${district}"]->.dist;
+(
+  node["amenity"="place_of_worship"]["religion"="muslim"](area.dist);
+  way["amenity"="place_of_worship"]["religion"="muslim"](area.dist);
+);
+out center;`;
+
+        // Fallback 2: Province query with Javascript local filtering
+        const finalFallbackQuery = `[out:json][timeout:30];
+area["name"="Sakarya"]->.prov;
+(
+  node["amenity"="place_of_worship"]["religion"="muslim"](area.prov);
+  way["amenity"="place_of_worship"]["religion"="muslim"](area.prov);
+);
+out center;`;
+
+        let elements = [];
+
+        try {
+            console.log(`OSM Fetching nested area for: ${district}`);
+            const response = await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(query));
+            if (response.ok) {
+                const data = await response.json();
+                elements = data.elements || [];
+            }
+        } catch (e) {
+            console.warn("OSM nested query failed, trying direct area query:", e);
+        }
+
+        if (elements.length === 0) {
+            try {
+                console.log(`OSM Fetching direct area for: ${district}`);
+                const response = await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(fallbackQuery));
+                if (response.ok) {
+                    const data = await response.json();
+                    elements = data.elements || [];
+                }
+            } catch (e) {
+                console.warn("OSM direct district query failed, trying Sakarya province with JS filter:", e);
+            }
+        }
+
+        if (elements.length === 0) {
+            try {
+                console.log("OSM Fetching whole province Sakarya...");
+                const response = await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(finalFallbackQuery));
+                if (response.ok) {
+                    const data = await response.json();
+                    const rawElements = data.elements || [];
+                    
+                    const districtLower = district.toLocaleLowerCase('tr-TR');
+                    elements = rawElements.filter(el => {
+                        const addrDistrict = (el.tags?.['addr:district'] || '').toLocaleLowerCase('tr-TR');
+                        const addrSuburb = (el.tags?.['addr:suburb'] || '').toLocaleLowerCase('tr-TR');
+                        const addrNeighbourhood = (el.tags?.['addr:neighbourhood'] || '').toLocaleLowerCase('tr-TR');
+                        const name = (el.tags?.name || '').toLocaleLowerCase('tr-TR');
+                        
+                        return addrDistrict.includes(districtLower) || 
+                               addrSuburb.includes(districtLower) || 
+                               addrNeighbourhood.includes(districtLower) || 
+                               name.includes(districtLower);
+                    });
+                }
+            } catch (e) {
+                console.error("OSM Overpass API completely failed:", e);
+                showToast("OSM verisi alınamadı. Lütfen tekrar deneyin.", "error");
+                document.getElementById('osm-loader')?.classList.add('hidden');
+                if (fetchBtn) {
+                    fetchBtn.disabled = false;
+                    fetchBtn.classList.remove('disabled');
+                    fetchBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Camileri Bul (OSM)';
+                }
+                return;
+            }
+        }
+
+        document.getElementById('osm-loader')?.classList.add('hidden');
+
+        if (fetchBtn) {
+            fetchBtn.disabled = false;
+            fetchBtn.classList.remove('disabled');
+            fetchBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Camileri Bul (OSM)';
+        }
+
+        if (elements.length === 0) {
+            document.getElementById('osm-empty')?.classList.remove('hidden');
+            return;
+        }
+
+        // Map results
+        osmResults = elements.map(el => {
+            const lat = el.lat || (el.center && el.center.lat);
+            const lon = el.lon || (el.center && el.center.lon);
+            
+            let rawName = el.tags?.name || el.tags?.description || el.tags?.official_name || "İsimsiz Cami/Mescid";
+            let mosque_name = rawName.trim();
+            if (!mosque_name.toLocaleLowerCase('tr-TR').includes("cami") && !mosque_name.toLocaleLowerCase('tr-TR').includes("mescid")) {
+                mosque_name = mosque_name + " Camii";
+            }
+
+            const neighborhood = el.tags?.['addr:suburb'] || el.tags?.['addr:neighbourhood'] || el.tags?.['addr:quarter'] || '';
+            const street = el.tags?.['addr:street'] || '';
+            const housenumber = el.tags?.['addr:housenumber'] || '';
+
+            let address = el.tags?.['addr:full'] || '';
+            if (!address) {
+                const parts = [];
+                if (neighborhood) parts.push(neighborhood + " Mah.");
+                if (street) parts.push(street + " Sk.");
+                if (housenumber) parts.push("No: " + housenumber);
+                address = parts.join(' ');
+            }
+
+            return {
+                mosque_name,
+                city: 'Sakarya',
+                district: district,
+                neighborhood,
+                address: address || 'Adres bilgisi alınamadı.',
+                latitude: lat,
+                longitude: lon,
+                google_maps_link: `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
+                status: 'active'
+            };
+        }).filter(item => item.latitude && item.longitude);
+
+        if (osmResults.length === 0) {
+            document.getElementById('osm-empty')?.classList.remove('hidden');
+            return;
+        }
+
+        renderOsmPreview();
+    }
+
+    function renderOsmPreview() {
+        const list = document.getElementById('osm-preview-list');
+        const countSpan = document.getElementById('osm-found-count');
+        
+        if (!list) return;
+        list.innerHTML = '';
+        
+        if (countSpan) countSpan.textContent = osmResults.length;
+
+        osmResults.forEach((item, index) => {
+            const tr = document.createElement('tr');
+            
+            // Check duplicate
+            const isDuplicateInDb = mosquesListCache.some(existing => {
+                const sameNameAndDistrict = trNormalize(existing.mosque_name) === trNormalize(item.mosque_name) &&
+                    trNormalize(existing.district) === trNormalize(item.district);
+                const sameLocation = isCloseLocation(existing.latitude, existing.longitude, item.latitude, item.longitude);
+                return sameNameAndDistrict || sameLocation;
+            });
+
+            const rowStyle = isDuplicateInDb ? 'style="opacity: 0.65; background-color: #fdfaf2;"' : '';
+            const dupBadge = isDuplicateInDb ? '<br><span style="color: #b7791f; background-color: #fefcbf; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600; display: inline-block; margin-top: 4px;">Sistemde Kayıtlı</span>' : '';
+            
+            tr.innerHTML = `
+                <tr ${rowStyle}>
+                    <td style="padding: 12px 10px; text-align: center;">
+                        <input type="checkbox" class="osm-item-checkbox" data-index="${index}" ${isDuplicateInDb ? '' : 'checked'} style="width: 18px; height: 18px; cursor: pointer;">
+                    </td>
+                    <td style="padding: 12px 10px; font-weight: 600; color: var(--md-primary);">
+                        ${escapeHtml(item.mosque_name)}
+                        ${dupBadge}
+                    </td>
+                    <td style="padding: 12px 10px; font-weight: 500;">${escapeHtml(item.district)}</td>
+                    <td style="padding: 12px 10px; color: var(--md-on-surface-variant); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(item.address)}">
+                        ${escapeHtml(item.address)}
+                    </td>
+                    <td style="padding: 12px 10px; font-family: monospace; font-size: 11px; color: #666;">
+                        ${item.latitude.toFixed(5)}, ${item.longitude.toFixed(5)}
+                    </td>
+                </tr>
+            `;
+            
+            list.appendChild(tr);
+        });
+
+        // Set select all checkbox initial state
+        const selectAllCb = document.getElementById('osm-select-all');
+        const checkedCbs = list.querySelectorAll('.osm-item-checkbox:checked');
+        const allCbs = list.querySelectorAll('.osm-item-checkbox');
+        if (selectAllCb) {
+            selectAllCb.checked = allCbs.length === checkedCbs.length && allCbs.length > 0;
+        }
+
+        // Add item level change listeners
+        list.querySelectorAll('.osm-item-checkbox').forEach(cb => {
+            cb.addEventListener('change', () => {
+                const checked = list.querySelectorAll('.osm-item-checkbox:checked');
+                const total = list.querySelectorAll('.osm-item-checkbox');
+                if (selectAllCb) {
+                    selectAllCb.checked = checked.length === total.length;
+                }
+                updateOsmSelectionSummary();
+            });
+        });
+
+        document.getElementById('osm-preview-section')?.classList.remove('hidden');
+        updateOsmSelectionSummary();
+    }
+
+    function updateOsmSelectionSummary() {
+        const list = document.getElementById('osm-preview-list');
+        if (!list) return;
+        
+        const checkedCount = list.querySelectorAll('.osm-item-checkbox:checked').length;
+        const totalCount = osmResults.length;
+        
+        const summarySpan = document.getElementById('osm-selection-summary');
+        if (summarySpan) {
+            summarySpan.textContent = `${totalCount} camiden ${checkedCount} tanesi seçildi`;
+        }
+
+        const saveBtn = document.getElementById('osm-modal-btn-save');
+        if (saveBtn) {
+            if (checkedCount > 0) {
+                saveBtn.classList.remove('hidden');
+            } else {
+                saveBtn.classList.add('hidden');
+            }
+        }
+    }
+
+    async function saveSelectedOsmMosques() {
+        if (!supabaseClient) return;
+
+        const list = document.getElementById('osm-preview-list');
+        if (!list) return;
+
+        const checkedCbs = list.querySelectorAll('.osm-item-checkbox:checked');
+        if (checkedCbs.length === 0) {
+            showToast("Lütfen kaydedilecek en az bir cami seçin.", "error");
+            return;
+        }
+
+        const saveBtn = document.getElementById('osm-modal-btn-save');
+        const cancelBtn = document.getElementById('osm-modal-btn-cancel');
+        
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.classList.add('disabled');
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kaydediliyor...';
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = true;
+            cancelBtn.classList.add('disabled');
+        }
+
+        let savedCount = 0;
+        let duplicateCount = 0;
+        let errorCount = 0;
+
+        let useSource = true;
+        if (mosquesListCache.length > 0 && !('source' in mosquesListCache[0])) {
+            useSource = false;
+        }
+
+        for (const cb of checkedCbs) {
+            const index = parseInt(cb.getAttribute('data-index'));
+            const item = osmResults[index];
+            if (!item) continue;
+
+            // Strict duplicate check against cached live list
+            const isDuplicate = mosquesListCache.some(existing => {
+                const sameNameAndDistrict = trNormalize(existing.mosque_name) === trNormalize(item.mosque_name) &&
+                    trNormalize(existing.district) === trNormalize(item.district);
+                const sameLocation = isCloseLocation(existing.latitude, existing.longitude, item.latitude, item.longitude);
+                return sameNameAndDistrict || sameLocation;
+            });
+
+            if (isDuplicate) {
+                duplicateCount++;
+                continue;
+            }
+
+            const payload = {
+                mosque_name: item.mosque_name,
+                city: item.city,
+                district: item.district,
+                neighborhood: item.neighborhood,
+                address: item.address,
+                latitude: item.latitude,
+                longitude: item.longitude,
+                google_maps_link: item.google_maps_link,
+                status: item.status,
+                updated_at: new Date().toISOString(),
+                created_at: new Date().toISOString()
+            };
+
+            if (useSource) {
+                payload.source = 'osm';
+            }
+
+            try {
+                const { error } = await supabaseClient
+                    .from('mosque_locations')
+                    .insert(payload);
+
+                if (error) {
+                    // Check if 'source' column doesn't exist
+                    if (error.code === '42703' || (error.message && error.message.includes('source'))) {
+                        useSource = false;
+                        delete payload.source;
+                        const retryResult = await supabaseClient
+                            .from('mosque_locations')
+                            .insert(payload);
+                        if (retryResult.error) throw retryResult.error;
+                        savedCount++;
+                    } else {
+                        throw error;
+                    }
+                } else {
+                    savedCount++;
+                }
+            } catch (err) {
+                console.error("OSM cami kaydedilemedi:", err);
+                errorCount++;
+            }
+        }
+
+        await loadMosques();
+
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.classList.remove('disabled');
+            saveBtn.textContent = 'Seçilenleri Kaydet';
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = false;
+            cancelBtn.classList.remove('disabled');
+        }
+
+        closeOsmModal();
+
+        showToast(`${savedCount} cami kaydedildi, ${duplicateCount} kayıt zaten vardı.`, "success");
+    }
+
     function initMosqueListeners() {
         // Add button
         document.getElementById('add-mosque-btn')?.addEventListener('click', openAddMosqueModal);
+        
+        // OSM button
+        document.getElementById('osm-import-btn')?.addEventListener('click', openOsmModal);
         
         // Close modal
         document.getElementById('mosque-modal-close-top')?.addEventListener('click', closeMosqueModal);
         document.getElementById('mosque-modal-btn-cancel')?.addEventListener('click', closeMosqueModal);
         
+        // Close OSM Modal
+        document.getElementById('osm-modal-close-top')?.addEventListener('click', closeOsmModal);
+        document.getElementById('osm-modal-btn-cancel')?.addEventListener('click', closeOsmModal);
+        
         // Save modal
         document.getElementById('mosque-modal-btn-save')?.addEventListener('click', saveMosque);
         
+        // Fetch OSM Button
+        document.getElementById('osm-fetch-btn')?.addEventListener('click', fetchOsmMosques);
+        
+        // OSM Select All
+        document.getElementById('osm-select-all')?.addEventListener('change', (e) => {
+            const checked = e.target.checked;
+            document.querySelectorAll('.osm-item-checkbox').forEach(cb => {
+                cb.checked = checked;
+            });
+            updateOsmSelectionSummary();
+        });
+
+        // OSM Save Button
+        document.getElementById('osm-modal-btn-save')?.addEventListener('click', saveSelectedOsmMosques);
+
         // Refresh button
         document.getElementById('mosques-refresh-btn')?.addEventListener('click', loadMosques);
         document.getElementById('mosques-retry-btn')?.addEventListener('click', loadMosques);
