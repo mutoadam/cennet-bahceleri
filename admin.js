@@ -1943,6 +1943,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedDay = isTrashBinView ? '' : (document.getElementById('filter-day')?.value || '');
         const selectedStatus = isTrashBinView ? '' : (document.getElementById('filter-status')?.value || '');
         const selectedSource = isTrashBinView ? '' : (document.getElementById('filter-source')?.value || '');
+        const selectedOrg = isTrashBinView ? '' : (document.getElementById('filter-org')?.value || '');
 
         const filtered = loadedPrograms.filter(item => {
             // 1. Search filter
@@ -1998,6 +1999,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
+            // 6. Organization (Çatı Kurum) filter
+            if (selectedOrg) {
+                const matchedOrg = activeOrganizations.find(o => o.id === selectedOrg);
+                const matchedOrgName = matchedOrg ? (matchedOrg.name || '').trim().toLowerCase() : '';
+                
+                const itemOrgId = item.organization_id;
+                const itemOrgName = (item.organization || '').trim().toLowerCase();
+                
+                if (itemOrgId) {
+                    if (itemOrgId !== selectedOrg) {
+                        return false;
+                    }
+                } else if (matchedOrgName) {
+                    if (itemOrgName !== matchedOrgName) {
+                        return false;
+                    }
+                } else {
+                    return false;
+                }
+            }
+
             return true;
         });
 
@@ -2037,6 +2059,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const selectedDay = document.getElementById('filter-day')?.value || '';
                     const selectedStatus = document.getElementById('filter-status')?.value || '';
                     const selectedSource = document.getElementById('filter-source')?.value || '';
+                    const selectedOrg = document.getElementById('filter-org')?.value || '';
 
                     let activeFiltersHtml = '';
                     if (searchQuery) activeFiltersHtml += `<span class="active-filter-badge">Arama: "${escapeHtml(searchQuery)}"</span>`;
@@ -2053,6 +2076,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         else if (selectedSource === 'suggestion') sourceText = 'ÖNERİ';
                         else if (selectedSource === 'unknown') sourceText = 'KAYNAK YOK';
                         activeFiltersHtml += `<span class="active-filter-badge">Kaynak: ${sourceText}</span>`;
+                    }
+                    if (selectedOrg) {
+                        const matchedOrg = activeOrganizations.find(o => o.id === selectedOrg);
+                        const orgLabel = matchedOrg ? matchedOrg.name : 'Seçili Kurum';
+                        activeFiltersHtml += `<span class="active-filter-badge">Çatı Kurum: ${escapeHtml(orgLabel)}</span>`;
                     }
 
                     emptyContainer.innerHTML = `
@@ -2444,6 +2472,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('filter-day')?.addEventListener('change', applyFilters);
         document.getElementById('filter-status')?.addEventListener('change', applyFilters);
         document.getElementById('filter-source')?.addEventListener('change', applyFilters);
+        document.getElementById('filter-org')?.addEventListener('change', applyFilters);
         
         document.getElementById('filter-clear-btn')?.addEventListener('click', () => {
             const searchInput = document.getElementById('filter-search');
@@ -2460,6 +2489,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const sourceSelect = document.getElementById('filter-source');
             if (sourceSelect) sourceSelect.value = '';
+
+            const orgSelect = document.getElementById('filter-org');
+            if (orgSelect) orgSelect.value = '';
 
             applyFilters();
         });
@@ -3650,11 +3682,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const addSelect = document.getElementById('add-org-select');
         const editSelect = document.getElementById('edit-program-org-select');
+        const filterSelect = document.getElementById('filter-org');
 
         try {
             // Set Loading state
             if (addSelect) addSelect.innerHTML = '<option value="">Yükleniyor...</option>';
             if (editSelect) editSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+            if (filterSelect) filterSelect.innerHTML = '<option value="">Yükleniyor...</option>';
 
             const { data, error } = await supabaseClient
                 .from('organizations')
@@ -3668,16 +3702,24 @@ document.addEventListener('DOMContentLoaded', () => {
             activeOrganizations.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
 
             let optionsHtml = '<option value="">Çatı kurumu seçiniz</option>';
+            let filterOptionsHtml = '<option value="">Tüm kurumlar</option>';
             if (activeOrganizations.length === 0) {
                 optionsHtml = '<option value="">Kayıtlı aktif kayıt bulunamadı</option>';
+                filterOptionsHtml = '<option value="">Aktif kurum bulunamadı</option>';
             } else {
                 activeOrganizations.forEach(org => {
                     optionsHtml += `<option value="${org.id}">${escapeHtml(org.name)}</option>`;
+                    filterOptionsHtml += `<option value="${org.id}">${escapeHtml(org.name)}</option>`;
                 });
             }
 
             if (addSelect) addSelect.innerHTML = optionsHtml;
             if (editSelect) editSelect.innerHTML = optionsHtml;
+            if (filterSelect) {
+                const prevVal = filterSelect.value;
+                filterSelect.innerHTML = filterOptionsHtml;
+                if (prevVal) filterSelect.value = prevVal;
+            }
 
         } catch (err) {
             console.error("Kurumlar yüklenirken hata oluştu (organizations tablosu olmayabilir):", err);
@@ -3685,6 +3727,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const errorOptionsHtml = '<option value="">Liste yüklenemedi</option>';
             if (addSelect) addSelect.innerHTML = errorOptionsHtml;
             if (editSelect) editSelect.innerHTML = errorOptionsHtml;
+            if (filterSelect) filterSelect.innerHTML = '<option value="">Tüm kurumlar</option>';
         }
     }
 
@@ -5614,10 +5657,16 @@ out center;`;
         // 8. Organization
         const organization = item.organization || item.institution || item.association || item.community || item.cemaat || item.dernek || item.kurum || '';
         
-        // 9. Organization ID (UUID as string or NULL)
+        // 9. Organization ID (UUID as string or NULL or subquery fallback)
+        let orgIdValue = 'NULL';
         let organization_id = item.organization_id || item.organizationId || null;
-        if (organization_id && String(organization_id).trim() === '') {
-            organization_id = null;
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        
+        if (organization_id && uuidRegex.test(String(organization_id).trim()) && String(organization_id).trim() !== 'a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d') {
+            orgIdValue = escapeSqlString(String(organization_id).trim());
+        } else if (organization && organization.trim() !== '') {
+            const escapedOrgName = escapeSqlString(organization);
+            orgIdValue = `(SELECT id FROM organizations WHERE name = ${escapedOrgName} LIMIT 1)`;
         }
         
         // 10. Women friendly
@@ -5680,7 +5729,7 @@ out center;`;
             escapeSqlString(time),
             escapeSqlString(teacher),
             escapeSqlString(organization),
-            organization_id ? escapeSqlString(organization_id) : 'NULL',
+            orgIdValue,
             women_friendly ? 'true' : 'false',
             escapeSqlString(address),
             escapeSqlString(google_maps_link),
