@@ -1190,6 +1190,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (cityInput) cityInput.value = 'Sakarya';
             const addOrgSelect = document.getElementById('add-org-select');
             if (addOrgSelect) addOrgSelect.value = '';
+            
+            // Reset sefer labels & placeholders
+            const addVenueLabel = document.querySelector('label[for="add-venue-name"]');
+            if (addVenueLabel) addVenueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
+            const addVenueInput = document.getElementById('add-venue-name');
+            if (addVenueInput) addVenueInput.placeholder = "Örn: Orhan Camii";
+            const addProgHelper = document.getElementById('add-program-name-helper');
+            if (addProgHelper) {
+                addProgHelper.classList.add('hidden');
+                addProgHelper.textContent = '';
+            }
         }
         
         // Reset photo upload elements
@@ -2615,9 +2626,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 const foundProg = STANDARDIZED_PROGRAM_NAMES.find(n => n.toLowerCase() === currentProgName.toLowerCase());
                 if (foundProg) {
                     nameInput.value = foundProg;
-                    if (editProgHelper) {
-                        editProgHelper.classList.add('hidden');
-                        editProgHelper.textContent = '';
+                    if (foundProg === "3 Günlük Sefer") {
+                        if (editProgHelper) {
+                            editProgHelper.textContent = "Bu programda mekân, seferin yapıldığı yer değil; çıkış/toplanma noktasıdır.";
+                            editProgHelper.classList.remove('hidden');
+                        }
+                        const venueLabel = document.querySelector('label[for="edit-program-venue-name"]');
+                        if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Çıkış Noktası *';
+                        const venueInput = document.getElementById('edit-program-venue-name');
+                        if (venueInput) venueInput.placeholder = "Örn: Doğanbey Camii";
+                    } else {
+                        if (editProgHelper) {
+                            editProgHelper.classList.add('hidden');
+                            editProgHelper.textContent = '';
+                        }
+                        const venueLabel = document.querySelector('label[for="edit-program-venue-name"]');
+                        if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
+                        const venueInput = document.getElementById('edit-program-venue-name');
+                        if (venueInput) venueInput.placeholder = "Örn: Orhan Camii";
                     }
                 } else {
                     nameInput.value = "Diğer";
@@ -2625,6 +2651,10 @@ document.addEventListener('DOMContentLoaded', () => {
                         editProgHelper.classList.remove('hidden');
                         editProgHelper.innerHTML = `<i class="fa-solid fa-circle-info"></i> Mevcut değer: <strong>${escapeHtml(currentProgName)}</strong> (Seçenekler arasında bulunmadığı için "Diğer" seçildi)`;
                     }
+                    const venueLabel = document.querySelector('label[for="edit-program-venue-name"]');
+                    if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
+                    const venueInput = document.getElementById('edit-program-venue-name');
+                    if (venueInput) venueInput.placeholder = "Örn: Orhan Camii";
                 }
             } else {
                 nameInput.value = '';
@@ -2632,6 +2662,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     editProgHelper.classList.add('hidden');
                     editProgHelper.textContent = '';
                 }
+                const venueLabel = document.querySelector('label[for="edit-program-venue-name"]');
+                if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
+                const venueInput = document.getElementById('edit-program-venue-name');
+                if (venueInput) venueInput.placeholder = "Örn: Orhan Camii";
             }
         }
 
@@ -3019,20 +3053,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('edit-program-name-input')?.addEventListener('change', (e) => {
         const helper = document.getElementById('edit-program-name-helper');
-        if (helper && e.target.value !== 'Diğer') {
-            helper.classList.add('hidden');
-        } else if (helper && e.target.value === 'Diğer' && currentEditProgram && currentEditProgram.program_name) {
-            const currentProgName = currentEditProgram.program_name.trim();
-            const STANDARDIZED_PROGRAM_NAMES = [
-                "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Aile Sohbeti", "Çocuk Sohbeti", "Soru-Cevap", "Hasbihal",
-                "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Akaid Dersi", "Siyer Dersi", "Mütalaa Dersi", "Tefsir ve İlmihal",
-                "Riyâzü's Sâlihîn Dersi", "Şifâ-i Şerif Dersi", "Hayatü's Sahabe Dersi", "Esmâü'l-Hüsnâ Dersi",
-                "Zikir ve Sohbet", "Haftalık Ders ve Zikir", "Hatm-i Hacegân", "Evrâd ve Zikir", "Dua Programı",
-                "Davet Ameli", "Maruf Çalışması", "3 Günlük Sefer", "Gençlik Buluşması",
-                "Sinevizyon Sohbeti", "Seminer", "Konferans", "Panel", "Diğer"
-            ];
-            if (!STANDARDIZED_PROGRAM_NAMES.includes(currentProgName)) {
+        const venueLabel = document.querySelector('label[for="edit-program-venue-name"]');
+        const venueInput = document.getElementById('edit-program-venue-name');
+        
+        if (e.target.value === "3 Günlük Sefer") {
+            if (helper) {
+                helper.textContent = "Bu programda mekân, seferin yapıldığı yer değil; çıkış/toplanma noktasıdır.";
                 helper.classList.remove('hidden');
+            }
+            if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Çıkış Noktası *';
+            if (venueInput) venueInput.placeholder = "Örn: Doğanbey Camii";
+        } else {
+            if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
+            if (venueInput) venueInput.placeholder = "Örn: Orhan Camii";
+            
+            if (helper && e.target.value !== 'Diğer') {
+                helper.classList.add('hidden');
+            } else if (helper && e.target.value === 'Diğer' && currentEditProgram && currentEditProgram.program_name) {
+                const currentProgName = currentEditProgram.program_name.trim();
+                const STANDARDIZED_PROGRAM_NAMES = [
+                    "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Aile Sohbeti", "Çocuk Sohbeti", "Soru-Cevap", "Hasbihal",
+                    "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Akaid Dersi", "Siyer Dersi", "Mütalaa Dersi", "Tefsir ve İlmihal",
+                    "Riyâzü's Sâlihîn Dersi", "Şifâ-i Şerif Dersi", "Hayatü's Sahabe Dersi", "Esmâü'l-Hüsnâ Dersi",
+                    "Zikir ve Sohbet", "Haftalık Ders ve Zikir", "Hatm-i Hacegân", "Evrâd ve Zikir", "Dua Programı",
+                    "Davet Ameli", "Maruf Çalışması", "3 Günlük Sefer", "Gençlik Buluşması",
+                    "Sinevizyon Sohbeti", "Seminer", "Konferans", "Panel", "Diğer"
+                ];
+                if (!STANDARDIZED_PROGRAM_NAMES.includes(currentProgName)) {
+                    helper.classList.remove('hidden');
+                }
+            }
+        }
+    });
+
+    document.getElementById('add-program-name')?.addEventListener('change', (e) => {
+        const helper = document.getElementById('add-program-name-helper');
+        const venueLabel = document.querySelector('label[for="add-venue-name"]');
+        const venueInput = document.getElementById('add-venue-name');
+        
+        if (e.target.value === "3 Günlük Sefer") {
+            if (helper) {
+                helper.textContent = "Bu programda mekân, seferin yapıldığı yer değil; çıkış/toplanma noktasıdır.";
+                helper.classList.remove('hidden');
+            }
+            if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Çıkış Noktası *';
+            if (venueInput) venueInput.placeholder = "Örn: Doğanbey Camii";
+        } else {
+            if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
+            if (venueInput) venueInput.placeholder = "Örn: Orhan Camii";
+            if (helper) {
+                helper.classList.add('hidden');
+                helper.textContent = '';
             }
         }
     });
