@@ -3425,7 +3425,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // Türk alfabesine göre mükemmel alfabetik sıralama (Ç, Ğ, İ, Ö, Ş, Ü dahil)
             activeOrganizations.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
 
-            let optionsHtml = '<option value="">Kurum / Cemaat / Oluşum seçilmedi</option>';
+            let optionsHtml = '<option value="">Çatı kurumu seçiniz</option>';
             if (activeOrganizations.length === 0) {
                 optionsHtml = '<option value="">Kayıtlı aktif kayıt bulunamadı</option>';
             } else {
@@ -3853,35 +3853,37 @@ document.addEventListener('DOMContentLoaded', () => {
             const orgName = (org.name || '').trim();
             const cleanedOrgName = cleanStr(orgName);
 
+            const seenIds = new Set();
             const activePrograms = (data || []).filter(p => {
                 // Sadece silinmemiş (deleted olmayan) programlar
                 if (p.status === 'deleted') return false;
+                if (seenIds.has(p.id)) return false;
 
                 // 1. programs.organization_id = selectedOrganization.id ise eşleşsin
                 if (p.organization_id && p.organization_id === orgId) {
+                    seenIds.add(p.id);
                     return true;
                 }
 
-                // 2. programs.organization alanı selectedOrganization.name ile birebir eşleşiyorsa de listele (eski kayıtlar için fallback)
+                // 2. programs.organization alanı selectedOrganization.name ile birebir eşleşiyorsa listele (fallback)
                 const pOrg = (p.organization || '').trim();
                 const cleanedPOrg = cleanStr(pOrg);
 
-                if (!cleanedPOrg || !cleanedOrgName) return false;
-
-                if (cleanedPOrg === cleanedOrgName) {
-                    return true;
-                }
-
-                // 3. Eğer selectedOrganization.name "Ümmetder" ise "Ümmetder Yenikent", "Ümmetder Hızırtepe" gibi organization alanı Ümmetder ile başlayan kayıtlar da gelsin.
-                if (cleanedOrgName === 'ummetder') {
-                    if (cleanedPOrg.startsWith('ummetder')) {
+                if (cleanedPOrg && cleanedOrgName) {
+                    if (cleanedPOrg === cleanedOrgName) {
+                        seenIds.add(p.id);
                         return true;
                     }
-                }
 
-                // 4. Eğer selectedOrganization.name "İsmailağa" ise "İsmailağa Sapanca", "İsmailağa Hendek" gibi kayıtlar da gelsin.
-                if (cleanedOrgName === 'ismailaga') {
-                    if (cleanedPOrg.startsWith('ismailaga')) {
+                    // 3. Eğer selectedOrganization.name "Ümmetder" ise "Ümmetder" ile başlayan kayıtlar da gelsin.
+                    if (cleanedOrgName === 'ummetder' && cleanedPOrg.startsWith('ummetder')) {
+                        seenIds.add(p.id);
+                        return true;
+                    }
+
+                    // 4. Eğer selectedOrganization.name "İsmailağa" ise "İsmailağa" ile başlayan kayıtlar da gelsin.
+                    if (cleanedOrgName === 'ismailaga' && cleanedPOrg.startsWith('ismailaga')) {
+                        seenIds.add(p.id);
                         return true;
                     }
                 }
@@ -3899,39 +3901,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 return;
             }
 
-            // Render table
-            let tableRows = '';
+            // Render as cards (K-4 & K-5)
+            let cardsHtml = '<div class="org-programs-grid">';
             activePrograms.forEach(p => {
                 const statusBadge = getStatusBadge(p.status);
-                tableRows += `
-                    <tr>
-                        <td style="font-weight: 500; color: var(--md-on-surface);">${escapeHtml(p.day || '-')}</td>
-                        <td>${escapeHtml(p.time || '-')}</td>
-                        <td style="font-weight: 600; color: var(--md-primary);">${escapeHtml(p.program_name || 'İsimsiz Program')}</td>
-                        <td>${escapeHtml(p.venue_name || '-')}</td>
-                        <td><span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px; font-weight: 500;">${escapeHtml(statusBadge.label)}</span></td>
-                    </tr>
+                const subeAdi = p.organization ? p.organization.trim() : '';
+                const subeHtml = subeAdi ? `
+                    <div class="org-program-sube">
+                        <i class="fa-solid fa-house-chimney"></i> <span>Şube: ${escapeHtml(subeAdi)}</span>
+                    </div>
+                ` : '';
+                
+                cardsHtml += `
+                    <div class="org-program-card">
+                        <div class="org-program-card-header">
+                            <span class="org-program-time-badge">
+                                <i class="fa-regular fa-calendar-days"></i> ${escapeHtml(p.day || '-')} | <i class="fa-regular fa-clock"></i> ${escapeHtml(p.time || '-')}
+                            </span>
+                            <span class="${statusBadge.badgeClass}" style="font-size: 10px; padding: 2px 6px; font-weight: 600;">${escapeHtml(statusBadge.label)}</span>
+                        </div>
+                        <h4 class="org-program-card-title">${escapeHtml(p.program_name || 'İsimsiz Program')}</h4>
+                        <div class="org-program-card-meta">
+                            <div class="org-program-venue">
+                                <i class="fa-solid fa-location-dot"></i> <strong>${escapeHtml(p.venue_name || '-')}</strong> (${escapeHtml(p.district || '-')})
+                            </div>
+                            ${subeHtml}
+                        </div>
+                    </div>
                 `;
             });
+            cardsHtml += '</div>';
 
-            container.innerHTML = `
-                <div class="org-programs-table-wrapper">
-                    <table class="org-programs-table">
-                        <thead>
-                            <tr>
-                                <th>Gün</th>
-                                <th>Saat</th>
-                                <th>Program Adı</th>
-                                <th>Mekân / Cami Adı</th>
-                                <th>Durum</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            ${tableRows}
-                        </tbody>
-                    </table>
-                </div>
-            `;
+            container.innerHTML = cardsHtml;
         } catch (err) {
             console.error("Kurum programları yüklenirken hata oluştu:", err);
             if (loader) loader.classList.add('hidden');
