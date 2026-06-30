@@ -399,12 +399,12 @@
 
             <!-- Filtre ve Arama Paneli -->
             <div class="filter-panel" id="mosques-filter-panel">
-                <div class="filter-row">
-                    <div class="filter-group search-group" style="flex: 2;">
+                <div class="filter-row" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                    <div class="filter-group search-group" style="flex: 2; min-width: 200px;">
                         <label for="mosques-filter-search"><i class="fa-solid fa-magnifying-glass"></i> Arama</label>
                         <input type="text" id="mosques-filter-search" class="form-control" placeholder="Cami adı, mahalle, adres...">
                     </div>
-                    <div class="filter-group" style="flex: 1;">
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
                         <label for="mosques-filter-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
                         <select id="mosques-filter-district" class="form-control">
                             <option value="">Tüm İlçeler</option>
@@ -426,6 +426,29 @@
                             <option value="Taraklı">Taraklı</option>
                         </select>
                     </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="mosques-filter-status"><i class="fa-solid fa-circle-info"></i> Durum</label>
+                        <select id="mosques-filter-status" class="form-control">
+                            <option value="">Tüm Durumlar</option>
+                            <option value="active">Aktif</option>
+                            <option value="inactive">Pasif</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="mosques-filter-sort"><i class="fa-solid fa-sort"></i> Sıralama</label>
+                        <select id="mosques-filter-sort" class="form-control">
+                            <option value="az">A'dan Z'ye</option>
+                            <option value="za">Z'den A'ya</option>
+                            <option value="district">İlçeye Göre</option>
+                            <option value="newest">En Yeni Eklenen</option>
+                            <option value="oldest">En Eski Eklenen</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex-shrink: 0;">
+                        <button id="mosques-clear-filters-btn" class="btn btn-secondary" style="height: 40px; background-color: var(--md-outline-variant, #e0e0e0); color: var(--md-on-surface); display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--md-outline); border-radius: 8px; cursor: pointer;">
+                            <i class="fa-solid fa-filter-circle-xmark"></i> Filtreleri Temizle
+                        </button>
+                    </div>
                 </div>
             </div>
 
@@ -434,7 +457,7 @@
                 <div class="section-header">
                     <div class="header-title-wrapper">
                         <h3>Camii Listesi</h3>
-                        <p class="subtitle-text"><span id="mosques-count">0</span> Cami konum kaydı listeleniyor</p>
+                        <p class="subtitle-text" id="mosques-count-text">0 cami içinden 0 kayıt gösteriliyor.</p>
                     </div>
                     <button id="mosques-refresh-btn" class="btn btn-secondary btn-sm">
                         <i class="fa-solid fa-rotate"></i> Camileri Yenile
@@ -1389,11 +1412,16 @@
 
                 <!-- Preview list section -->
                 <div id="osm-preview-section" class="hidden" style="margin-top: 15px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid var(--md-outline); padding-bottom: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid var(--md-outline); padding-bottom: 8px; flex-wrap: wrap; gap: 12px;">
                         <h4 style="margin: 0; font-size: 16px; color: var(--md-primary);">Bulunan Camiler (<span id="osm-found-count">0</span>)</h4>
-                        <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; cursor: pointer;">
-                            <input type="checkbox" id="osm-select-all" checked style="width: 16px; height: 16px; accent-color: var(--md-primary);"> Tümünü Seç
-                        </label>
+                        <div style="display: flex; gap: 16px; align-items: center;">
+                            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; cursor: pointer; color: var(--md-on-surface-variant);">
+                                <input type="checkbox" id="osm-hide-unnamed" checked style="width: 16px; height: 16px; accent-color: var(--md-primary);"> İsimsizleri Gizle
+                            </label>
+                            <label style="display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; cursor: pointer;">
+                                <input type="checkbox" id="osm-select-all" checked style="width: 16px; height: 16px; accent-color: var(--md-primary);"> Tümünü Seç
+                            </label>
+                        </div>
                     </div>
 
                     <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--md-outline); border-radius: 8px; background-color: #fafafa;">
