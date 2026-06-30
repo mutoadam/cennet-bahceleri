@@ -4237,13 +4237,22 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
     function applyMosqueFilters() {
         const searchVal = (document.getElementById('mosques-filter-search')?.value || '').trim().toLocaleLowerCase('tr-TR');
         const districtVal = document.getElementById('mosques-filter-district')?.value || '';
+        const statusVal = document.getElementById('mosques-filter-status')?.value || '';
+        const sortVal = document.getElementById('mosques-filter-sort')?.value || 'az';
 
-        let filtered = mosquesListCache;
+        let filtered = [...mosquesListCache];
 
+        // 1. District filter
         if (districtVal) {
             filtered = filtered.filter(m => (m.district || '').toLocaleLowerCase('tr-TR') === districtVal.toLocaleLowerCase('tr-TR'));
         }
 
+        // 2. Status filter
+        if (statusVal) {
+            filtered = filtered.filter(m => m.status === statusVal);
+        }
+
+        // 3. Search query filter
         if (searchVal) {
             filtered = filtered.filter(m => {
                 const name = (m.mosque_name || '').toLocaleLowerCase('tr-TR');
@@ -4254,16 +4263,52 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
             });
         }
 
+        // 4. Sorting
+        if (sortVal === 'az') {
+            filtered.sort((a, b) => (a.mosque_name || '').localeCompare(b.mosque_name || '', 'tr'));
+        } else if (sortVal === 'za') {
+            filtered.sort((a, b) => (b.mosque_name || '').localeCompare(a.mosque_name || '', 'tr'));
+        } else if (sortVal === 'district') {
+            filtered.sort((a, b) => {
+                const distCompare = (a.district || '').localeCompare(b.district || '', 'tr');
+                if (distCompare !== 0) return distCompare;
+                return (a.mosque_name || '').localeCompare(b.mosque_name || '', 'tr');
+            });
+        } else if (sortVal === 'newest') {
+            filtered.sort((a, b) => {
+                const idA = a.id || 0;
+                const idB = b.id || 0;
+                // If created_at is available, use it, otherwise fall back to id comparison
+                if (a.created_at && b.created_at) {
+                    return new Date(b.created_at) - new Date(a.created_at);
+                }
+                return idB - idA;
+            });
+        } else if (sortVal === 'oldest') {
+            filtered.sort((a, b) => {
+                const idA = a.id || 0;
+                const idB = b.id || 0;
+                if (a.created_at && b.created_at) {
+                    return new Date(a.created_at) - new Date(b.created_at);
+                }
+                return idA - idB;
+            });
+        }
+
         renderMosques(filtered);
     }
 
     function renderMosques(mosques) {
         const list = document.getElementById('mosques-list');
+        const countText = document.getElementById('mosques-count-text');
         const count = document.getElementById('mosques-count');
         if (!list) return;
 
         list.innerHTML = '';
         if (count) count.textContent = mosques.length;
+        if (countText) {
+            countText.textContent = `${mosquesListCache.length} cami içinden ${mosques.length} kayıt gösteriliyor.`;
+        }
 
         if (mosques.length === 0) {
             showMosquesEmpty();
@@ -4707,6 +4752,7 @@ out center;`;
             const lat = el.lat || (el.center && el.center.lat);
             const lon = el.lon || (el.center && el.center.lon);
             
+            const isUnnamed = !(el.tags?.name || el.tags?.description || el.tags?.official_name);
             let rawName = el.tags?.name || el.tags?.description || el.tags?.official_name || "İsimsiz Cami/Mescid";
             let mosque_name = rawName.trim();
             if (!mosque_name.toLocaleLowerCase('tr-TR').includes("cami") && !mosque_name.toLocaleLowerCase('tr-TR').includes("mescid")) {
@@ -4735,7 +4781,8 @@ out center;`;
                 latitude: lat,
                 longitude: lon,
                 google_maps_link: `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`,
-                status: 'active'
+                status: 'active',
+                isUnnamed: isUnnamed
             };
         }).filter(item => item.latitude && item.longitude);
 
@@ -4750,13 +4797,20 @@ out center;`;
     function renderOsmPreview() {
         const list = document.getElementById('osm-preview-list');
         const countSpan = document.getElementById('osm-found-count');
+        const hideUnnamed = document.getElementById('osm-hide-unnamed')?.checked;
         
         if (!list) return;
         list.innerHTML = '';
         
-        if (countSpan) countSpan.textContent = osmResults.length;
+        // Filter out unnamed results if "osm-hide-unnamed" is checked
+        const filteredResults = hideUnnamed 
+            ? osmResults.filter(item => !item.isUnnamed) 
+            : osmResults;
 
-        osmResults.forEach((item, index) => {
+        if (countSpan) countSpan.textContent = filteredResults.length;
+
+        filteredResults.forEach((item, filteredIndex) => {
+            const index = osmResults.indexOf(item);
             const tr = document.createElement('tr');
             
             // Check duplicate
@@ -4770,13 +4824,17 @@ out center;`;
             const rowStyle = isDuplicateInDb ? 'style="opacity: 0.65; background-color: #fdfaf2;"' : '';
             const dupBadge = isDuplicateInDb ? '<br><span style="color: #b7791f; background-color: #fefcbf; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600; display: inline-block; margin-top: 4px;">Sistemde Kayıtlı</span>' : '';
             
+            // Unnamed records should NOT be selected by default (requirement 1)
+            const isChecked = !isDuplicateInDb && !item.isUnnamed;
+
             tr.innerHTML = `
                 <tr ${rowStyle}>
                     <td style="padding: 12px 10px; text-align: center;">
-                        <input type="checkbox" class="osm-item-checkbox" data-index="${index}" ${isDuplicateInDb ? '' : 'checked'} style="width: 18px; height: 18px; cursor: pointer;">
+                        <input type="checkbox" class="osm-item-checkbox" data-index="${index}" ${isChecked ? 'checked' : ''} style="width: 18px; height: 18px; cursor: pointer;">
                     </td>
                     <td style="padding: 12px 10px; font-weight: 600; color: var(--md-primary);">
                         ${escapeHtml(item.mosque_name)}
+                        ${item.isUnnamed ? '<br><span style="color: #dc2626; background-color: #fee2e2; font-size: 11px; padding: 1px 6px; border-radius: 4px; font-weight: 600; display: inline-block; margin-top: 4px;">İsimsiz Kayıt</span>' : ''}
                         ${dupBadge}
                     </td>
                     <td style="padding: 12px 10px; font-weight: 500;">${escapeHtml(item.district)}</td>
@@ -4821,7 +4879,12 @@ out center;`;
         if (!list) return;
         
         const checkedCount = list.querySelectorAll('.osm-item-checkbox:checked').length;
-        const totalCount = osmResults.length;
+        
+        // Count how many are currently rendered/visible
+        const hideUnnamed = document.getElementById('osm-hide-unnamed')?.checked;
+        const totalCount = hideUnnamed 
+            ? osmResults.filter(item => !item.isUnnamed).length 
+            : osmResults.length;
         
         const summarySpan = document.getElementById('osm-selection-summary');
         if (summarySpan) {
@@ -4848,6 +4911,24 @@ out center;`;
         if (checkedCbs.length === 0) {
             showToast("Lütfen kaydedilecek en az bir cami seçin.", "error");
             return;
+        }
+
+        // Check if there are checked unnamed records and ask confirmation
+        let hasUnnamedChecked = false;
+        for (const cb of checkedCbs) {
+            const index = parseInt(cb.getAttribute('data-index'));
+            const item = osmResults[index];
+            if (item && item.isUnnamed) {
+                hasUnnamedChecked = true;
+                break;
+            }
+        }
+
+        if (hasUnnamedChecked) {
+            const confirmSave = confirm("Seçtiğiniz kayıtlar arasında 'İsimsiz Cami/Mescid' içeren kayıtlar bulunuyor. Bu kayıtları isimsiz olarak kaydetmek istediğinize emin misiniz?");
+            if (!confirmSave) {
+                return;
+            }
         }
 
         const saveBtn = document.getElementById('osm-modal-btn-save');
@@ -4982,6 +5063,11 @@ out center;`;
             updateOsmSelectionSummary();
         });
 
+        // OSM Hide Unnamed Checkbox
+        document.getElementById('osm-hide-unnamed')?.addEventListener('change', () => {
+            renderOsmPreview();
+        });
+
         // OSM Save Button
         document.getElementById('osm-modal-btn-save')?.addEventListener('click', saveSelectedOsmMosques);
 
@@ -4992,6 +5078,23 @@ out center;`;
         // Filters
         document.getElementById('mosques-filter-search')?.addEventListener('input', applyMosqueFilters);
         document.getElementById('mosques-filter-district')?.addEventListener('change', applyMosqueFilters);
+        document.getElementById('mosques-filter-status')?.addEventListener('change', applyMosqueFilters);
+        document.getElementById('mosques-filter-sort')?.addEventListener('change', applyMosqueFilters);
+
+        // Clear Filters Button
+        document.getElementById('mosques-clear-filters-btn')?.addEventListener('click', () => {
+            const searchField = document.getElementById('mosques-filter-search');
+            const districtField = document.getElementById('mosques-filter-district');
+            const statusField = document.getElementById('mosques-filter-status');
+            const sortField = document.getElementById('mosques-filter-sort');
+
+            if (searchField) searchField.value = '';
+            if (districtField) districtField.value = '';
+            if (statusField) statusField.value = '';
+            if (sortField) sortField.value = 'az';
+
+            applyMosqueFilters();
+        });
 
         // Google Maps parsing
         const googleMapsInput = document.getElementById('mosque-modal-google-maps-input');
