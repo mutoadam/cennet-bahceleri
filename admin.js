@@ -642,19 +642,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 "Haftalık Sohbet",
                 "Gençlik Sohbeti",
                 "Hanımlar Sohbeti",
+                "Aile Sohbeti",
+                "Çocuk Sohbeti",
+                "Soru-Cevap",
+                "Hasbihal",
                 "Hadis Dersi",
                 "Fıkıh Dersi",
                 "Tefsir Dersi",
                 "İlmihal Dersi",
-                "Tefsir ve İlmihal",
-                "Haftalık Ders ve Zikir",
-                "Zikir ve Sohbet",
+                "Akaid Dersi",
+                "Siyer Dersi",
                 "Mütalaa Dersi",
+                "Tefsir ve İlmihal",
+                "Riyâzü's Sâlihîn Dersi",
+                "Şifâ-i Şerif Dersi",
+                "Hayatü's Sahabe Dersi",
+                "Esmâü'l-Hüsnâ Dersi",
+                "Zikir ve Sohbet",
+                "Haftalık Ders ve Zikir",
+                "Hatm-i Hacegân",
+                "Evrâd ve Zikir",
+                "Dua Programı",
                 "Davet Ameli",
                 "Maruf Çalışması",
-                "Soru-Cevap",
-                "Sinevizyon Sohbeti",
                 "3 Günlük Sefer",
+                "Gençlik Buluşması",
+                "Sinevizyon Sohbeti",
+                "Seminer",
+                "Konferans",
+                "Panel",
                 "Diğer"
             ];
             if (currentProgName) {
@@ -2564,19 +2580,35 @@ document.addEventListener('DOMContentLoaded', () => {
                 "Haftalık Sohbet",
                 "Gençlik Sohbeti",
                 "Hanımlar Sohbeti",
+                "Aile Sohbeti",
+                "Çocuk Sohbeti",
+                "Soru-Cevap",
+                "Hasbihal",
                 "Hadis Dersi",
                 "Fıkıh Dersi",
                 "Tefsir Dersi",
                 "İlmihal Dersi",
-                "Tefsir ve İlmihal",
-                "Haftalık Ders ve Zikir",
-                "Zikir ve Sohbet",
+                "Akaid Dersi",
+                "Siyer Dersi",
                 "Mütalaa Dersi",
+                "Tefsir ve İlmihal",
+                "Riyâzü's Sâlihîn Dersi",
+                "Şifâ-i Şerif Dersi",
+                "Hayatü's Sahabe Dersi",
+                "Esmâü'l-Hüsnâ Dersi",
+                "Zikir ve Sohbet",
+                "Haftalık Ders ve Zikir",
+                "Hatm-i Hacegân",
+                "Evrâd ve Zikir",
+                "Dua Programı",
                 "Davet Ameli",
                 "Maruf Çalışması",
-                "Soru-Cevap",
-                "Sinevizyon Sohbeti",
                 "3 Günlük Sefer",
+                "Gençlik Buluşması",
+                "Sinevizyon Sohbeti",
+                "Seminer",
+                "Konferans",
+                "Panel",
                 "Diğer"
             ];
             if (currentProgName) {
@@ -2972,7 +3004,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (helper && e.target.value === 'Diğer' && currentSuggestion && currentSuggestion.program_name) {
             const currentProgName = currentSuggestion.program_name.trim();
             const STANDARDIZED_PROGRAM_NAMES = [
-                "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Tefsir ve İlmihal", "Haftalık Ders ve Zikir", "Zikir ve Sohbet", "Mütalaa Dersi", "Davet Ameli", "Maruf Çalışması", "Soru-Cevap", "Sinevizyon Sohbeti", "3 Günlük Sefer", "Diğer"
+                "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Aile Sohbeti", "Çocuk Sohbeti", "Soru-Cevap", "Hasbihal",
+                "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Akaid Dersi", "Siyer Dersi", "Mütalaa Dersi", "Tefsir ve İlmihal",
+                "Riyâzü's Sâlihîn Dersi", "Şifâ-i Şerif Dersi", "Hayatü's Sahabe Dersi", "Esmâü'l-Hüsnâ Dersi",
+                "Zikir ve Sohbet", "Haftalık Ders ve Zikir", "Hatm-i Hacegân", "Evrâd ve Zikir", "Dua Programı",
+                "Davet Ameli", "Maruf Çalışması", "3 Günlük Sefer", "Gençlik Buluşması",
+                "Sinevizyon Sohbeti", "Seminer", "Konferans", "Panel", "Diğer"
             ];
             if (!STANDARDIZED_PROGRAM_NAMES.includes(currentProgName)) {
                 helper.classList.remove('hidden');
@@ -2987,7 +3024,12 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (helper && e.target.value === 'Diğer' && currentEditProgram && currentEditProgram.program_name) {
             const currentProgName = currentEditProgram.program_name.trim();
             const STANDARDIZED_PROGRAM_NAMES = [
-                "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Tefsir ve İlmihal", "Haftalık Ders ve Zikir", "Zikir ve Sohbet", "Mütalaa Dersi", "Davet Ameli", "Maruf Çalışması", "Soru-Cevap", "Sinevizyon Sohbeti", "3 Günlük Sefer", "Diğer"
+                "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Aile Sohbeti", "Çocuk Sohbeti", "Soru-Cevap", "Hasbihal",
+                "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Akaid Dersi", "Siyer Dersi", "Mütalaa Dersi", "Tefsir ve İlmihal",
+                "Riyâzü's Sâlihîn Dersi", "Şifâ-i Şerif Dersi", "Hayatü's Sahabe Dersi", "Esmâü'l-Hüsnâ Dersi",
+                "Zikir ve Sohbet", "Haftalık Ders ve Zikir", "Hatm-i Hacegân", "Evrâd ve Zikir", "Dua Programı",
+                "Davet Ameli", "Maruf Çalışması", "3 Günlük Sefer", "Gençlik Buluşması",
+                "Sinevizyon Sohbeti", "Seminer", "Konferans", "Panel", "Diğer"
             ];
             if (!STANDARDIZED_PROGRAM_NAMES.includes(currentProgName)) {
                 helper.classList.remove('hidden');
