@@ -2520,7 +2520,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 mosquesContent.classList.add('hidden');
             });
 
-            tabPrograms.addEventListener('click', () => {
+            tabPrograms.addEventListener('click', async () => {
                 tabPrograms.classList.add('active');
                 tabSuggestions.classList.remove('active');
                 tabOrganizations.classList.remove('active');
@@ -2529,6 +2529,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 suggestionsContent.classList.add('hidden');
                 organizationsContent.classList.add('hidden');
                 mosquesContent.classList.add('hidden');
+                await loadOrganizations();
                 loadPrograms();
             });
 
@@ -3692,12 +3693,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const { data, error } = await supabaseClient
                 .from('organizations')
-                .select('id, name, logo_url')
-                .eq('status', 'active');
+                .select('id, name, status')
+                .order('name', { ascending: true });
 
             if (error) throw error;
 
             activeOrganizations = data || [];
+
+            // Console'a geçici debug log ekle:
+            // - loadedOrganizations count
+            // - organizationsFilterElement exists?
+            // - first organization name
+            console.log("loadedOrganizations count:", activeOrganizations.length);
+            console.log("organizationsFilterElement exists?:", !!filterSelect);
+            console.log("first organization name:", activeOrganizations.length > 0 ? activeOrganizations[0].name : "None");
+
             // Türk alfabesine göre mükemmel alfabetik sıralama (Ç, Ğ, İ, Ö, Ş, Ü dahil)
             activeOrganizations.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
 
@@ -3705,7 +3715,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let filterOptionsHtml = '<option value="">Tüm kurumlar</option>';
             if (activeOrganizations.length === 0) {
                 optionsHtml = '<option value="">Kayıtlı aktif kayıt bulunamadı</option>';
-                filterOptionsHtml = '<option value="">Aktif kurum bulunamadı</option>';
+                filterOptionsHtml = '<option value="">Tüm kurumlar</option>';
             } else {
                 activeOrganizations.forEach(org => {
                     optionsHtml += `<option value="${org.id}">${escapeHtml(org.name)}</option>`;
@@ -3723,6 +3733,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (err) {
             console.error("Kurumlar yüklenirken hata oluştu (organizations tablosu olmayabilir):", err);
+            // Console'a geçici debug log ekle:
+            console.log("loadedOrganizations count: 0 (error)");
+            console.log("organizationsFilterElement exists?:", !!filterSelect);
+            console.log("first organization name: None (error)");
+
             activeOrganizations = [];
             const errorOptionsHtml = '<option value="">Liste yüklenemedi</option>';
             if (addSelect) addSelect.innerHTML = errorOptionsHtml;
