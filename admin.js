@@ -4234,10 +4234,25 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         if (passiveVal) passiveVal.textContent = passiveCount;
     }
 
+    function isMosqueUnnamed(m) {
+        if (!m.mosque_name) return true;
+        const lowerName = m.mosque_name.toLocaleLowerCase('tr-TR');
+        return lowerName.includes('isimsiz') || lowerName.includes('adsiz');
+    }
+
+    function getVerificationStatus(m) {
+        if (m.verification_status) {
+            return m.verification_status;
+        }
+        return isMosqueUnnamed(m) ? 'unverified' : 'verified';
+    }
+
     function applyMosqueFilters() {
         const searchVal = (document.getElementById('mosques-filter-search')?.value || '').trim().toLocaleLowerCase('tr-TR');
         const districtVal = document.getElementById('mosques-filter-district')?.value || '';
         const statusVal = document.getElementById('mosques-filter-status')?.value || '';
+        const verificationVal = document.getElementById('mosques-filter-verification')?.value || '';
+        const unnamedVal = document.getElementById('mosques-filter-unnamed')?.value || 'hide';
         const sortVal = document.getElementById('mosques-filter-sort')?.value || 'az';
 
         let filtered = [...mosquesListCache];
@@ -4252,7 +4267,17 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
             filtered = filtered.filter(m => m.status === statusVal);
         }
 
-        // 3. Search query filter
+        // 3. Verification filter
+        if (verificationVal) {
+            filtered = filtered.filter(m => getVerificationStatus(m) === verificationVal);
+        }
+
+        // 4. Unnamed filter
+        if (unnamedVal === 'hide') {
+            filtered = filtered.filter(m => !isMosqueUnnamed(m));
+        }
+
+        // 5. Search query filter
         if (searchVal) {
             filtered = filtered.filter(m => {
                 const name = (m.mosque_name || '').toLocaleLowerCase('tr-TR');
@@ -4324,6 +4349,13 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
                 card.classList.add('org-card-inactive');
             }
 
+            const isUnnamed = isMosqueUnnamed(m);
+            const verificationStatus = getVerificationStatus(m);
+            const isVerified = verificationStatus === 'verified';
+
+            const verificationText = isVerified ? 'Doğrulandı' : 'Doğrulanmadı';
+            const verificationClass = isVerified ? 'status-badge status-approved' : 'status-badge status-pending';
+
             const statusText = m.status === 'active' ? 'Aktif' : 'Pasif';
             const statusClass = m.status === 'active' ? 'status-badge status-approved' : 'status-badge status-rejected';
 
@@ -4335,14 +4367,16 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
             if (m.google_maps_link) {
                 mapsLinkBtn = `<a href="${escapeHtml(m.google_maps_link)}" target="_blank" class="org-link-icon" style="color: var(--md-secondary); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" title="Google Maps"><i class="fa-solid fa-map-location-dot"></i> Haritada Aç</a>`;
             } else {
-                mapsLinkBtn = `<a href="https://maps.google.com/?q=${m.latitude},${m.longitude}" target="_blank" class="org-link-icon" style="color: var(--md-secondary); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" title="Google Maps"><i class="fa-solid fa-map-location-dot"></i> Koordinatları Aç</a>`;
+                mapsLinkBtn = `<a href="https://www.google.com/maps/search/?api=1&query=${m.latitude},${m.longitude}" target="_blank" class="org-link-icon" style="color: var(--md-secondary); font-weight: 600; display: inline-flex; align-items: center; gap: 4px;" title="Google Maps"><i class="fa-solid fa-map-location-dot"></i> Haritada Aç</a>`;
             }
 
             card.innerHTML = `
                 <div class="card-header-info" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
-                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
                         <span class="${statusClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusText)}</span>
                         <span class="category-badge" style="font-size: 11px; padding: 2px 8px; background-color: var(--md-secondary-container); color: var(--md-on-secondary-container); border-color: rgba(181, 141, 61, 0.2);">${escapeHtml(m.district || '')}</span>
+                        <span class="${verificationClass}" style="font-size: 11px; padding: 2px 8px;"><i class="fa-solid ${isVerified ? 'fa-circle-check' : 'fa-circle-question'}"></i> ${verificationText}</span>
+                        ${isUnnamed ? '<span class="status-badge status-rejected" style="font-size: 11px; padding: 2px 8px;"><i class="fa-solid fa-eye-slash"></i> İsimsiz</span>' : ''}
                     </div>
                     <button class="btn-card-edit btn-mosque-edit" title="Camiyi Düzenle" style="background: transparent; border: none; color: var(--md-primary); cursor: pointer; font-size: 16px; padding: 4px;">
                         <i class="fa-solid fa-pen-to-square"></i>
@@ -4367,19 +4401,30 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
                     </div>
                 </div>
                 
-                <div class="org-card-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--md-outline); gap: 12px; width: 100%;">
-                    <div class="org-links-wrapper" style="display: flex; gap: 10px; font-size: 14px;">
+                <div class="org-card-footer" style="display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid var(--md-outline); gap: 12px; width: 100%; flex-wrap: wrap;">
+                    <div class="org-links-wrapper" style="display: flex; gap: 10px; font-size: 14px; align-items: center;">
                         ${mapsLinkBtn}
                     </div>
-                    <button class="btn btn-sm ${statusActionClass} btn-mosque-status-toggle" style="min-height: 36px; padding: 6px 12px; font-size: 13px;" data-id="${m.id}">
-                        <i class="fa-solid ${statusActionIcon}"></i> ${statusActionText}
-                    </button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-sm ${isVerified ? 'btn-secondary' : 'btn-primary'} btn-mosque-verify-toggle" style="min-height: 36px; padding: 6px 12px; font-size: 13px;" data-id="${m.id}">
+                            <i class="fa-solid ${isVerified ? 'fa-circle-xmark' : 'fa-circle-check'}"></i> ${isVerified ? 'Doğrulamayı Kaldır' : 'Doğrula'}
+                        </button>
+                        <button class="btn btn-sm ${statusActionClass} btn-mosque-status-toggle" style="min-height: 36px; padding: 6px 12px; font-size: 13px;" data-id="${m.id}">
+                            <i class="fa-solid ${statusActionIcon}"></i> ${statusActionText}
+                        </button>
+                    </div>
                 </div>
             `;
 
             // Edit button handler
             card.querySelector('.btn-mosque-edit').addEventListener('click', () => {
                 openEditMosqueModal(m);
+            });
+
+            // Verify toggle button handler
+            card.querySelector('.btn-mosque-verify-toggle').addEventListener('click', async () => {
+                const newVerification = isVerified ? 'unverified' : 'verified';
+                await toggleMosqueVerification(m.id, newVerification);
             });
 
             // Status toggle button handler
@@ -4519,6 +4564,10 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
 
             if (!id) {
                 // INSERT
+                payload.source = 'manual';
+                payload.verification_status = 'verified';
+                payload.verified_at = new Date().toISOString();
+                payload.verified_by = 'admin';
                 payload.created_at = new Date().toISOString();
                 const { error } = await supabaseClient
                     .from('mosque_locations')
@@ -4528,6 +4577,9 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
                 showToast("Camii konumu kaydedildi.", "success");
             } else {
                 // UPDATE
+                payload.verification_status = 'verified';
+                payload.verified_at = new Date().toISOString();
+                payload.verified_by = 'admin';
                 const { error } = await supabaseClient
                     .from('mosque_locations')
                     .update(payload)
@@ -4575,6 +4627,33 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         } catch (error) {
             console.error("Cami durumu değiştirilirken hata oluştu:", error);
             showToast("Camii konumu kaydedilemedi.", "error");
+        }
+    }
+
+    async function toggleMosqueVerification(id, newVerification) {
+        if (!supabaseClient) return;
+
+        try {
+            const isVerifying = newVerification === 'verified';
+            const payload = {
+                verification_status: newVerification,
+                verified_at: isVerifying ? new Date().toISOString() : null,
+                verified_by: isVerifying ? 'admin' : null,
+                updated_at: new Date().toISOString()
+            };
+
+            const { error } = await supabaseClient
+                .from('mosque_locations')
+                .update(payload)
+                .eq('id', id);
+
+            if (error) throw error;
+
+            showToast("Camii doğrulama durumu güncellendi.", "success");
+            await loadMosques();
+        } catch (error) {
+            console.error("Cami doğrulama durumu değiştirilirken hata oluştu:", error);
+            showToast("Camii doğrulama durumu değiştirilemedi.", "error");
         }
     }
 
@@ -4948,11 +5027,6 @@ out center;`;
         let duplicateCount = 0;
         let errorCount = 0;
 
-        let useSource = true;
-        if (mosquesListCache.length > 0 && !('source' in mosquesListCache[0])) {
-            useSource = false;
-        }
-
         for (const cb of checkedCbs) {
             const index = parseInt(cb.getAttribute('data-index'));
             const item = osmResults[index];
@@ -4981,35 +5055,19 @@ out center;`;
                 longitude: item.longitude,
                 google_maps_link: item.google_maps_link,
                 status: item.status,
+                source: 'osm',
+                verification_status: 'unverified',
                 updated_at: new Date().toISOString(),
                 created_at: new Date().toISOString()
             };
 
-            if (useSource) {
-                payload.source = 'osm';
-            }
-
             try {
-                const { error } = await supabaseClient
+                let { error } = await supabaseClient
                     .from('mosque_locations')
                     .insert(payload);
 
-                if (error) {
-                    // Check if 'source' column doesn't exist
-                    if (error.code === '42703' || (error.message && error.message.includes('source'))) {
-                        useSource = false;
-                        delete payload.source;
-                        const retryResult = await supabaseClient
-                            .from('mosque_locations')
-                            .insert(payload);
-                        if (retryResult.error) throw retryResult.error;
-                        savedCount++;
-                    } else {
-                        throw error;
-                    }
-                } else {
-                    savedCount++;
-                }
+                if (error) throw error;
+                savedCount++;
             } catch (err) {
                 console.error("OSM cami kaydedilemedi:", err);
                 errorCount++;
@@ -5079,6 +5137,8 @@ out center;`;
         document.getElementById('mosques-filter-search')?.addEventListener('input', applyMosqueFilters);
         document.getElementById('mosques-filter-district')?.addEventListener('change', applyMosqueFilters);
         document.getElementById('mosques-filter-status')?.addEventListener('change', applyMosqueFilters);
+        document.getElementById('mosques-filter-verification')?.addEventListener('change', applyMosqueFilters);
+        document.getElementById('mosques-filter-unnamed')?.addEventListener('change', applyMosqueFilters);
         document.getElementById('mosques-filter-sort')?.addEventListener('change', applyMosqueFilters);
 
         // Clear Filters Button
@@ -5086,11 +5146,15 @@ out center;`;
             const searchField = document.getElementById('mosques-filter-search');
             const districtField = document.getElementById('mosques-filter-district');
             const statusField = document.getElementById('mosques-filter-status');
+            const verificationField = document.getElementById('mosques-filter-verification');
+            const unnamedField = document.getElementById('mosques-filter-unnamed');
             const sortField = document.getElementById('mosques-filter-sort');
 
             if (searchField) searchField.value = '';
             if (districtField) districtField.value = '';
             if (statusField) statusField.value = '';
+            if (verificationField) verificationField.value = '';
+            if (unnamedField) unnamedField.value = 'hide';
             if (sortField) sortField.value = 'az';
 
             applyMosqueFilters();
