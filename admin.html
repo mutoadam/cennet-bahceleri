@@ -46,7 +46,7 @@
                 <i class="fa-solid fa-mosque"></i> Programlar
             </button>
             <button id="main-tab-organizations" class="main-tab-btn">
-                <i class="fa-solid fa-building-columns"></i> Kurumlar
+                <i class="fa-solid fa-building-columns"></i> Kurum / Cemaat / Oluşum
             </button>
             <button id="main-tab-mosques" class="main-tab-btn">
                 <i class="fa-solid fa-map-location-dot"></i> Camii Konumları
@@ -289,11 +289,11 @@
         <div id="organizations-tab-content" class="hidden">
             <section class="page-title-section">
                 <div class="page-title-container">
-                    <h2>Kurum Yönetim Paneli</h2>
-                    <p class="section-desc">Sistemdeki tüm kurumları yönetebilir, düzenleyebilir veya yeni kurum ekleyebilirsiniz.</p>
+                    <h2>Kurum / Cemaat / Oluşum Yönetim Paneli</h2>
+                    <p class="section-desc">Sistemdeki tüm kurum, cemaat ve oluşumları yönetebilir, düzenleyebilir veya yenisini ekleyebilirsiniz.</p>
                 </div>
                 <button id="add-organization-btn" class="btn btn-secondary add-program-btn">
-                    <i class="fa-solid fa-plus"></i> Yeni Kurum Ekle
+                    <i class="fa-solid fa-plus"></i> Yeni Kurum / Cemaat / Oluşum Ekle
                 </button>
             </section>
 
@@ -302,14 +302,14 @@
                 <div class="stats-card card-approved">
                     <div class="stats-icon"><i class="fa-solid fa-building-columns"></i></div>
                     <div class="stats-info">
-                        <span class="stats-label">Aktif Kurumlar</span>
+                        <span class="stats-label">Aktif Kayıtlar</span>
                         <h3 id="stats-active-orgs-val" class="stats-value">-</h3>
                     </div>
                 </div>
                 <div class="stats-card card-rejected" style="border-left: 6px solid var(--md-outline);">
                     <div class="stats-icon" style="background-color: var(--md-primary-container); color: var(--md-on-surface-variant);"><i class="fa-solid fa-eye-slash"></i></div>
                     <div class="stats-info">
-                        <span class="stats-label">Pasif Kurumlar</span>
+                        <span class="stats-label">Pasif Kayıtlar</span>
                         <h3 id="stats-passive-orgs-val" class="stats-value">-</h3>
                     </div>
                 </div>
@@ -319,24 +319,24 @@
             <section class="suggestions-section">
                 <div class="section-header">
                     <div class="header-title-wrapper">
-                        <h3>Kurum Listesi</h3>
-                        <p class="subtitle-text"><span id="organizations-count">0</span> Kurum gösteriliyor</p>
+                        <h3>Kurum / Cemaat / Oluşum Listesi</h3>
+                        <p class="subtitle-text"><span id="organizations-count">0</span> Kayıt gösteriliyor</p>
                     </div>
                     <button id="organizations-refresh-btn" class="btn btn-secondary btn-sm">
-                        <i class="fa-solid fa-rotate"></i> Kurumları Yenile
+                        <i class="fa-solid fa-rotate"></i> Yenile
                     </button>
                 </div>
 
                 <!-- Loader -->
                 <div id="organizations-loader" class="state-container hidden">
                     <div class="spinner"></div>
-                    <p>Kurumlar yükleniyor, lütfen bekleyin...</p>
+                    <p>Yükleniyor, lütfen bekleyin...</p>
                 </div>
 
                 <!-- Error State -->
                 <div id="organizations-error-container" class="state-container state-error hidden">
                     <i class="fa-solid fa-triangle-exclamation state-icon"></i>
-                    <h4>Kurumlar yüklenirken bir hata oluştu.</h4>
+                    <h4>Yüklenirken bir hata oluştu.</h4>
                     <p>Lütfen internet bağlantınızı ve Supabase yapılandırmanızı kontrol edip tekrar deneyin.</p>
                     <button id="organizations-retry-btn" class="btn btn-primary">Tekrar Dene</button>
                 </div>
@@ -344,8 +344,8 @@
                 <!-- Empty State -->
                 <div id="organizations-empty-container" class="state-container state-empty hidden">
                     <i class="fa-solid fa-building-circle-exclamation state-icon"></i>
-                    <h4>Şu anda kayıtlı kurum bulunmuyor.</h4>
-                    <p>Yeni bir kurum eklemek için sağ üstteki butonunu kullanabilirsiniz.</p>
+                    <h4>Şu anda kayıtlı kurum/cemaat/oluşum bulunmuyor.</h4>
+                    <p>Yeni bir kayıt eklemek için sağ üstteki butonu kullanabilirsiniz.</p>
                 </div>
 
                 <!-- List Container -->
@@ -806,13 +806,13 @@
                         <input type="text" id="edit-program-teacher" class="form-control" placeholder="Örn: Ahmet Hoca">
                     </div>
                     <div class="form-group">
-                        <label for="edit-program-org-select"><i class="fa-solid fa-building-columns"></i> Kurum Seç (Yardımcı)</label>
+                        <label for="edit-program-org-select"><i class="fa-solid fa-building-columns"></i> Kurum / Cemaat / Oluşum Seç (Yardımcı)</label>
                         <select id="edit-program-org-select" class="form-control">
                             <option value="">Yükleniyor...</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="edit-program-organization"><i class="fa-solid fa-building"></i> Kurum / Dernek</label>
+                        <label for="edit-program-organization"><i class="fa-solid fa-building"></i> Kurum / Cemaat / Oluşum</label>
                         <input type="text" id="edit-program-organization" class="form-control" placeholder="Örn: İlim Yayma Cemiyeti">
                     </div>
                     <div class="form-group">
@@ -856,7 +856,7 @@
                         </details>
                     </div>
                     <div class="form-group full-width logo-upload-group" style="grid-column: span 2;">
-                        <label><i class="fa-solid fa-image-portrait"></i> Program/Kurum Logosu Yükle</label>
+                        <label><i class="fa-solid fa-image-portrait"></i> Program/Kurum/Cemaat/Oluşum Logosu Yükle</label>
                         <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
                             <input type="file" id="edit-program-logo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;">
                             <button type="button" id="edit-program-logo-upload-trigger" class="btn btn-secondary btn-sm upload-trigger-btn" style="min-height: 38px; padding: 8px 16px;">
@@ -991,13 +991,13 @@
                         <input type="text" id="add-teacher" class="form-control" placeholder="Örn: Ahmet Hoca">
                     </div>
                     <div class="form-group">
-                        <label for="add-org-select"><i class="fa-solid fa-building-columns"></i> Kurum Seç (Yardımcı)</label>
+                        <label for="add-org-select"><i class="fa-solid fa-building-columns"></i> Kurum / Cemaat / Oluşum Seç (Yardımcı)</label>
                         <select id="add-org-select" class="form-control">
                             <option value="">Yükleniyor...</option>
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="add-organization"><i class="fa-solid fa-building"></i> Kurum / Dernek</label>
+                        <label for="add-organization"><i class="fa-solid fa-building"></i> Kurum / Cemaat / Oluşum</label>
                         <input type="text" id="add-organization" class="form-control" placeholder="Örn: İlim Yayma Cemiyeti">
                     </div>
                     <div class="form-group">
@@ -1034,7 +1034,7 @@
                         </details>
                     </div>
                     <div class="form-group full-width logo-upload-group" style="grid-column: span 2;">
-                        <label><i class="fa-solid fa-image-portrait"></i> Program/Kurum Logosu Yükle</label>
+                        <label><i class="fa-solid fa-image-portrait"></i> Program/Kurum/Cemaat/Oluşum Logosu Yükle</label>
                         <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
                             <input type="file" id="add-program-logo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;">
                             <button type="button" id="add-program-logo-upload-trigger" class="btn btn-secondary btn-sm upload-trigger-btn" style="min-height: 38px; padding: 8px 16px;">
@@ -1171,8 +1171,8 @@
                 <div class="modal-title-area">
                     <i class="fa-solid fa-building-columns" style="font-size: 24px; color: var(--md-secondary);"></i>
                     <div>
-                        <h3 id="org-modal-title">Yeni Kurum Ekle</h3>
-                        <span class="category-badge" style="background-color: var(--md-primary-container); color: var(--md-primary); font-size: 12px; display: inline-block;">Kurum Kartı</span>
+                        <h3 id="org-modal-title">Yeni Kurum / Cemaat / Oluşum Ekle</h3>
+                        <span class="category-badge" style="background-color: var(--md-primary-container); color: var(--md-primary); font-size: 12px; display: inline-block;">Kurum / Cemaat / Oluşum Kartı</span>
                     </div>
                 </div>
                 <button id="org-modal-close-top" class="modal-close-btn" aria-label="Kapat">
@@ -1185,7 +1185,7 @@
                     <input type="hidden" id="org-modal-id">
                     
                     <div class="form-group">
-                        <label for="org-modal-name-input"><i class="fa-solid fa-signature"></i> Kurum Adı *</label>
+                        <label for="org-modal-name-input"><i class="fa-solid fa-signature"></i> Kurum / Cemaat / Oluşum Adı *</label>
                         <input type="text" id="org-modal-name-input" class="form-control" placeholder="Örn: Asr-ı Saadet Derneği" required>
                     </div>
                     <div class="form-group">
@@ -1195,7 +1195,7 @@
                     
                     <!-- Logo Upload Field (Matching existing style) -->
                     <div class="form-group full-width logo-upload-group" style="grid-column: span 2;">
-                        <label><i class="fa-solid fa-image-portrait"></i> Kurum Logosu</label>
+                        <label><i class="fa-solid fa-image-portrait"></i> Kurum / Cemaat / Oluşum Logosu</label>
                         <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
                            <input type="file" id="org-modal-logo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;">
                            <button type="button" id="org-modal-logo-upload-trigger" class="btn btn-secondary btn-sm upload-trigger-btn" style="min-height: 38px; padding: 8px 16px;">
