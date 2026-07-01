@@ -32,6 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let isTrashBinView = false;
     let knownColumns = ['id', 'program_name', 'venue_name', 'city', 'district', 'day', 'time', 'teacher', 'organization', 'women_friendly', 'address', 'google_maps_link', 'description', 'contact_name', 'contact_phone', 'photo_url', 'status', 'created_at', 'updated_at', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
     let activeOrganizations = [];
+    let activeProgramTypes = [];
     
     const SAKARYA_DISTRICTS = [
         "Adapazarı",
@@ -2530,6 +2531,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 organizationsContent.classList.add('hidden');
                 mosquesContent.classList.add('hidden');
                 await loadOrganizations();
+                await loadProgramTypes();
                 loadPrograms();
             });
 
@@ -3743,6 +3745,74 @@ document.addEventListener('DOMContentLoaded', () => {
             if (addSelect) addSelect.innerHTML = errorOptionsHtml;
             if (editSelect) editSelect.innerHTML = errorOptionsHtml;
             if (filterSelect) filterSelect.innerHTML = '<option value="">Tüm kurumlar</option>';
+        }
+    }
+
+    async function loadProgramTypes() {
+        console.log("loading program types...");
+        if (!supabaseClient) {
+            if (!initSupabase()) {
+                console.error("program_types error: Supabase client is not initialized.");
+                return;
+            }
+        }
+
+        const editSuggestSelect = document.getElementById('edit-program-name');
+        const editInputSelect = document.getElementById('edit-program-name-input');
+        const addSelect = document.getElementById('add-program-name');
+
+        if (editSuggestSelect) editSuggestSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+        if (editInputSelect) editInputSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+        if (addSelect) addSelect.innerHTML = '<option value="">Yükleniyor...</option>';
+
+        let optionsHtml = '';
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('program_types')
+                .select('id, name, slug, icon_key, sort_order, status')
+                .eq('status', 'active')
+                .order('sort_order', { ascending: true });
+
+            if (error) throw error;
+
+            activeProgramTypes = data || [];
+            console.log("program_types loaded");
+            console.log("program_types count:", activeProgramTypes.length);
+
+            if (activeProgramTypes.length === 0) {
+                optionsHtml = '<option value="">Program türü bulunamadı</option>';
+            } else {
+                optionsHtml = '<option value="">Program türü seçiniz</option>';
+                activeProgramTypes.forEach(type => {
+                    optionsHtml += `<option value="${escapeHtml(type.name)}">${escapeHtml(type.name)}</option>`;
+                });
+                // If "Diğer" is not in activeProgramTypes, append it
+                if (!activeProgramTypes.some(t => t.name === 'Diğer')) {
+                    optionsHtml += `<option value="Diğer">Diğer</option>`;
+                }
+            }
+
+        } catch (error) {
+            console.error("program_types error:", error);
+            // On error, populate fallbacks so dropdown doesn't stay stuck on "Yükleniyor..."
+            optionsHtml = '<option value="">Program türü seçiniz</option>';
+            const fallbacks = [
+                "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Aile Sohbeti", "Çocuk Sohbeti", "Soru-Cevap", "Hasbihal",
+                "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Akaid Dersi", "Siyer Dersi", "Mütalaa Dersi",
+                "Zikir ve Sohbet", "Haftalık Ders ve Zikir", "Hatm-i Hacegân", "Evrâd ve Zikir", "Dua Programı",
+                "Davet Ameli", "Maruf Çalışması", "3 Günlük Sefer", "Gençlik Buluşması",
+                "Sinevizyon Sohbeti", "Seminer", "Konferans", "Panel", "Diğer"
+            ];
+            fallbacks.forEach(name => {
+                optionsHtml += `<option value="${name}">${name}</option>`;
+            });
+        } finally {
+            if (optionsHtml) {
+                if (editSuggestSelect) editSuggestSelect.innerHTML = optionsHtml;
+                if (editInputSelect) editInputSelect.innerHTML = optionsHtml;
+                if (addSelect) addSelect.innerHTML = optionsHtml;
+            }
         }
     }
 
@@ -5875,6 +5945,7 @@ out center;`;
                     
                     // Run initial load after successful login
                     loadOrganizations();
+                    loadProgramTypes();
                     loadData();
                     if (typeof showToast === 'function') {
                         showToast("Giriş başarılı. Hoş geldiniz!", "success");
@@ -5921,6 +5992,7 @@ out center;`;
     initAuth();
     if (checkAuth()) {
         loadOrganizations();
+        loadProgramTypes();
         loadData();
     }
 });
