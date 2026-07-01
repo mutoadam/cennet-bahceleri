@@ -1241,6 +1241,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (addModal) {
             addModal.classList.remove('hidden');
             document.body.style.overflow = "hidden";
+            // Ensure organizations and program types dropdowns are loaded when modal is opened
+            loadOrganizations();
+            loadProgramTypes();
         }
     });
 
@@ -3749,10 +3752,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadProgramTypes() {
-        console.log("loading program types...");
+        console.log("ADMIN_PROGRAM_TYPE_DEBUG - loadAdminProgramTypes called: true");
+        
         if (!supabaseClient) {
             if (!initSupabase()) {
-                console.error("program_types error: Supabase client is not initialized.");
+                console.error("ADMIN_PROGRAM_TYPE_DEBUG - supabase program_types error: Supabase client is not initialized.");
                 return;
             }
         }
@@ -3761,6 +3765,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const editInputSelect = document.getElementById('edit-program-name-input');
         const addSelect = document.getElementById('add-program-name');
 
+        console.log("ADMIN_PROGRAM_TYPE_DEBUG - select element found (add-program-name):", !!addSelect);
+        if (addSelect) {
+            console.log("ADMIN_PROGRAM_TYPE_DEBUG - select id (add-program-name):", addSelect.id);
+            console.log("ADMIN_PROGRAM_TYPE_DEBUG - current option count before load (add-program-name):", addSelect.options.length);
+        }
+
         if (editSuggestSelect) editSuggestSelect.innerHTML = '<option value="">Yükleniyor...</option>';
         if (editInputSelect) editInputSelect.innerHTML = '<option value="">Yükleniyor...</option>';
         if (addSelect) addSelect.innerHTML = '<option value="">Yükleniyor...</option>';
@@ -3768,17 +3778,20 @@ document.addEventListener('DOMContentLoaded', () => {
         let optionsHtml = '';
 
         try {
+            console.log("ADMIN_PROGRAM_TYPE_DEBUG - supabase program_types request started");
             const { data, error } = await supabaseClient
                 .from('program_types')
                 .select('id, name, slug, icon_key, sort_order, status')
                 .eq('status', 'active')
                 .order('sort_order', { ascending: true });
 
-            if (error) throw error;
+            if (error) {
+                console.error("ADMIN_PROGRAM_TYPE_DEBUG - supabase program_types error:", error);
+                throw error;
+            }
 
             activeProgramTypes = data || [];
-            console.log("program_types loaded");
-            console.log("program_types count:", activeProgramTypes.length);
+            console.log("ADMIN_PROGRAM_TYPE_DEBUG - supabase program_types count:", activeProgramTypes.length);
 
             if (activeProgramTypes.length === 0) {
                 optionsHtml = '<option value="">Program türü bulunamadı</option>';
@@ -3794,7 +3807,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
         } catch (error) {
-            console.error("program_types error:", error);
+            console.error("ADMIN_PROGRAM_TYPE_DEBUG - catch error:", error);
             // On error, populate fallbacks so dropdown doesn't stay stuck on "Yükleniyor..."
             optionsHtml = '<option value="">Program türü seçiniz</option>';
             const fallbacks = [
@@ -3811,7 +3824,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (optionsHtml) {
                 if (editSuggestSelect) editSuggestSelect.innerHTML = optionsHtml;
                 if (editInputSelect) editInputSelect.innerHTML = optionsHtml;
-                if (addSelect) addSelect.innerHTML = optionsHtml;
+                if (addSelect) {
+                    addSelect.innerHTML = optionsHtml;
+                    console.log("ADMIN_PROGRAM_TYPE_DEBUG - option count after load (add-program-name):", addSelect.options.length);
+                    console.log("ADMIN_PROGRAM_TYPE_DEBUG - first option text (add-program-name):", addSelect.options[0]?.text);
+                }
             }
         }
     }
