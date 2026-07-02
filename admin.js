@@ -351,7 +351,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Sync Approved/Added Suggestion to Programs Table (Paket F2)
-    async function syncSuggestionToProgram(suggestion, sourceType, logoUrlOverride = null) {
+    async function syncSuggestionToProgram(suggestion, sourceType, logoUrlOverride = null, organizationIdOverride = null) {
         if (!supabaseClient) return;
         console.log("syncSuggestionToProgram başlatıldı - suggestion:", suggestion, "sourceType:", sourceType);
 
@@ -389,11 +389,32 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        // 3. Resolve photo_url & logo_url
-        const photo_url = suggestion.photo_url || suggestion.photoUrl || suggestion.image_url || suggestion.imageUrl || suggestion.photo || suggestion.image || null;
-        const logo_url = logoUrlOverride || suggestion.logo_url || suggestion.logoUrl || null;
+        // 3. Resolve organization_id
+        let organization_id = organizationIdOverride;
+        if (!organization_id && suggestion.organization) {
+            const foundOrg = activeOrganizations.find(o => (o.name || '').toLowerCase() === suggestion.organization.toLowerCase());
+            if (foundOrg) {
+                organization_id = foundOrg.id;
+            }
+        }
 
-        // 4. Construct programs payload
+        // 4. Resolve photo_url & logo_url
+        const photo_url = suggestion.photo_url || suggestion.photoUrl || suggestion.image_url || suggestion.imageUrl || suggestion.photo || suggestion.image || null;
+        const originalLogoUrl = logoUrlOverride || suggestion.logo_url || suggestion.logoUrl || null;
+        let logo_url = originalLogoUrl;
+
+        // Fallback: If logo_url is empty but organization_id is set, find logo_url from organizations
+        if (!logo_url && organization_id) {
+            const foundOrg = activeOrganizations.find(o => o.id === organization_id);
+            if (foundOrg && foundOrg.logo_url) {
+                logo_url = foundOrg.logo_url;
+            }
+        }
+
+        console.log("Payload logo_url before save:", originalLogoUrl);
+        console.log("Payload logo_url after fallback:", logo_url);
+
+        // 5. Construct programs payload
         const programPayload = {
             suggestion_id: suggestion.id,
             program_name: suggestion.program_name || '',
@@ -404,6 +425,7 @@ document.addEventListener('DOMContentLoaded', () => {
             time: suggestion.time || '',
             teacher: suggestion.teacher || suggestion.speaker || suggestion.hoca || suggestion.lecturer || '',
             organization: suggestion.organization || suggestion.institution || suggestion.association || suggestion.community || suggestion.cemaat || suggestion.dernek || suggestion.kurum || '',
+            organization_id: organization_id,
             women_friendly: women_friendly,
             address: suggestion.address || suggestion.location || '',
             google_maps_link: suggestion.google_maps_link || suggestion.googleMapsLink || suggestion.maps_link || suggestion.mapsLink || suggestion.map_link || suggestion.mapLink || '',
@@ -418,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         console.log("Programs tablosuna aktarılan veri:", programPayload);
 
-        // 5. Insert to programs (robust fallback in case logo_url column doesn't exist yet)
+        // 6. Insert to programs (robust fallback in case columns don't exist)
         const { error: insertError } = await supabaseClient
             .from('programs')
             .insert(programPayload);
@@ -426,14 +448,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (insertError) {
             console.error("Programs tablosuna ekleme hatası:", insertError);
             const errMsg = (insertError.message || '').toLowerCase();
+            let columnPruned = false;
+            
             if (errMsg.includes('logo_url') && 'logo_url' in programPayload) {
                 console.warn("logo_url column seems to be missing in programs table. Retrying sync without logo_url.");
                 delete programPayload.logo_url;
+                columnPruned = true;
+            }
+            if (errMsg.includes('organization_id') && 'organization_id' in programPayload) {
+                console.warn("organization_id column seems to be missing in programs table. Retrying sync without organization_id.");
+                delete programPayload.organization_id;
+                columnPruned = true;
+            }
+
+            if (columnPruned) {
                 const { error: retryError } = await supabaseClient
                     .from('programs')
                     .insert(programPayload);
                 if (retryError) {
-                    throw retryError;
+                    const errMsg2 = (retryError.message || '').toLowerCase();
+                    if (errMsg2.includes('organization_id') && 'organization_id' in programPayload) {
+                        delete programPayload.organization_id;
+                        const { error: retryError2 } = await supabaseClient
+                            .from('programs')
+                            .insert(programPayload);
+                        if (retryError2) throw retryError2;
+                    } else if (errMsg2.includes('logo_url') && 'logo_url' in programPayload) {
+                        delete programPayload.logo_url;
+                        const { error: retryError2 } = await supabaseClient
+                            .from('programs')
+                            .insert(programPayload);
+                        if (retryError2) throw retryError2;
+                    } else {
+                        throw retryError;
+                    }
                 }
             } else {
                 throw insertError;
@@ -1483,7 +1531,8 @@ document.addEventListener('DOMContentLoaded', () => {
             if (responseData && responseData.length > 0) {
                 try {
                     const logo_url = document.getElementById('add-program-logo-url')?.value.trim() || '';
-                    await syncSuggestionToProgram(responseData[0], 'admin_manual', logo_url);
+                    const organization_id = document.getElementById('add-org-select')?.value || null;
+                    await syncSuggestionToProgram(responseData[0], 'admin_manual', logo_url, organization_id);
                 } catch (syncError) {
                     syncSuccess = false;
                     console.error("Programs tablosuna aktarım hatası (manuel):", syncError);
@@ -2782,8 +2831,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const orgSelect = document.getElementById('edit-program-org-select');
         if (orgSelect) {
             orgSelect.value = ""; // default to none
-            if (item.organization && activeOrganizations && activeOrganizations.length > 0) {
-                const foundOrg = activeOrganizations.find(o => (o.name || '').toLowerCase() === item.organization.toLowerCase());
+            if (activeOrganizations && activeOrganizations.length > 0) {
+                let foundOrg = null;
+                if (item.organization_id) {
+                    foundOrg = activeOrganizations.find(o => o.id === item.organization_id);
+                }
+                if (!foundOrg && item.organization) {
+                    foundOrg = activeOrganizations.find(o => (o.name || '').toLowerCase() === item.organization.toLowerCase());
+                }
                 if (foundOrg) {
                     orgSelect.value = foundOrg.id;
                 }
@@ -2922,10 +2977,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const teacher = document.getElementById('edit-program-teacher').value.trim();
         const organization = document.getElementById('edit-program-organization').value.trim();
+        const organization_id = document.getElementById('edit-program-org-select')?.value || null;
         const women_friendly = document.getElementById('edit-program-ladies').value === 'true';
         const status = document.getElementById('edit-program-status').value;
         const photo_url = document.getElementById('edit-program-photo-url').value.trim();
-        const logo_url = document.getElementById('edit-program-logo-url').value.trim();
+        const logo_url_element = document.getElementById('edit-program-logo-url');
+        const originalLogoUrl = logo_url_element ? logo_url_element.value.trim() : '';
+        let logo_url = originalLogoUrl;
+
+        // Rule: If logo_url is empty but organization_id is set, find logo_url from organizations
+        if (!logo_url && organization_id) {
+            const foundOrg = activeOrganizations.find(o => o.id === organization_id);
+            if (foundOrg && foundOrg.logo_url) {
+                logo_url = foundOrg.logo_url;
+                if (logo_url_element) {
+                    logo_url_element.value = logo_url;
+                }
+            }
+        }
+
+        console.log("Payload logo_url before save:", originalLogoUrl);
+        console.log("Payload logo_url after fallback:", logo_url);
+
         const contact_name = document.getElementById('edit-program-contact-name').value.trim();
         const contact_phone = document.getElementById('edit-program-contact-phone').value.trim();
         const google_maps_link = document.getElementById('edit-program-google-maps-link').value.trim();
@@ -2960,6 +3033,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 time,
                 teacher,
                 organization,
+                organization_id,
                 women_friendly,
                 status,
                 photo_url,
@@ -3698,7 +3772,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const { data, error } = await supabaseClient
                 .from('organizations')
-                .select('id, name, status')
+                .select('id, name, logo_url, status')
                 .order('name', { ascending: true });
 
             if (error) throw error;
@@ -3837,9 +3911,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const addSelect = document.getElementById('add-org-select');
         addSelect?.addEventListener('change', (e) => {
             const orgId = e.target.value;
+            console.log("Selected organization ID:", orgId);
             if (orgId) {
                 const org = activeOrganizations.find(o => o.id === orgId);
                 if (org) {
+                    console.log("Selected organization Name:", org.name);
+                    console.log("Selected organization Logo URL:", org.logo_url);
+                    
                     const orgInput = document.getElementById('add-organization');
                     if (orgInput) orgInput.value = org.name;
                     
@@ -3853,7 +3931,31 @@ document.addEventListener('DOMContentLoaded', () => {
                             'add-program-logo-preview-text',
                             'add-program-logo-file-name'
                         );
+                        console.log("Logo preview updated: true");
+                    } else {
+                        console.log("Logo preview updated: false");
                     }
+                } else {
+                    console.warn("Selected organization not found in activeOrganizations list.");
+                }
+            } else {
+                console.log("Organization selection cleared.");
+                const orgInput = document.getElementById('add-organization');
+                if (orgInput) orgInput.value = '';
+                
+                const logoInput = document.getElementById('add-program-logo-url');
+                if (logoInput) {
+                    logoInput.value = '';
+                    updateLogoPreview(
+                        '',
+                        'add-program-logo-preview-container',
+                        'add-program-logo-preview-img',
+                        'add-program-logo-preview-text',
+                        'add-program-logo-file-name'
+                    );
+                    console.log("Logo preview updated: true (cleared)");
+                } else {
+                    console.log("Logo preview updated: false");
                 }
             }
         });
@@ -3861,9 +3963,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const editSelect = document.getElementById('edit-program-org-select');
         editSelect?.addEventListener('change', (e) => {
             const orgId = e.target.value;
+            console.log("Selected organization ID (edit):", orgId);
             if (orgId) {
                 const org = activeOrganizations.find(o => o.id === orgId);
                 if (org) {
+                    console.log("Selected organization Name (edit):", org.name);
+                    console.log("Selected organization Logo URL (edit):", org.logo_url);
+                    
                     const orgInput = document.getElementById('edit-program-organization');
                     if (orgInput) orgInput.value = org.name;
                     
@@ -3877,7 +3983,31 @@ document.addEventListener('DOMContentLoaded', () => {
                             'edit-program-logo-preview-text',
                             'edit-program-logo-file-name'
                         );
+                        console.log("Logo preview updated (edit): true");
+                    } else {
+                        console.log("Logo preview updated (edit): false");
                     }
+                } else {
+                    console.warn("Selected organization not found in activeOrganizations list (edit).");
+                }
+            } else {
+                console.log("Organization selection cleared (edit).");
+                const orgInput = document.getElementById('edit-program-organization');
+                if (orgInput) orgInput.value = '';
+                
+                const logoInput = document.getElementById('edit-program-logo-url');
+                if (logoInput) {
+                    logoInput.value = '';
+                    updateLogoPreview(
+                        '',
+                        'edit-program-logo-preview-container',
+                        'edit-program-logo-preview-img',
+                        'edit-program-logo-preview-text',
+                        'edit-program-logo-file-name'
+                    );
+                    console.log("Logo preview updated (edit): true (cleared)");
+                } else {
+                    console.log("Logo preview updated (edit): false");
                 }
             }
         });
