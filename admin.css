@@ -2414,4 +2414,60 @@ body:not(.logged-out) #admin-login-screen {
     gap: 8px;
 }
 
+/* Çatı Kurum (Organization) styling in programs table */
+.organization-cell {
+    max-width: 150px !important;
+    white-space: nowrap !important;
+    overflow: hidden !important;
+    text-overflow: ellipsis !important;
+    vertical-align: middle !important;
+}
+
+.organization-cell-content {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 8px !important;
+    max-width: 100% !important;
+}
+
+.organization-logo-small {
+    width: 22px !important;
+    height: 22px !important;
+    border-radius: 50% !important;
+    object-fit: cover !important;
+    border: 1px solid var(--md-outline-variant, #e0e0e0) !important;
+    background-color: white !important;
+    flex-shrink: 0 !important;
+}
+
+.organization-badge {
+    display: inline-flex !important;
+    align-items: center !important;
+    gap: 6px !important;
+    background-color: var(--md-secondary-container, #f3edf7) !important;
+    color: var(--md-on-secondary-container, #1d192b) !important;
+    border: 1px solid rgba(103, 80, 164, 0.15) !important;
+    padding: 2px 8px !important;
+    border-radius: 12px !important;
+    font-size: 11px !important;
+    font-weight: 600 !important;
+    margin-top: 4px !important;
+    max-width: fit-content !important;
+}
+
+/* For mobile responsive hidden on desktop but show as badge in program cell */
+.organization-mobile-badge {
+    display: none !important;
+}
+
+@media (max-width: 768px) {
+    .organization-cell {
+        display: none !important;
+    }
+    .organization-mobile-badge {
+        display: inline-flex !important;
+    }
+}
+
+
 
