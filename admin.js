@@ -2300,43 +2300,24 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? 'programs-admin-table list-view-table' 
                 : 'programs-admin-table compact-view-table';
 
-            if (currentViewMode === 'compact') {
-                table.innerHTML = `
-                    <thead>
-                        <tr>
-                            <th>Durum</th>
-                            <th>Kaynak</th>
-                            <th>Program</th>
-                            <th>İlçe</th>
-                            <th>Gün</th>
-                            <th>Saat</th>
-                            <th>Hoca</th>
-                            <th>İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                `;
-            } else {
-                table.innerHTML = `
-                    <thead>
-                        <tr>
-                            <th>Durum</th>
-                            <th>Kaynak</th>
-                            <th>Program Adı</th>
-                            <th>Mekân</th>
-                            <th>İlçe</th>
-                            <th>Gün</th>
-                            <th>Saat</th>
-                            <th>Hoca</th>
-                            <th>Kurum</th>
-                            <th>İşlemler</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                    </tbody>
-                `;
-            }
+            // Unified 9-column layout according to: Durum | Kaynak | Çatı Kurum | Program | İlçe | Gün | Saat | Hoca | İşlemler
+            table.innerHTML = `
+                <thead>
+                    <tr>
+                        <th>Durum</th>
+                        <th>Kaynak</th>
+                        <th>Çatı Kurum</th>
+                        <th>Program</th>
+                        <th>İlçe</th>
+                        <th>Gün</th>
+                        <th>Saat</th>
+                        <th>Hoca</th>
+                        <th>İşlemler</th>
+                    </tr>
+                </thead>
+                <tbody>
+                </tbody>
+            `;
 
             const tbody = table.querySelector('tbody');
 
@@ -2378,53 +2359,93 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
                 }
 
-                if (currentViewMode === 'compact') {
-                    tr.innerHTML = `
-                        <td title="${escapeHtml(statusBadge.label)}">
-                            <span class="${statusBadge.badgeClass}">${escapeHtml(statusBadge.label)}</span>
-                        </td>
-                        <td title="${escapeHtml(sourceBadge.label)}">
-                            <span class="${sourceBadge.badgeClass}">${escapeHtml(sourceBadge.label)}</span>
-                        </td>
-                        <td title="${escapeHtml(item.program_name || 'İsimsiz Program')}">
-                            <span class="table-program-name">${escapeHtml(item.program_name || 'İsimsiz Program')}</span>
-                        </td>
-                        <td title="${escapeHtml(item.district || '-')}">${escapeHtml(item.district || '-')}</td>
-                        <td title="${escapeHtml(item.day || '-')}">${escapeHtml(item.day || '-')}</td>
-                        <td title="${escapeHtml(item.time || '-')}"><strong>${escapeHtml(item.time || '-')}</strong></td>
-                        <td title="${escapeHtml(item.teacher || '-')}">${escapeHtml(item.teacher || '-')}</td>
-                        <td>
-                            <div class="table-actions">
-                                ${actionsHtml}
-                            </div>
-                        </td>
+                // Resolve organization info
+                let orgName = item.organization || "";
+                let logoUrl = "";
+                
+                let matchedOrg = null;
+                if (item.organization_id) {
+                    matchedOrg = (activeOrganizations || []).find(o => o.id === item.organization_id) || 
+                                 (loadedOrganizations || []).find(o => o.id === item.organization_id);
+                }
+                if (!matchedOrg && item.organization) {
+                    const lowerName = item.organization.toLowerCase().trim();
+                    matchedOrg = (activeOrganizations || []).find(o => (o.name || '').toLowerCase().trim() === lowerName) || 
+                                 (loadedOrganizations || []).find(o => (o.name || '').toLowerCase().trim() === lowerName);
+                }
+                
+                if (matchedOrg) {
+                    if (!orgName) {
+                        orgName = matchedOrg.name || "";
+                    }
+                    logoUrl = matchedOrg.logo_url || "";
+                }
+                
+                if (!orgName.trim()) {
+                    orgName = "Bağımsız / Diğer";
+                }
+
+                let orgCellContentHtml = '';
+                if (logoUrl) {
+                    orgCellContentHtml = `
+                        <div class="organization-cell-content">
+                            <img class="organization-logo-small" src="${escapeHtml(logoUrl)}" alt="${escapeHtml(orgName)}" onerror="this.style.display='none';">
+                            <span>${escapeHtml(orgName)}</span>
+                        </div>
                     `;
                 } else {
-                    tr.innerHTML = `
-                        <td title="${escapeHtml(statusBadge.label)}">
-                            <span class="${statusBadge.badgeClass}">${escapeHtml(statusBadge.label)}</span>
-                        </td>
-                        <td title="${escapeHtml(sourceBadge.label)}">
-                            <span class="${sourceBadge.badgeClass}">${escapeHtml(sourceBadge.label)}</span>
-                        </td>
-                        <td title="${escapeHtml(item.program_name || 'İsimsiz Program')}">
-                            <span class="table-program-name">${escapeHtml(item.program_name || 'İsimsiz Program')}</span>
-                        </td>
-                        <td title="${escapeHtml(item.venue_name || '-')}">
-                            <span class="table-venue-name">${escapeHtml(item.venue_name || '-')}</span>
-                        </td>
-                        <td title="${escapeHtml(item.district || '-')}">${escapeHtml(item.district || '-')}</td>
-                        <td title="${escapeHtml(item.day || '-')}">${escapeHtml(item.day || '-')}</td>
-                        <td title="${escapeHtml(item.time || '-')}"><strong>${escapeHtml(item.time || '-')}</strong></td>
-                        <td title="${escapeHtml(item.teacher || '-')}">${escapeHtml(item.teacher || '-')}</td>
-                        <td title="${escapeHtml(item.organization || '-')}">${escapeHtml(item.organization || '-')}</td>
-                        <td>
-                            <div class="table-actions">
-                                ${actionsHtml}
-                            </div>
-                        </td>
+                    orgCellContentHtml = `
+                        <div class="organization-cell-content">
+                            <span>${escapeHtml(orgName)}</span>
+                        </div>
                     `;
                 }
+
+                let mobileBadgeHtml = '';
+                if (orgName && orgName !== "Bağımsız / Diğer") {
+                    if (logoUrl) {
+                        mobileBadgeHtml = `
+                            <div class="organization-badge organization-mobile-badge">
+                                <img src="${escapeHtml(logoUrl)}" alt="${escapeHtml(orgName)}" style="width: 14px !important; height: 14px !important; border-radius: 50% !important; margin-right: 4px !important; object-fit: cover !important;" onerror="this.style.display='none';">
+                                <span>${escapeHtml(orgName)}</span>
+                            </div>
+                        `;
+                    } else {
+                        mobileBadgeHtml = `
+                            <div class="organization-badge organization-mobile-badge">
+                                <span>${escapeHtml(orgName)}</span>
+                            </div>
+                        `;
+                    }
+                }
+
+                tr.innerHTML = `
+                    <td title="${escapeHtml(statusBadge.label)}">
+                        <span class="${statusBadge.badgeClass}">${escapeHtml(statusBadge.label)}</span>
+                    </td>
+                    <td title="${escapeHtml(sourceBadge.label)}">
+                        <span class="${sourceBadge.badgeClass}">${escapeHtml(sourceBadge.label)}</span>
+                    </td>
+                    <td class="organization-cell" title="${escapeHtml(orgName)}">
+                        ${orgCellContentHtml}
+                    </td>
+                    <td title="${escapeHtml(item.program_name || 'İsimsiz Program')}">
+                        <span class="table-program-name" style="display: block; font-weight: 600;">${escapeHtml(item.program_name || 'İsimsiz Program')}</span>
+                        <span class="table-venue-name" style="display: block; font-size: 12px; color: var(--md-on-surface-variant); margin-top: 2px;">
+                            <i class="fa-solid fa-mosque" style="font-size: 10px; margin-right: 4px; color: var(--md-secondary);"></i>${escapeHtml(item.venue_name || '-')}
+                        </span>
+                        ${mobileBadgeHtml}
+                    </td>
+                    <td title="${escapeHtml(item.district || '-')}">${escapeHtml(item.district || '-')}</td>
+                    <td title="${escapeHtml(item.day || '-')}">${escapeHtml(item.day || '-')}</td>
+                    <td title="${escapeHtml(item.time || '-')}"><strong>${escapeHtml(item.time || '-')}</strong></td>
+                    <td title="${escapeHtml(item.teacher || '-')}">${escapeHtml(item.teacher || '-')}</td>
+                    <td>
+                        <div class="table-actions">
+                            ${actionsHtml}
+                        </div>
+                    </td>
+                `;
 
                 // Bind click event to table edit button
                 const tableEditBtn = tr.querySelector('.btn-table-edit');
