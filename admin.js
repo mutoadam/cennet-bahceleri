@@ -710,6 +710,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentProgName = (currentSuggestion.program_name || '').trim();
         const editProgNameSelect = document.getElementById('edit-program-name');
         const editSuggHelper = document.getElementById('edit-suggestion-name-helper');
+        const editProgNameCustomGroup = document.getElementById('edit-program-name-custom-group');
+        const editProgNameCustomInput = document.getElementById('edit-program-name-custom');
+        
+        if (editProgNameCustomGroup) editProgNameCustomGroup.classList.add('hidden');
+        if (editProgNameCustomInput) editProgNameCustomInput.value = '';
+
         if (editProgNameSelect) {
             const STANDARDIZED_PROGRAM_NAMES = [
                 "Haftalık Sohbet",
@@ -760,6 +766,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         editSuggHelper.classList.remove('hidden');
                         editSuggHelper.innerHTML = `<i class="fa-solid fa-circle-info"></i> Mevcut değer: <strong>${escapeHtml(currentProgName)}</strong> (Seçenekler arasında bulunmadığı için "Diğer" seçildi)`;
                     }
+                    if (editProgNameCustomGroup) editProgNameCustomGroup.classList.remove('hidden');
+                    if (editProgNameCustomInput) editProgNameCustomInput.value = currentProgName;
                 }
             } else {
                 editProgNameSelect.value = "";
@@ -853,7 +861,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const id = currentSuggestion.id;
 
             // Get edited form values
-            const program_name = document.getElementById('edit-program-name').value.trim();
+            const nameSelectVal = document.getElementById('edit-program-name').value.trim();
+            let program_name = nameSelectVal;
+            if (nameSelectVal === "Diğer") {
+                const customVal = document.getElementById('edit-program-name-custom').value.trim();
+                if (!customVal) {
+                    showToast("Lütfen program adını yazın.", "error");
+                    throw new Error("Lütfen program adını yazın.");
+                }
+                program_name = customVal;
+            }
             const venue_name = document.getElementById('edit-venue-name').value.trim();
             const city = document.getElementById('edit-city').value.trim();
             const district = document.getElementById('edit-district').value.trim();
@@ -1277,6 +1294,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 addProgHelper.classList.add('hidden');
                 addProgHelper.textContent = '';
             }
+            const addCustomGroup = document.getElementById('add-program-name-custom-group');
+            if (addCustomGroup) addCustomGroup.classList.add('hidden');
+            const addCustomInput = document.getElementById('add-program-name-custom');
+            if (addCustomInput) addCustomInput.value = '';
         }
         
         // Reset photo upload elements
@@ -1340,7 +1361,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const cancelBtn = document.getElementById('add-btn-cancel');
 
         // Get edited form values
-        const program_name = document.getElementById('add-program-name').value.trim();
+        const nameSelectVal = document.getElementById('add-program-name').value.trim();
+        let program_name = nameSelectVal;
+        if (nameSelectVal === "Diğer") {
+            const customVal = document.getElementById('add-program-name-custom').value.trim();
+            if (!customVal) {
+                showToast("Lütfen program adını yazın.", "error");
+                return;
+            }
+            program_name = customVal;
+        }
         const venue_name = document.getElementById('add-venue-name').value.trim();
         const city = document.getElementById('add-city').value.trim();
         const district = document.getElementById('add-district').value.trim();
@@ -1357,7 +1387,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const photo_url = document.getElementById('add-photo-url').value.trim();
 
         if (!program_name) {
-            showToast("Program Türü / Sohbet Adı seçilmesi zorunludur.", "error");
+            showToast("Lütfen program adını yazın.", "error");
             return;
         }
 
@@ -2720,6 +2750,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Form alanlarını doldur
         const nameInput = document.getElementById('edit-program-name-input');
         const editProgHelper = document.getElementById('edit-program-name-helper');
+        const editProgNameInputCustomGroup = document.getElementById('edit-program-name-input-custom-group');
+        const editProgNameInputCustom = document.getElementById('edit-program-name-input-custom');
+
+        if (editProgNameInputCustomGroup) editProgNameInputCustomGroup.classList.add('hidden');
+        if (editProgNameInputCustom) editProgNameInputCustom.value = '';
+
         if (nameInput) {
             const currentProgName = (item.program_name || '').trim();
             const STANDARDIZED_PROGRAM_NAMES = [
@@ -2786,6 +2822,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         editProgHelper.classList.remove('hidden');
                         editProgHelper.innerHTML = `<i class="fa-solid fa-circle-info"></i> Mevcut değer: <strong>${escapeHtml(currentProgName)}</strong> (Seçenekler arasında bulunmadığı için "Diğer" seçildi)`;
                     }
+                    if (editProgNameInputCustomGroup) editProgNameInputCustomGroup.classList.remove('hidden');
+                    if (editProgNameInputCustom) editProgNameInputCustom.value = currentProgName;
+
                     const venueLabel = document.querySelector('label[for="edit-program-venue-name"]');
                     if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
                     const venueInput = document.getElementById('edit-program-venue-name');
@@ -2990,7 +3029,16 @@ document.addEventListener('DOMContentLoaded', () => {
     async function handleProgramEditSave() {
         if (!supabaseClient || !currentEditProgram) return;
 
-        const program_name = document.getElementById('edit-program-name-input').value.trim();
+        const nameSelectVal = document.getElementById('edit-program-name-input').value.trim();
+        let program_name = nameSelectVal;
+        if (nameSelectVal === "Diğer") {
+            const customVal = document.getElementById('edit-program-name-input-custom').value.trim();
+            if (!customVal) {
+                showToast("Lütfen program adını yazın.", "error");
+                return;
+            }
+            program_name = customVal;
+        }
         const venue_name = document.getElementById('edit-program-venue-name').value.trim();
         const city = document.getElementById('edit-program-city').value.trim() || 'Sakarya';
         const district = document.getElementById('edit-program-district').value.trim();
@@ -2999,7 +3047,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Basit form validasyonu
         if (!program_name) {
-            showToast("Program Türü / Sohbet Adı seçilmesi zorunludur.", "error");
+            showToast("Lütfen program adını yazın.", "error");
             return;
         }
         if (!venue_name) {
@@ -3193,44 +3241,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('edit-program-name')?.addEventListener('change', (e) => {
         const helper = document.getElementById('edit-suggestion-name-helper');
-        if (helper && e.target.value !== 'Diğer') {
-            helper.classList.add('hidden');
-        } else if (helper && e.target.value === 'Diğer' && currentSuggestion && currentSuggestion.program_name) {
-            const currentProgName = currentSuggestion.program_name.trim();
-            const STANDARDIZED_PROGRAM_NAMES = [
-                "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Aile Sohbeti", "Çocuk Sohbeti", "Soru-Cevap", "Hasbihal",
-                "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Akaid Dersi", "Siyer Dersi", "Mütalaa Dersi", "Tefsir ve İlmihal",
-                "Riyâzü's Sâlihîn Dersi", "Şifâ-i Şerif Dersi", "Hayatü's Sahabe Dersi", "Esmâü'l-Hüsnâ Dersi",
-                "Zikir ve Sohbet", "Haftalık Ders ve Zikir", "Hatm-i Hacegân", "Evrâd ve Zikir", "Dua Programı",
-                "Davet Ameli", "Maruf Çalışması", "3 Günlük Sefer", "Gençlik Buluşması",
-                "Sinevizyon Sohbeti", "Seminer", "Konferans", "Panel", "Diğer"
-            ];
-            if (!STANDARDIZED_PROGRAM_NAMES.includes(currentProgName)) {
-                helper.classList.remove('hidden');
-            }
-        }
-    });
-
-    document.getElementById('edit-program-name-input')?.addEventListener('change', (e) => {
-        const helper = document.getElementById('edit-program-name-helper');
-        const venueLabel = document.querySelector('label[for="edit-program-venue-name"]');
-        const venueInput = document.getElementById('edit-program-venue-name');
+        const customGroup = document.getElementById('edit-program-name-custom-group');
+        const customInput = document.getElementById('edit-program-name-custom');
         
-        if (e.target.value === "3 Günlük Sefer") {
-            if (helper) {
-                helper.textContent = "Bu programda mekân, seferin yapıldığı yer değil; çıkış/toplanma noktasıdır.";
-                helper.classList.remove('hidden');
-            }
-            if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Çıkış Noktası *';
-            if (venueInput) venueInput.placeholder = "Örn: Doğanbey Camii";
-        } else {
-            if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
-            if (venueInput) venueInput.placeholder = "Örn: Orhan Camii";
-            
-            if (helper && e.target.value !== 'Diğer') {
-                helper.classList.add('hidden');
-            } else if (helper && e.target.value === 'Diğer' && currentEditProgram && currentEditProgram.program_name) {
-                const currentProgName = currentEditProgram.program_name.trim();
+        if (e.target.value === 'Diğer') {
+            if (customGroup) customGroup.classList.remove('hidden');
+            if (helper && currentSuggestion && currentSuggestion.program_name) {
+                const currentProgName = currentSuggestion.program_name.trim();
                 const STANDARDIZED_PROGRAM_NAMES = [
                     "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Aile Sohbeti", "Çocuk Sohbeti", "Soru-Cevap", "Hasbihal",
                     "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Akaid Dersi", "Siyer Dersi", "Mütalaa Dersi", "Tefsir ve İlmihal",
@@ -3243,6 +3260,60 @@ document.addEventListener('DOMContentLoaded', () => {
                     helper.classList.remove('hidden');
                 }
             }
+        } else {
+            if (customGroup) customGroup.classList.add('hidden');
+            if (customInput) customInput.value = '';
+            if (helper) {
+                helper.classList.add('hidden');
+            }
+        }
+    });
+
+    document.getElementById('edit-program-name-input')?.addEventListener('change', (e) => {
+        const helper = document.getElementById('edit-program-name-helper');
+        const venueLabel = document.querySelector('label[for="edit-program-venue-name"]');
+        const venueInput = document.getElementById('edit-program-venue-name');
+        const customGroup = document.getElementById('edit-program-name-input-custom-group');
+        const customInput = document.getElementById('edit-program-name-input-custom');
+        
+        if (e.target.value === "3 Günlük Sefer") {
+            if (customGroup) customGroup.classList.add('hidden');
+            if (customInput) customInput.value = '';
+            if (helper) {
+                helper.textContent = "Bu programda mekân, seferin yapıldığı yer değil; çıkış/toplanma noktasıdır.";
+                helper.classList.remove('hidden');
+            }
+            if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Çıkış Noktası *';
+            if (venueInput) venueInput.placeholder = "Örn: Doğanbey Camii";
+        } else if (e.target.value === 'Diğer') {
+            if (customGroup) customGroup.classList.remove('hidden');
+            if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
+            if (venueInput) venueInput.placeholder = "Örn: Orhan Camii";
+            
+            if (helper && currentEditProgram && currentEditProgram.program_name) {
+                const currentProgName = currentEditProgram.program_name.trim();
+                const STANDARDIZED_PROGRAM_NAMES = [
+                    "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Aile Sohbeti", "Çocuk Sohbeti", "Soru-Cevap", "Hasbihal",
+                    "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Akaid Dersi", "Siyer Dersi", "Mütalaa Dersi", "Tefsir ve İlmihal",
+                    "Riyâzü's Sâlihîn Dersi", "Şifâ-i Şerif Dersi", "Hayatü's Sahabe Dersi", "Esmâü'l-Hüsnâ Dersi",
+                    "Zikir ve Sohbet", "Haftalık Ders ve Zikir", "Hatm-i Hacegân", "Evrâd ve Zikir", "Dua Programı",
+                    "Davet Ameli", "Maruf Çalışması", "3 Günlük Sefer", "Gençlik Buluşması",
+                    "Sinevizyon Sohbeti", "Seminer", "Konferans", "Panel", "Diğer"
+                ];
+                if (!STANDARDIZED_PROGRAM_NAMES.includes(currentProgName)) {
+                    helper.classList.remove('hidden');
+                }
+            } else if (helper) {
+                helper.classList.add('hidden');
+            }
+        } else {
+            if (customGroup) customGroup.classList.add('hidden');
+            if (customInput) customInput.value = '';
+            if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
+            if (venueInput) venueInput.placeholder = "Örn: Orhan Camii";
+            if (helper) {
+                helper.classList.add('hidden');
+            }
         }
     });
 
@@ -3250,15 +3321,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const helper = document.getElementById('add-program-name-helper');
         const venueLabel = document.querySelector('label[for="add-venue-name"]');
         const venueInput = document.getElementById('add-venue-name');
+        const customGroup = document.getElementById('add-program-name-custom-group');
+        const customInput = document.getElementById('add-program-name-custom');
         
         if (e.target.value === "3 Günlük Sefer") {
+            if (customGroup) customGroup.classList.add('hidden');
+            if (customInput) customInput.value = '';
             if (helper) {
                 helper.textContent = "Bu programda mekân, seferin yapıldığı yer değil; çıkış/toplanma noktasıdır.";
                 helper.classList.remove('hidden');
             }
             if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Çıkış Noktası *';
             if (venueInput) venueInput.placeholder = "Örn: Doğanbey Camii";
+        } else if (e.target.value === 'Diğer') {
+            if (customGroup) customGroup.classList.remove('hidden');
+            if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
+            if (venueInput) venueInput.placeholder = "Örn: Orhan Camii";
+            if (helper) {
+                helper.classList.add('hidden');
+                helper.textContent = '';
+            }
         } else {
+            if (customGroup) customGroup.classList.add('hidden');
+            if (customInput) customInput.value = '';
             if (venueLabel) venueLabel.innerHTML = '<i class="fa-solid fa-mosque"></i> Mekân Adı *';
             if (venueInput) venueInput.placeholder = "Örn: Orhan Camii";
             if (helper) {
