@@ -753,9 +753,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 "Diğer"
             ];
             if (currentProgName) {
-                const foundProg = STANDARDIZED_PROGRAM_NAMES.find(n => n.toLowerCase() === currentProgName.toLowerCase());
-                if (foundProg) {
-                    editProgNameSelect.value = foundProg;
+                // Look up in the actual select options dynamically to see if the value exists
+                const options = Array.from(editProgNameSelect.options);
+                const foundOption = options.find(opt => opt.value.toLowerCase() === currentProgName.toLowerCase() && opt.value !== "");
+                if (foundOption) {
+                    editProgNameSelect.value = foundOption.value;
                     if (editSuggHelper) {
                         editSuggHelper.classList.add('hidden');
                         editSuggHelper.textContent = '';
@@ -2794,8 +2796,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 "Diğer"
             ];
             if (currentProgName) {
-                const foundProg = STANDARDIZED_PROGRAM_NAMES.find(n => n.toLowerCase() === currentProgName.toLowerCase());
-                if (foundProg) {
+                // Look up in the actual select options dynamically to see if the value exists
+                const options = Array.from(nameInput.options);
+                const foundOption = options.find(opt => opt.value.toLowerCase() === currentProgName.toLowerCase() && opt.value !== "");
+                if (foundOption) {
+                    const foundProg = foundOption.value;
                     nameInput.value = foundProg;
                     if (foundProg === "3 Günlük Sefer") {
                         if (editProgHelper) {
