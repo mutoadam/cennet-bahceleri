@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let supabaseClient = null;
     let currentSuggestion = null;
     let currentTabStatus = 'pending';
+    let allLoadedSuggestions = [];
     let loadedPrograms = [];
     let isTrashBinView = false;
     let knownColumns = ['id', 'program_name', 'venue_name', 'city', 'district', 'day', 'time', 'teacher', 'organization', 'women_friendly', 'address', 'google_maps_link', 'description', 'contact_name', 'contact_phone', 'photo_url', 'status', 'created_at', 'updated_at', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
@@ -170,12 +171,25 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Display list
-            renderSuggestions(statusSuggestions);
+            allLoadedSuggestions = statusSuggestions || [];
+            applyTypeFilter();
 
         } catch (error) {
             console.error('Veri çekme hatası:', error);
             showError();
         }
+    }
+
+    // Type Filter logic
+    function applyTypeFilter() {
+        const filterVal = document.getElementById('filter-type')?.value || 'all';
+        let filtered = allLoadedSuggestions;
+        if (filterVal === 'new_program') {
+            filtered = allLoadedSuggestions.filter(item => item.type !== 'update_request');
+        } else if (filterVal === 'update_request') {
+            filtered = allLoadedSuggestions.filter(item => item.type === 'update_request');
+        }
+        renderSuggestions(filtered);
     }
 
     // 3. Render list to screen
@@ -225,11 +239,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusClass = "status-badge status-rejected";
             }
 
+            const isCorrection = item.type === 'update_request';
+            const correctionBadgeMarkup = isCorrection ? `
+                <span class="status-badge" style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; font-size: 11px; padding: 2px 8px; display: inline-flex; align-items: center;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 4px;"></i> Düzeltme Talebi</span>
+            ` : '';
+
             card.innerHTML = `
                 <div class="card-header-info">
                     <div style="display: flex; gap: 6px; flex-wrap: wrap;">
                         <span class="category-badge">${escapeHtml(item.category || 'Belirtilmemiş')}</span>
                         <span class="${statusClass}" style="font-size: 11px; padding: 2px 8px; display: inline-flex; align-items: center;">${escapeHtml(statusText)}</span>
+                        ${correctionBadgeMarkup}
                     </div>
                     <span class="date-badge"><i class="fa-regular fa-calendar-days"></i> ${createdDate}</span>
                 </div>
@@ -559,7 +579,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const description = item.description || item.notes || 'Açıklama belirtilmemiş.';
 
             // Populate elements
-            document.getElementById('modal-program-name').textContent = programName;
+            if (item.type === 'update_request') {
+                document.getElementById('modal-program-name').innerHTML = `<span style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-bottom: 8px; display: inline-block;"><i class="fa-solid fa-triangle-exclamation"></i> Bilgi Düzeltme Talebi</span><br>` + escapeHtml(programName);
+            } else {
+                document.getElementById('modal-program-name').textContent = programName;
+            }
             document.getElementById('modal-category').textContent = category;
             document.getElementById('modal-venue-name').textContent = venueName;
             document.getElementById('modal-location').textContent = `${city} / ${district}`;
@@ -1163,6 +1187,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Listeners for buttons
     refreshBtn.addEventListener('click', loadData);
     retryBtn.addEventListener('click', loadData);
+    document.getElementById('filter-type')?.addEventListener('change', () => {
+        applyTypeFilter();
+    });
 
     // Programs Event Listeners
     document.getElementById('programs-refresh-btn')?.addEventListener('click', loadPrograms);
