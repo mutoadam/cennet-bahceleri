@@ -166,10 +166,78 @@ document.addEventListener('DOMContentLoaded', () => {
         organizationSelect.appendChild(otherOpt);
     }
 
+    // Load program types from Supabase
+    async function loadProgramTypes() {
+        if (!supabaseClient) return;
+        try {
+            const { data, error } = await supabaseClient
+                .from('program_types')
+                .select('id, name, slug, icon_key, sort_order, status')
+                .eq('status', 'active')
+                .order('sort_order', { ascending: true });
+
+            if (error) {
+                console.warn("Error fetching program types, using fallback:", error);
+                populateProgramTypeDropdown([]);
+                return;
+            }
+
+            const activeTypes = data || [];
+            populateProgramTypeDropdown(activeTypes);
+        } catch (err) {
+            console.error("Failed to load program types:", err);
+            populateProgramTypeDropdown([]);
+        }
+    }
+
+    // Populate program type dropdown
+    function populateProgramTypeDropdown(typeList) {
+        const programSelect = document.getElementById('program_name');
+        if (!programSelect) return;
+
+        // Clear existing options
+        programSelect.innerHTML = '<option value="" disabled selected>Program türü seçiniz</option>';
+
+        if (typeList.length === 0) {
+            // Fallback static list in case of empty table or fetch error
+            const fallbackTypes = [
+                "Haftalık Sohbet", "Gençlik Sohbeti", "Hanımlar Sohbeti", "Aile Sohbeti", "Çocuk Sohbeti", "Soru-Cevap", "Hasbihal",
+                "Hadis Dersi", "Fıkıh Dersi", "Tefsir Dersi", "İlmihal Dersi", "Akaid Dersi", "Siyer Dersi", "Mütalaa Dersi",
+                "Zikir ve Sohbet", "Haftalık Ders ve Zikir", "Hatm-i Hacegân", "Evrâd ve Zikir", "Dua Programı",
+                "Davet Ameli", "Maruf Çalışması", "3 Günlük Sefer", "Gençlik Buluşması",
+                "Sinevizyon Sohbeti", "Seminer", "Konferans", "Panel", "Diğer"
+            ];
+            fallbackTypes.forEach(name => {
+                const opt = document.createElement('option');
+                opt.value = name;
+                opt.textContent = name;
+                programSelect.appendChild(opt);
+            });
+            return;
+        }
+
+        // Add each program type as an option
+        typeList.forEach(type => {
+            const opt = document.createElement('option');
+            opt.value = type.name;
+            opt.textContent = type.name;
+            programSelect.appendChild(opt);
+        });
+
+        // Add "Diğer" option at the end if not already present
+        if (!typeList.some(t => t.name === 'Diğer')) {
+            const opt = document.createElement('option');
+            opt.value = 'Diğer';
+            opt.textContent = 'Diğer';
+            programSelect.appendChild(opt);
+        }
+    }
+
     // Initialize on load
     if (initSupabase()) {
         detectSuggestionsOrgIdColumn().then(() => {
             loadOrganizations();
+            loadProgramTypes();
         });
     }
 
@@ -213,6 +281,62 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Form Type Toggle logic
+    const submissionTypeSelect = document.getElementById('submission_type');
+    const correctionReasonGroup = document.getElementById('correction-reason-group');
+    const correctionReasonSelect = document.getElementById('correction_reason');
+
+    const formGroupsToToggle = [
+        { id: 'venue_name', required: true },
+        { id: 'district', required: true },
+        { id: 'day', required: true },
+        { id: 'time', required: true },
+        { id: 'teacher', required: false },
+        { id: 'organization', required: false },
+        { id: 'women_friendly', required: false },
+        { id: 'google_maps_link', required: false },
+        { id: 'address', required: true },
+        { id: 'photo_file', required: false }
+    ];
+
+    function updateFormFieldsVisibility() {
+        if (!submissionTypeSelect) return;
+        const isUpdate = submissionTypeSelect.value === 'update_request';
+        
+        if (isUpdate) {
+            if (correctionReasonGroup) correctionReasonGroup.classList.remove('hidden');
+            if (correctionReasonSelect) correctionReasonSelect.required = true;
+            
+            formGroupsToToggle.forEach(item => {
+                const el = document.getElementById(item.id);
+                if (el) {
+                    el.required = false;
+                    const fg = el.closest('.form-group');
+                    if (fg) fg.classList.add('hidden');
+                }
+            });
+        } else {
+            if (correctionReasonGroup) correctionReasonGroup.classList.add('hidden');
+            if (correctionReasonSelect) {
+                correctionReasonSelect.required = false;
+                correctionReasonSelect.value = '';
+            }
+            
+            formGroupsToToggle.forEach(item => {
+                const el = document.getElementById(item.id);
+                if (el) {
+                    el.required = item.required;
+                    const fg = el.closest('.form-group');
+                    if (fg) fg.classList.remove('hidden');
+                }
+            });
+        }
+    }
+
+    if (submissionTypeSelect) {
+        submissionTypeSelect.addEventListener('change', updateFormFieldsVisibility);
+    }
+
     // 2. Submit Event Handler
     suggestionForm.addEventListener('submit', async (e) => {
         e.preventDefault();
@@ -225,40 +349,55 @@ document.addEventListener('DOMContentLoaded', () => {
         submitBtn.disabled = true;
         formLoading.classList.remove('hidden');
 
+        const isUpdate = submissionTypeSelect && submissionTypeSelect.value === 'update_request';
+
         // Extract Form Inputs
         const programName = document.getElementById('program_name').value.trim();
-        const venueName = document.getElementById('venue_name').value.trim();
-        const district = document.getElementById('district').value;
-        const day = document.getElementById('day').value;
-        const time = document.getElementById('time').value.trim();
-        const teacher = document.getElementById('teacher').value.trim();
-        
-        let organization = null;
-        let organizationId = null;
-        const orgSelectValue = document.getElementById('organization').value;
-        if (orgSelectValue === 'Diğer') {
-            const otherVal = document.getElementById('other_organization').value.trim();
-            if (!otherVal) {
-                showError('Diğer kurum adını yazınız');
-                return;
-            }
-            organization = otherVal;
-        } else if (orgSelectValue === 'Bağımsız / Diğer') {
-            organization = 'Bağımsız / Diğer';
-        } else if (orgSelectValue) {
-            // It's a real organization from the database!
-            organizationId = orgSelectValue; // UUID
-            const selectedOpt = organizationSelect.options[organizationSelect.selectedIndex];
-            organization = selectedOpt ? selectedOpt.textContent : '';
-        }
-
-        const womenFriendly = document.getElementById('women_friendly').value === 'true';
-        const googleMapsLink = document.getElementById('google_maps_link').value.trim();
-        const address = document.getElementById('address').value.trim();
-        const description = document.getElementById('description').value.trim();
         const contactName = document.getElementById('contact_name').value.trim();
         const contactPhone = document.getElementById('contact_phone').value.trim();
-        const photoFile = document.getElementById('photo_file').files[0];
+        const description = document.getElementById('description').value.trim();
+
+        let venueName = "Düzeltme Talebi";
+        let district = "Web";
+        let day = "Gerekmiyor";
+        let time = "Gerekmiyor";
+        let teacher = "Belirtilmedi";
+        let organization = "Belirtilmedi";
+        let organizationId = null;
+        let womenFriendly = false;
+        let googleMapsLink = null;
+        let address = "Belirtilmedi";
+        let photoFile = null;
+
+        if (!isUpdate) {
+            venueName = document.getElementById('venue_name').value.trim();
+            district = document.getElementById('district').value;
+            day = document.getElementById('day').value;
+            time = document.getElementById('time').value.trim();
+            teacher = document.getElementById('teacher').value.trim();
+            
+            const orgSelectValue = document.getElementById('organization').value;
+            if (orgSelectValue === 'Diğer') {
+                const otherVal = document.getElementById('other_organization').value.trim();
+                if (!otherVal) {
+                    showError('Diğer kurum adını yazınız');
+                    return;
+                }
+                organization = otherVal;
+            } else if (orgSelectValue === 'Bağımsız / Diğer') {
+                organization = 'Bağımsız / Diğer';
+            } else if (orgSelectValue) {
+                // It's a real organization from the database!
+                organizationId = orgSelectValue; // UUID
+                const selectedOpt = organizationSelect.options[organizationSelect.selectedIndex];
+                organization = selectedOpt ? selectedOpt.textContent : '';
+            }
+
+            womenFriendly = document.getElementById('women_friendly').value === 'true';
+            googleMapsLink = document.getElementById('google_maps_link').value.trim();
+            address = document.getElementById('address').value.trim();
+            photoFile = document.getElementById('photo_file').files[0];
+        }
 
         let photoUrl = null;
 
@@ -317,12 +456,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 women_friendly: womenFriendly,
                 address: address || "Belirtilmedi",
                 google_maps_link: googleMapsLink || null,
-                description: description,
-                contact_name: contactName || "Belirtilmedi",
+                description: isUpdate ? `[Düzeltme Talebi - Nedeni: ${document.getElementById('correction_reason').value}]\n\nAçıklama:\n${description}` : description,
+                contact_name: contactName || (isUpdate ? "Web Kullanıcısı" : "Belirtilmedi"),
                 contact_phone: contactPhone || "Belirtilmedi",
                 photo_url: photoUrl || null,
                 status: 'pending', // Required for admin review
-                source: 'web_form'
+                source: isUpdate ? 'web_correction' : 'web_form',
+                type: isUpdate ? 'update_request' : 'new_program'
             };
 
             if (suggestionsHasOrgId && organizationId) {
@@ -351,10 +491,17 @@ document.addEventListener('DOMContentLoaded', () => {
             await triggerNotification(notificationData);
 
             // E. POPULATE SUCCESS VIEW
-            summaryProgramName.textContent = programName;
-            summaryVenueName.textContent = venueName;
-            summaryDistrict.textContent = district;
-            summaryDatetime.textContent = `${day} günü, saat ${time}`;
+            if (isUpdate) {
+                summaryProgramName.textContent = programName;
+                summaryVenueName.textContent = "Bilgi Hata Düzeltme Talebi";
+                summaryDistrict.textContent = "Web Formu";
+                summaryDatetime.textContent = "Sisteme Kaydedildi";
+            } else {
+                summaryProgramName.textContent = programName;
+                summaryVenueName.textContent = venueName;
+                summaryDistrict.textContent = district;
+                summaryDatetime.textContent = `${day} günü, saat ${time}`;
+            }
 
             // F. TOGGLE VIEW (HIDE Form/Hero, SHOW Success Screen)
             heroSection.classList.add('hidden');
@@ -374,6 +521,9 @@ document.addEventListener('DOMContentLoaded', () => {
     newSuggestionBtn.addEventListener('click', () => {
         // Reset form inputs
         suggestionForm.reset();
+
+        // Restore form visibility default states
+        updateFormFieldsVisibility();
 
         // Hide conditional organization fields on reset
         if (otherOrgContainer) {
