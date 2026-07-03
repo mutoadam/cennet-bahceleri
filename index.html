@@ -114,56 +114,33 @@
 
             <form id="suggestion-form" onsubmit="return false;">
                 <div class="form-grid">
+                    <!-- İşlem Türü -->
+                    <div class="form-group full-width" style="margin-bottom: 24px;">
+                        <label for="submission_type" style="font-weight: bold; font-size: 1.1rem; color: var(--color-primary);"><i class="fa-solid fa-gears"></i> İşlem Türü *</label>
+                        <select id="submission_type" class="form-control" style="font-size: 1.1rem; padding: 12px; border-width: 2px; border-color: var(--color-primary);" required>
+                            <option value="new_program" selected>Yeni Bir Program Öner</option>
+                            <option value="update_request">Mevcut Bir Programı Güncelle / Bilgi Hata Düzelt</option>
+                        </select>
+                    </div>
+
+                    <!-- Düzeltme Talebi Nedeni (Hidden by default) -->
+                    <div id="correction-reason-group" class="form-group hidden">
+                        <label for="correction_reason"><i class="fa-solid fa-circle-question"></i> Düzeltme Talebi Nedeni *</label>
+                        <select id="correction_reason" class="form-control">
+                            <option value="" disabled selected>Lütfen bir neden seçin</option>
+                            <option value="Saat değişti">Saat değişti</option>
+                            <option value="Mekân değişti">Mekân değişti</option>
+                            <option value="Hoca değişti">Hoca değişti</option>
+                            <option value="Program iptal edildi">Program iptal edildi</option>
+                            <option value="Diğer">Diğer</option>
+                        </select>
+                    </div>
+
                     <!-- Program Adı -->
                     <div class="form-group">
                         <label for="program_name"><i class="fa-solid fa-file-invoice"></i> Program Türü / Sohbet Adı *</label>
                         <select id="program_name" class="form-control" required>
-                            <option value="" disabled selected>Program türü seçiniz</option>
-                            <optgroup label="Sohbetler">
-                                <option value="Haftalık Sohbet">Haftalık Sohbet</option>
-                                <option value="Gençlik Sohbeti">Gençlik Sohbeti</option>
-                                <option value="Hanımlar Sohbeti">Hanımlar Sohbeti</option>
-                                <option value="Aile Sohbeti">Aile Sohbeti</option>
-                                <option value="Çocuk Sohbeti">Çocuk Sohbeti</option>
-                                <option value="Soru-Cevap">Soru-Cevap</option>
-                                <option value="Hasbihal">Hasbihal</option>
-                            </optgroup>
-                            <optgroup label="Dersler">
-                                <option value="Hadis Dersi">Hadis Dersi</option>
-                                <option value="Fıkıh Dersi">Fıkıh Dersi</option>
-                                <option value="Tefsir Dersi">Tefsir Dersi</option>
-                                <option value="İlmihal Dersi">İlmihal Dersi</option>
-                                <option value="Akaid Dersi">Akaid Dersi</option>
-                                <option value="Siyer Dersi">Siyer Dersi</option>
-                                <option value="Mütalaa Dersi">Mütalaa Dersi</option>
-                                <option value="Tefsir ve İlmihal">Tefsir ve İlmihal</option>
-                                <option value="Riyâzü's Sâlihîn Dersi">Riyâzü's Sâlihîn Dersi</option>
-                                <option value="Şifâ-i Şerif Dersi">Şifâ-i Şerif Dersi</option>
-                                <option value="Hayatü's Sahabe Dersi">Hayatü's Sahabe Dersi</option>
-                                <option value="Esmâü'l-Hüsnâ Dersi">Esmâü'l-Hüsnâ Dersi</option>
-                            </optgroup>
-                            <optgroup label="Zikir ve Manevî Programlar">
-                                <option value="Zikir ve Sohbet">Zikir ve Sohbet</option>
-                                <option value="Haftalık Ders ve Zikir">Haftalık Ders ve Zikir</option>
-                                <option value="Hatm-i Hacegân">Hatm-i Hacegân</option>
-                                <option value="Evrâd ve Zikir">Evrâd ve Zikir</option>
-                                <option value="Dua Programı">Dua Programı</option>
-                            </optgroup>
-                            <optgroup label="Tebliğ ve Hizmet Programları">
-                                <option value="Davet Ameli">Davet Ameli</option>
-                                <option value="Maruf Çalışması">Maruf Çalışması</option>
-                                <option value="3 Günlük Sefer">3 Günlük Sefer</option>
-                                <option value="Gençlik Buluşması">Gençlik Buluşması</option>
-                            </optgroup>
-                            <optgroup label="Özel Programlar">
-                                <option value="Sinevizyon Sohbeti">Sinevizyon Sohbeti</option>
-                                <option value="Seminer">Seminer</option>
-                                <option value="Konferans">Konferans</option>
-                                <option value="Panel">Panel</option>
-                            </optgroup>
-                            <optgroup label="Diğer">
-                                <option value="Diğer">Diğer</option>
-                            </optgroup>
+                            <option value="" disabled selected>Yükleniyor...</option>
                         </select>
                     </div>
 
