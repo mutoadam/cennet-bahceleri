@@ -140,11 +140,19 @@
 
         <!-- Suggestions List Section -->
         <section class="suggestions-section">
-            <div class="section-header">
+            <div class="section-header" style="flex-wrap: wrap; gap: 12px;">
                 <h3>Öneri Listesi (<span id="suggestions-count">0</span>)</h3>
-                <button id="refresh-btn" class="btn btn-secondary btn-sm">
-                    <i class="fa-solid fa-rotate"></i> Yenile
-                </button>
+                <div style="display: flex; gap: 8px; align-items: center;">
+                    <label for="filter-type" style="font-size: 13px; font-weight: bold; color: var(--text-muted);"><i class="fa-solid fa-filter"></i> Tür:</label>
+                    <select id="filter-type" class="form-control" style="font-size: 13px; padding: 4px 8px; width: auto; height: auto; display: inline-block;">
+                        <option value="all" selected>Tümü</option>
+                        <option value="new_program">Sadece Yeni Programlar</option>
+                        <option value="update_request">Sadece Güncelleme Talepleri</option>
+                    </select>
+                    <button id="refresh-btn" class="btn btn-secondary btn-sm" style="margin-left: 8px;">
+                        <i class="fa-solid fa-rotate"></i> Yenile
+                    </button>
+                </div>
             </div>
 
             <!-- Loader -->
