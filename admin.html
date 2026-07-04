@@ -416,7 +416,7 @@
                 </div>
                 <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center;">
                     <button id="osm-import-btn" class="btn btn-secondary add-program-btn" style="background-color: var(--md-secondary-container); color: var(--md-on-secondary-container); border: 1px solid rgba(181, 141, 61, 0.3);">
-                        <i class="fa-solid fa-cloud-arrow-down"></i> OSM’den Camileri Getir
+                        <i class="fa-solid fa-cloud-arrow-down"></i> OSM / Overpass’tan Camileri Getir
                     </button>
                     <button id="add-mosque-btn" class="btn btn-secondary add-program-btn" style="background-color: var(--md-primary-container); color: var(--md-primary); border: 1px solid rgba(22, 101, 52, 0.2);">
                         <i class="fa-solid fa-plus"></i> Yeni Camii Ekle
@@ -1529,6 +1529,20 @@
                                 <input type="checkbox" id="osm-select-all" checked style="width: 16px; height: 16px; accent-color: var(--md-primary);"> Tümünü Seç
                             </label>
                         </div>
+                    </div>
+
+                    <!-- Overpass Result Summary Card (A-18-7 Hotfix) -->
+                    <div id="osm-summary-box" style="background-color: var(--md-secondary-container, #f4e8cf); color: var(--md-on-secondary-container, #514217); border: 1px solid rgba(181, 141, 61, 0.2); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; font-size: 13.5px;">
+                        <h5 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px;">
+                            <i class="fa-solid fa-chart-simple"></i> Overpass sonucu:
+                        </h5>
+                        <ul style="margin: 0; padding-left: 18px; line-height: 1.5; display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 4px 12px; list-style-type: disc;">
+                            <li><strong>Ham kayıt:</strong> <span id="osm-stats-raw">0</span></li>
+                            <li><strong>Önizleme:</strong> <span id="osm-stats-preview">0</span></li>
+                            <li><strong>İsimsiz:</strong> <span id="osm-stats-unnamed">0</span></li>
+                            <li><strong>Sistemde kayıtlı:</strong> <span id="osm-stats-registered">0</span></li>
+                            <li><strong>Görünen:</strong> <span id="osm-stats-visible">0</span></li>
+                        </ul>
                     </div>
 
                     <div style="max-height: 300px; overflow-y: auto; border: 1px solid var(--md-outline); border-radius: 8px; background-color: #fafafa;">
