@@ -5457,6 +5457,8 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
     // OSM TOPLU CAMİ GETİRME İŞLEVLERİ (Faz 2 - H-M2-A)
     // ==========================================================
     let osmResults = [];
+    let osmRawCount = 0;
+    let osmSkippedCount = 0;
 
     function trNormalize(str) {
         if (!str) return '';
@@ -5705,13 +5707,32 @@ out center tags;`;
             return trNormalize(item.district) === trNormalize(district);
         });
 
-        // Diagnostics console logs
-        console.log("---- OVERPASS API INTEGRATION DIAGNOSTICS ----");
-        console.log(`- Overpass API endpoint: ${successfulEndpoint}`);
-        console.log(`- Kullanılan sorgu ilk 100 karakter: ${query.substring(0, 100).replace(/\s+/g, ' ')}...`);
-        console.log(`- Gelen element sayısı: ${elements.length}`);
-        console.log(`- Önizlemeye alınan cami sayısı: ${osmResults.length}`);
-        console.log(`- Koordinatsız atlanan kayıt sayısı: ${skippedCount}`);
+        // Set raw and skipped count for dynamic stats (A-18-7 Hotfix)
+        osmRawCount = elements.length;
+        osmSkippedCount = skippedCount;
+
+        const unnamedCount = osmResults.filter(item => item.isUnnamed).length;
+        const registeredCount = osmResults.filter(item => {
+            return mosquesListCache.some(existing => {
+                const sameNameAndDistrict = trNormalize(existing.mosque_name) === trNormalize(item.mosque_name) &&
+                    trNormalize(existing.district) === trNormalize(item.district);
+                const sameLocation = isCloseLocation(existing.latitude, existing.longitude, item.latitude, item.longitude);
+                return sameNameAndDistrict || sameLocation;
+            });
+        }).length;
+        const visibleIfHideUnnamed = osmResults.filter(item => !item.isUnnamed).length;
+
+        // Diagnostics console logs (A-18-7 Hotfix)
+        console.log("---- OVERPASS API INTEGRATION DIAGNOSTICS (A-18-7) ----");
+        console.log(`1. Kullanılan endpoint: ${successfulEndpoint}`);
+        console.log(`2. Seçilen ilçe: ${district}`);
+        console.log(`3. Final Overpass query:\n${query}`);
+        console.log(`4. Raw gelen element sayısı: ${elements.length}`);
+        console.log(`5. Koordinatsız atlanan kayıt sayısı: ${skippedCount}`);
+        console.log(`6. İsimsiz kayıt sayısı: ${unnamedCount}`);
+        console.log(`7. Duplicate / sistemde kayıtlı sayısı: ${registeredCount}`);
+        console.log(`8. Önizlemeye alınan toplam kayıt sayısı: ${osmResults.length}`);
+        console.log(`9. İsimsizleri gizle açıkken görünen kayıt sayısı: ${visibleIfHideUnnamed}`);
         console.log("----------------------------------------------");
 
         if (osmResults.length === 0) {
@@ -5835,6 +5856,29 @@ out center tags;`;
 
         document.getElementById('osm-preview-section')?.classList.remove('hidden');
         updateOsmSelectionSummary();
+
+        // Update summary stats card (A-18-7 Hotfix)
+        const unnamedCount = osmResults.filter(item => item.isUnnamed).length;
+        const registeredCount = osmResults.filter(item => {
+            return mosquesListCache.some(existing => {
+                const sameNameAndDistrict = trNormalize(existing.mosque_name) === trNormalize(item.mosque_name) &&
+                    trNormalize(existing.district) === trNormalize(item.district);
+                const sameLocation = isCloseLocation(existing.latitude, existing.longitude, item.latitude, item.longitude);
+                return sameNameAndDistrict || sameLocation;
+            });
+        }).length;
+
+        const osmRawEl = document.getElementById('osm-stats-raw');
+        const osmPreviewEl = document.getElementById('osm-stats-preview');
+        const osmUnnamedEl = document.getElementById('osm-stats-unnamed');
+        const osmRegisteredEl = document.getElementById('osm-stats-registered');
+        const osmVisibleEl = document.getElementById('osm-stats-visible');
+
+        if (osmRawEl) osmRawEl.textContent = osmRawCount;
+        if (osmPreviewEl) osmPreviewEl.textContent = osmResults.length;
+        if (osmUnnamedEl) osmUnnamedEl.textContent = unnamedCount;
+        if (osmRegisteredEl) osmRegisteredEl.textContent = registeredCount;
+        if (osmVisibleEl) osmVisibleEl.textContent = filteredResults.length;
     }
 
     function updateOsmSelectionSummary() {
