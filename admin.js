@@ -5523,10 +5523,12 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
 
         osmResults = [];
 
-        // Sakarya overall muslim places of worship query
+        // Sakarya district muslim places of worship query
         const query = `[out:json][timeout:25];
 // Sakarya sınırlarını bul
-area["ISO3166-2"="TR-54"]->.searchArea;
+area["ISO3166-2"="TR-54"]->.province;
+// Seçilen ilçeyi bul
+area["name"="${district}"](area.province)->.searchArea;
 // Sınırlar içindeki Müslüman ibadethanelerini seç
 (
   node["amenity"="place_of_worship"]["religion"="muslim"](area.searchArea);
@@ -5535,27 +5537,45 @@ area["ISO3166-2"="TR-54"]->.searchArea;
 );
 out center tags;`;
 
-        let elements = [];
+        const endpoints = [
+            'https://overpass.kumi.systems/api/interpreter',
+            'https://lz4.overpass-api.de/api/interpreter',
+            'https://overpass-api.de/api/interpreter'
+        ];
 
-        try {
-            console.log("OSM Fetching all muslim places of worship in Sakarya...");
-            const response = await fetch('https://overpass-api.de/api/interpreter', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded'
-                },
-                body: 'data=' + encodeURIComponent(query)
-            });
-            if (response.ok) {
-                const data = await response.json();
-                elements = data.elements || [];
-            } else {
-                throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+        let elements = [];
+        let success = false;
+        let lastError = null;
+
+        for (const endpoint of endpoints) {
+            try {
+                console.log(`OSM Fetching muslim places of worship in ${district} via ${endpoint}...`);
+                const response = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded'
+                    },
+                    body: 'data=' + encodeURIComponent(query)
+                });
+                if (response.ok) {
+                    const data = await response.json();
+                    elements = data.elements || [];
+                    success = true;
+                    console.log(`Successfully fetched from ${endpoint}. Elements count: ${elements.length}`);
+                    break;
+                } else {
+                    throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
+                }
+            } catch (e) {
+                console.warn(`Failed to fetch from ${endpoint}:`, e);
+                lastError = e;
             }
-        } catch (e) {
-            console.error("OSM Overpass API completely failed:", e);
+        }
+
+        if (!success) {
+            console.error("All Overpass API endpoints failed:", lastError);
             let errorMsg = "OSM verisi şu anda alınamadı. Lütfen biraz sonra tekrar deneyin.";
-            if (e instanceof TypeError && e.message === "Failed to fetch") {
+            if (lastError && lastError instanceof TypeError && lastError.message === "Failed to fetch") {
                 errorMsg = "OSM verisi şu anda alınamadı (CORS engeli veya bağlantı sorunu). Lütfen biraz sonra tekrar deneyin.";
                 console.warn("Overpass API CORS veya bağlantı hatası oluştu. Tarayıcıdan doğrudan Overpass API çağrısı CORS politikaları nedeniyle engellenmiş olabilir.");
             }
@@ -5578,15 +5598,15 @@ out center tags;`;
         }
 
         if (elements.length === 0) {
-            showToast("Sakarya için OSM cami kaydı bulunamadı.", "warning");
+            showToast(`${district} için OSM cami kaydı bulunamadı.`, "warning");
             document.getElementById('osm-empty')?.classList.remove('hidden');
             const emptyTitle = document.querySelector('#osm-empty h4');
             const emptyDesc = document.querySelector('#osm-empty p');
             if (emptyTitle) {
-                emptyTitle.textContent = "Sakarya için OSM cami kaydı bulunamadı.";
+                emptyTitle.textContent = `${district} için OSM cami kaydı bulunamadı.`;
             }
             if (emptyDesc) {
-                emptyDesc.textContent = "Overpass API üzerinde Sakarya ili sınırları içerisinde hiçbir cami kaydı bulunamadı.";
+                emptyDesc.textContent = `Overpass API üzerinde Sakarya ili ${district} ilçesi sınırları içerisinde hiçbir cami kaydı bulunamadı.`;
             }
             return;
         }
@@ -5630,8 +5650,8 @@ out center tags;`;
                     break;
                 }
             }
-            if (resolvedDistrict === "Bilinmiyor" && rawDistrict !== "Bilinmiyor") {
-                resolvedDistrict = rawDistrict.trim();
+            if (resolvedDistrict === "Bilinmiyor") {
+                resolvedDistrict = district;
             }
 
             // Mahalle önceliği
