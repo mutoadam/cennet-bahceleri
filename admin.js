@@ -5480,7 +5480,8 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         document.getElementById('osm-preview-section')?.classList.add('hidden');
         document.getElementById('osm-empty')?.classList.add('hidden');
         document.getElementById('osm-loader')?.classList.add('hidden');
-        document.getElementById('osm-modal-btn-save')?.classList.add('hidden');
+        document.getElementById('osm-modal-btn-approve-bulk')?.classList.add('hidden');
+        document.getElementById('osm-modal-btn-reject-bulk')?.classList.add('hidden');
         if (document.getElementById('osm-selection-summary')) {
             document.getElementById('osm-selection-summary').textContent = '';
         }
@@ -5508,7 +5509,8 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         document.getElementById('osm-loader')?.classList.remove('hidden');
         document.getElementById('osm-preview-section')?.classList.add('hidden');
         document.getElementById('osm-empty')?.classList.add('hidden');
-        document.getElementById('osm-modal-btn-save')?.classList.add('hidden');
+        document.getElementById('osm-modal-btn-approve-bulk')?.classList.add('hidden');
+        document.getElementById('osm-modal-btn-reject-bulk')?.classList.add('hidden');
         if (document.getElementById('osm-selection-summary')) {
             document.getElementById('osm-selection-summary').textContent = '';
         }
@@ -5766,17 +5768,25 @@ out center;`;
             summarySpan.textContent = `${totalCount} camiden ${checkedCount} tanesi seçildi`;
         }
 
-        const saveBtn = document.getElementById('osm-modal-btn-save');
-        if (saveBtn) {
+        const approveBtn = document.getElementById('osm-modal-btn-approve-bulk');
+        const rejectBtn = document.getElementById('osm-modal-btn-reject-bulk');
+        if (approveBtn) {
             if (checkedCount > 0) {
-                saveBtn.classList.remove('hidden');
+                approveBtn.classList.remove('hidden');
             } else {
-                saveBtn.classList.add('hidden');
+                approveBtn.classList.add('hidden');
+            }
+        }
+        if (rejectBtn) {
+            if (checkedCount > 0) {
+                rejectBtn.classList.remove('hidden');
+            } else {
+                rejectBtn.classList.add('hidden');
             }
         }
     }
 
-    async function saveSelectedOsmMosques() {
+    async function saveSelectedOsmMosques(verificationStatus = 'verified', status = 'active') {
         if (!supabaseClient) return;
 
         const list = document.getElementById('osm-preview-list');
@@ -5787,6 +5797,8 @@ out center;`;
             showToast("Lütfen kaydedilecek en az bir cami seçin.", "error");
             return;
         }
+
+        const isApprove = verificationStatus === 'verified';
 
         // Check if there are checked unnamed records and ask confirmation
         let hasUnnamedChecked = false;
@@ -5806,17 +5818,27 @@ out center;`;
             }
         }
 
-        const saveBtn = document.getElementById('osm-modal-btn-save');
+        const approveBtn = document.getElementById('osm-modal-btn-approve-bulk');
+        const rejectBtn = document.getElementById('osm-modal-btn-reject-bulk');
         const cancelBtn = document.getElementById('osm-modal-btn-cancel');
         
-        if (saveBtn) {
-            saveBtn.disabled = true;
-            saveBtn.classList.add('disabled');
-            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kaydediliyor...';
+        if (approveBtn) {
+            approveBtn.disabled = true;
+            approveBtn.classList.add('disabled');
+        }
+        if (rejectBtn) {
+            rejectBtn.disabled = true;
+            rejectBtn.classList.add('disabled');
         }
         if (cancelBtn) {
             cancelBtn.disabled = true;
             cancelBtn.classList.add('disabled');
+        }
+
+        const activeBtn = isApprove ? approveBtn : rejectBtn;
+        const originalActiveHTML = activeBtn ? activeBtn.innerHTML : '';
+        if (activeBtn) {
+            activeBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${isApprove ? 'Onaylanıyor...' : 'Reddediliyor...'}`;
         }
 
         let savedCount = 0;
@@ -5850,9 +5872,11 @@ out center;`;
                 latitude: item.latitude,
                 longitude: item.longitude,
                 google_maps_link: item.google_maps_link,
-                status: item.status,
+                status: status,
                 source: 'osm',
-                verification_status: 'unverified',
+                verification_status: verificationStatus,
+                verified_at: isApprove ? new Date().toISOString() : null,
+                verified_by: isApprove ? 'admin' : null,
                 updated_at: new Date().toISOString(),
                 created_at: new Date().toISOString()
             };
@@ -5872,19 +5896,28 @@ out center;`;
 
         await loadMosques();
 
-        if (saveBtn) {
-            saveBtn.disabled = false;
-            saveBtn.classList.remove('disabled');
-            saveBtn.textContent = 'Seçilenleri Kaydet';
+        if (approveBtn) {
+            approveBtn.disabled = false;
+            approveBtn.classList.remove('disabled');
+        }
+        if (rejectBtn) {
+            rejectBtn.disabled = false;
+            rejectBtn.classList.remove('disabled');
         }
         if (cancelBtn) {
             cancelBtn.disabled = false;
             cancelBtn.classList.remove('disabled');
         }
+        if (activeBtn) {
+            activeBtn.innerHTML = originalActiveHTML;
+        }
 
         closeOsmModal();
 
-        showToast(`${savedCount} cami kaydedildi, ${duplicateCount} kayıt zaten vardı.`, "success");
+        const msg = isApprove 
+            ? `${savedCount} cami onaylanarak kaydedildi, ${duplicateCount} kayıt zaten vardı.`
+            : `${savedCount} cami reddedilerek pasif kaydedildi, ${duplicateCount} kayıt zaten vardı.`;
+        showToast(msg, "success");
     }
 
     function initMosqueListeners() {
@@ -5922,8 +5955,9 @@ out center;`;
             renderOsmPreview();
         });
 
-        // OSM Save Button
-        document.getElementById('osm-modal-btn-save')?.addEventListener('click', saveSelectedOsmMosques);
+        // OSM Bulk Approve / Reject Buttons
+        document.getElementById('osm-modal-btn-approve-bulk')?.addEventListener('click', () => saveSelectedOsmMosques('verified', 'active'));
+        document.getElementById('osm-modal-btn-reject-bulk')?.addEventListener('click', () => saveSelectedOsmMosques('unverified', 'inactive'));
 
         // Refresh button
         document.getElementById('mosques-refresh-btn')?.addEventListener('click', loadMosques);
