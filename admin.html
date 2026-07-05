@@ -745,6 +745,35 @@
                             <div class="form-group" style="grid-column: span 2;">
                                 <label for="cms-field-infographics" style="font-weight: 600; font-size: 13px; color: var(--md-on-surface); display: block; margin-bottom: 6px;"><i class="fa-solid fa-images"></i> İnfografiler (Her satıra bir görsel URL)</label>
                                 <textarea id="cms-field-infographics" class="form-control" rows="3" placeholder="https://.../gorsel1.png&#10;https://.../gorsel2.png" style="width: 100%; font-size: 14px; padding: 10px; line-height: 1.4; font-family: monospace;"></textarea>
+                                
+                                <!-- İnfografik Upload + URL Yönetimi -->
+                                <div class="infographics-manager" style="margin-top: 12px; border: 1px solid var(--md-outline); border-radius: var(--radius-sm); padding: 16px; background-color: rgba(0,0,0,0.02);">
+                                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
+                                        <span style="font-weight: 600; font-size: 13px; color: var(--md-primary);"><i class="fa-solid fa-photo-film"></i> Görsel Galerisi / Sıralama</span>
+                                        <div style="display: flex; gap: 8px; align-items: center;">
+                                            <input type="file" id="cms-infographic-file-input" accept="image/*" style="display: none;" multiple>
+                                            <button type="button" id="cms-infographic-upload-btn" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 12px; padding: 4px 10px;">
+                                                <i class="fa-solid fa-cloud-arrow-up"></i> Görsel Yükle (Toplu Seçim)
+                                            </button>
+                                        </div>
+                                    </div>
+                                    
+                                    <!-- Upload Progress -->
+                                    <div id="cms-infographic-upload-progress" class="hidden" style="margin-bottom: 12px; padding: 10px; background: var(--md-primary-container); color: var(--md-primary); border-radius: var(--radius-sm); font-size: 13px; display: flex; align-items: center; gap: 8px;">
+                                        <i class="fa-solid fa-spinner fa-spin"></i> <span id="cms-infographic-upload-status">Yükleniyor...</span>
+                                    </div>
+
+                                    <!-- Visual Preview/Management Grid -->
+                                    <div id="cms-infographics-preview-grid" class="infographics-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 12px; margin-top: 12px; margin-bottom: 12px;">
+                                        <!-- Card items generated dynamically -->
+                                    </div>
+
+                                    <!-- Manuel URL Ekleme -->
+                                    <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
+                                        <input type="text" id="cms-infographic-url-input" class="form-control" placeholder="Dış görsel adresi ekle (https://...)" style="flex: 1; height: 36px; font-size: 13px; margin: 0; padding: 4px 10px;">
+                                        <button type="button" id="cms-infographic-add-url-btn" class="btn btn-secondary btn-sm" style="min-height: 36px; font-size: 12px; padding: 0 16px;">Ekle</button>
+                                    </div>
+                                </div>
                             </div>
 
                             <!-- Yayında / Öne Çıkan Checkboxları -->
