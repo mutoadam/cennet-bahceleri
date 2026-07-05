@@ -89,6 +89,9 @@
             <button id="main-tab-mosques" class="main-tab-btn">
                 <i class="fa-solid fa-map-location-dot"></i> Camii Konumları
             </button>
+            <button id="main-tab-discover" class="main-tab-btn">
+                <i class="fa-solid fa-compass"></i> Keşfet İçerikleri
+            </button>
         </div>
 
         <!-- Öneriler (Suggestions) Sekmesi İçeriği -->
@@ -558,6 +561,104 @@
                 <!-- List Container -->
                 <div id="mosques-list" class="suggestions-list grid-list">
                     <!-- Mosque cards will be injected here dynamically -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Keşfet İçerikleri Sekmesi İçeriği -->
+        <div id="discover-tab-content" class="hidden">
+            <section class="page-title-section">
+                <div class="page-title-container">
+                    <h2>Keşfet İçerikleri Yönetim Paneli</h2>
+                    <p class="section-desc">Cennet Bahçeleri mobil uygulamasında yer alan Keşfet modüllerine ait içerikleri ekleyebilir, düzenleyebilir ve yayından kaldırabilirsiniz.</p>
+                </div>
+                <button id="add-discover-article-btn" class="btn btn-secondary add-program-btn">
+                    <i class="fa-solid fa-plus"></i> Yeni İçerik Ekle
+                </button>
+            </section>
+
+            <!-- İstatistik Kartları Grid Yapısı -->
+            <section class="stats-grid">
+                <div class="stats-card card-approved">
+                    <div class="stats-icon"><i class="fa-solid fa-compass"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Yayında olan İçerikler</span>
+                        <h3 id="stats-active-discover-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-rejected" style="border-left: 6px solid var(--md-outline);">
+                    <div class="stats-icon" style="background-color: var(--md-primary-container); color: var(--md-on-surface-variant);"><i class="fa-solid fa-eye-slash"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Taslak / Pasif İçerikler</span>
+                        <h3 id="stats-passive-discover-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Keşfet İçerikleri Bölümü -->
+            <section class="suggestions-section">
+                <div class="section-header" style="flex-wrap: wrap; gap: 12px; justify-content: space-between; align-items: center;">
+                    <div class="header-title-wrapper">
+                        <h3>İçerik Listesi</h3>
+                        <p class="subtitle-text"><span id="discover-articles-count">0</span> İçerik gösteriliyor</p>
+                    </div>
+                    <div style="display: flex; gap: 12px; align-items: center; flex-wrap: wrap;">
+                        <div class="filter-group-row" style="display: flex; gap: 8px; align-items: center;">
+                            <label for="discover-module-filter" style="font-size: 13px; font-weight: bold; color: var(--text-muted); white-space: nowrap;"><i class="fa-solid fa-filter"></i> Modül Seç:</label>
+                            <select id="discover-module-filter" class="form-control" style="font-size: 13px; padding: 4px 8px; width: auto; height: auto; display: inline-block;">
+                                <!-- Modüller buraya JS ile dolacak -->
+                            </select>
+                        </div>
+                        <button id="discover-refresh-btn" class="btn btn-secondary btn-sm">
+                            <i class="fa-solid fa-rotate"></i> Yenile
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loader -->
+                <div id="discover-loader" class="state-container hidden">
+                    <div class="spinner"></div>
+                    <p>İçerikler yükleniyor, lütfen bekleyin...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="discover-error-container" class="state-container state-error hidden">
+                    <i class="fa-solid fa-triangle-exclamation state-icon"></i>
+                    <h4>Yüklenirken veya kaydedilirken bir hata oluştu.</h4>
+                    <p id="discover-error-message">Lütfen veritabanı bağlantısını ve <code>discover_articles</code> tablosunu kontrol edin.</p>
+                    <div id="discover-sql-suggestion" class="sql-box hidden" style="margin-top: 15px; text-align: left; background: #1e1e1e; color: #ececec; padding: 15px; border-radius: 8px; font-family: monospace; font-size: 13px; max-width: 100%; overflow-x: auto; border: 1px solid #333; line-height: 1.4;">
+                        <!-- SQL will be loaded here if table/columns missing -->
+                    </div>
+                    <button id="discover-retry-btn" class="btn btn-primary" style="margin-top: 15px;">Tekrar Dene</button>
+                </div>
+
+                <!-- Empty State -->
+                <div id="discover-empty-container" class="state-container state-empty hidden">
+                    <i class="fa-solid fa-clipboard-question state-icon"></i>
+                    <h4>Bu modülde kayıtlı içerik bulunmuyor.</h4>
+                    <p>Yeni bir içerik eklemek için "+ Yeni İçerik Ekle" butonunu kullanabilirsiniz.</p>
+                </div>
+
+                <!-- List/Table Container -->
+                <div class="discover-table-wrapper" style="width: 100%; overflow-x: auto; background: var(--card-bg, #ffffff); border-radius: 12px; border: 1px solid var(--md-outline-variant, #e0e0e0); margin-top: 16px;">
+                    <table class="programs-admin-table list-view-table" id="discover-articles-table" style="width: 100%; border-collapse: collapse; text-align: left; font-size: 14px; min-width: 100%;">
+                        <thead>
+                            <tr style="background: var(--md-surface-variant, #f5f5f5); border-bottom: 2px solid var(--md-outline-variant, #e0e0e0);">
+                                <th style="padding: 12px 16px; font-weight: 600; width: 60px;">Sıra</th>
+                                <th style="padding: 12px 16px; font-weight: 600;">Başlık</th>
+                                <th style="padding: 12px 16px; font-weight: 600;">Kategori</th>
+                                <th style="padding: 12px 16px; font-weight: 600;">Üst Başlık (Parent)</th>
+                                <th style="padding: 12px 16px; font-weight: 600; text-align: center; width: 100px;">Durum</th>
+                                <th style="padding: 12px 16px; font-weight: 600; text-align: center; width: 100px;">Öne Çıkan</th>
+                                <th style="padding: 12px 16px; font-weight: 600; text-align: center; width: 90px;">Kapak</th>
+                                <th style="padding: 12px 16px; font-weight: 600; text-align: center; width: 90px;">PDF</th>
+                                <th style="padding: 12px 16px; font-weight: 600; text-align: center; width: 150px;">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody id="discover-articles-list-body">
+                            <!-- JS ile doldurulacak -->
+                        </tbody>
+                    </table>
                 </div>
             </section>
         </div>
@@ -1571,6 +1672,103 @@
                     <button id="osm-modal-btn-approve-bulk" class="btn btn-action btn-save hidden" style="min-height: 40px; padding: 8px 16px; background-color: var(--md-primary); color: white;"><i class="fa-solid fa-circle-check"></i> Toplu Onayla</button>
                     <button id="osm-modal-btn-reject-bulk" class="btn btn-action btn-cancel hidden" style="min-height: 40px; padding: 8px 16px; background-color: var(--md-error); color: white; border-color: var(--md-error);"><i class="fa-solid fa-circle-xmark"></i> Toplu Reddet</button>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Keşfet İçeriği Ekle/Düzenle Modalı -->
+    <div id="discover-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 800px; width: 90%;">
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-compass" style="font-size: 24px; color: var(--md-primary);"></i>
+                    <div>
+                        <h3 id="discover-modal-title" style="margin: 0; font-size: 20px; font-weight: 700;">Yeni Keşfet İçeriği Ekle</h3>
+                        <span class="category-badge" style="background-color: var(--md-secondary-container); color: var(--md-on-secondary-container); font-size: 12px; display: inline-block; margin-top: 4px;">Keşfet Modülü</span>
+                    </div>
+                </div>
+                <button id="discover-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="discover-form" class="edit-form-grid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                    <input type="hidden" id="discover-article-id">
+                    
+                    <div class="form-group">
+                        <label for="discover-form-module"><i class="fa-solid fa-layer-group"></i> Modül *</label>
+                        <select id="discover-form-module" class="form-control" required style="width: 100%;">
+                            <!-- JS ile dolacak -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="discover-form-title"><i class="fa-solid fa-heading"></i> Başlık *</label>
+                        <input type="text" id="discover-form-title" class="form-control" placeholder="Örn: 1. 6 Sıfat" required style="width: 100%;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="discover-form-slug"><i class="fa-solid fa-link"></i> Slug *</label>
+                        <input type="text" id="discover-form-slug" class="form-control" placeholder="Örn: usul-01-alti-sifat" required style="width: 100%;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="discover-form-category"><i class="fa-solid fa-tag"></i> Kategori</label>
+                        <input type="text" id="discover-form-category" class="form-control" placeholder="Örn: 24-usul-ve-adap" style="width: 100%;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="discover-form-parent"><i class="fa-solid fa-folder-tree"></i> Parent / Üst Başlık (Parent Slug)</label>
+                        <select id="discover-form-parent" class="form-control" style="width: 100%;">
+                            <option value="">Yok (Ana Başlık)</option>
+                            <!-- JS ile dolacak -->
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="discover-form-order"><i class="fa-solid fa-sort-numeric-down"></i> Sıra No *</label>
+                        <input type="number" id="discover-form-order" class="form-control" value="0" min="0" required style="width: 100%;">
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="discover-form-summary"><i class="fa-solid fa-align-left"></i> Özet (Kısa Açıklama)</label>
+                        <textarea id="discover-form-summary" class="form-control" rows="2" placeholder="İçeriğin kısa bir özeti veya alt başlığı..." style="width: 100%;"></textarea>
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="discover-form-content"><i class="fa-solid fa-file-pen"></i> İçerik / Markdown</label>
+                        <textarea id="discover-form-content" class="form-control" rows="8" placeholder="# Başlık&#10;&#10;Buraya markdown formatında içerik yazabilirsiniz..." style="width: 100%;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="discover-form-cover"><i class="fa-solid fa-image"></i> Kapak Görseli</label>
+                        <input type="text" id="discover-form-cover" class="form-control" placeholder="discover-content/davet-ameli/covers/... (veya tam URL)" style="width: 100%;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="discover-form-pdf"><i class="fa-solid fa-file-pdf"></i> PDF</label>
+                        <input type="text" id="discover-form-pdf" class="form-control" placeholder="discover-content/davet-ameli/pdfs/... (veya tam URL)" style="width: 100%;">
+                    </div>
+
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label for="discover-form-infographics"><i class="fa-solid fa-images"></i> İnfografiler (Her satıra bir görsel URL)</label>
+                        <textarea id="discover-form-infographics" class="form-control" rows="3" placeholder="https://.../gorsel1.png&#10;https://.../gorsel2.png" style="width: 100%;"></textarea>
+                    </div>
+
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                        <input type="checkbox" id="discover-form-active" checked style="width: 20px; height: 20px; cursor: pointer;">
+                        <label for="discover-form-active" style="margin: 0; cursor: pointer; font-weight: 500;">Yayında mı? (Aktif)</label>
+                    </div>
+
+                    <div class="form-group" style="display: flex; align-items: center; gap: 10px; margin-top: 10px;">
+                        <input type="checkbox" id="discover-form-featured" style="width: 20px; height: 20px; cursor: pointer;">
+                        <label for="discover-form-featured" style="margin: 0; cursor: pointer; font-weight: 500;">Öne çıkan mı?</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px;">
+                <button id="discover-btn-cancel" class="btn btn-secondary">İptal</button>
+                <button id="discover-btn-save" class="btn btn-primary"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>
             </div>
         </div>
     </div>
