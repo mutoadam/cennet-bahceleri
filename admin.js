@@ -2630,16 +2630,19 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    // Primary Tab Switcher (Öneriler vs. Programlar vs. Kurumlar vs. Camiler)
+    // Primary Tab Switcher (Öneriler vs. Programlar vs. Kurumlar vs. Camiler vs. Keşfet)
     function initMainNavigation() {
         const tabSuggestions = document.getElementById('main-tab-suggestions');
         const tabPrograms = document.getElementById('main-tab-programs');
         const tabOrganizations = document.getElementById('main-tab-organizations');
         const tabMosques = document.getElementById('main-tab-mosques');
+        const tabDiscover = document.getElementById('main-tab-discover');
+        
         const suggestionsContent = document.getElementById('suggestions-tab-content');
         const programsContent = document.getElementById('programs-tab-content');
         const organizationsContent = document.getElementById('organizations-tab-content');
         const mosquesContent = document.getElementById('mosques-tab-content');
+        const discoverContent = document.getElementById('discover-tab-content');
 
         if (tabSuggestions && tabPrograms && tabOrganizations && tabMosques && suggestionsContent && programsContent && organizationsContent && mosquesContent) {
             tabSuggestions.addEventListener('click', () => {
@@ -2647,10 +2650,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 tabPrograms.classList.remove('active');
                 tabOrganizations.classList.remove('active');
                 tabMosques.classList.remove('active');
+                if (tabDiscover) tabDiscover.classList.remove('active');
+                
                 suggestionsContent.classList.remove('hidden');
                 programsContent.classList.add('hidden');
                 organizationsContent.classList.add('hidden');
                 mosquesContent.classList.add('hidden');
+                if (discoverContent) discoverContent.classList.add('hidden');
             });
 
             tabPrograms.addEventListener('click', async () => {
@@ -2658,10 +2664,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 tabSuggestions.classList.remove('active');
                 tabOrganizations.classList.remove('active');
                 tabMosques.classList.remove('active');
+                if (tabDiscover) tabDiscover.classList.remove('active');
+                
                 programsContent.classList.remove('hidden');
                 suggestionsContent.classList.add('hidden');
                 organizationsContent.classList.add('hidden');
                 mosquesContent.classList.add('hidden');
+                if (discoverContent) discoverContent.classList.add('hidden');
+                
                 await loadOrganizations();
                 await loadProgramTypes();
                 loadPrograms();
@@ -2672,10 +2682,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 tabSuggestions.classList.remove('active');
                 tabPrograms.classList.remove('active');
                 tabMosques.classList.remove('active');
+                if (tabDiscover) tabDiscover.classList.remove('active');
+                
                 organizationsContent.classList.remove('hidden');
                 suggestionsContent.classList.add('hidden');
                 programsContent.classList.add('hidden');
                 mosquesContent.classList.add('hidden');
+                if (discoverContent) discoverContent.classList.add('hidden');
+                
                 loadAdminOrganizations();
             });
 
@@ -2684,10 +2698,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 tabSuggestions.classList.remove('active');
                 tabPrograms.classList.remove('active');
                 tabOrganizations.classList.remove('active');
+                if (tabDiscover) tabDiscover.classList.remove('active');
+                
                 mosquesContent.classList.remove('hidden');
                 suggestionsContent.classList.add('hidden');
                 programsContent.classList.add('hidden');
                 organizationsContent.classList.add('hidden');
+                if (discoverContent) discoverContent.classList.add('hidden');
+                
                 loadMosques();
             });
         }
@@ -6523,6 +6541,7 @@ out center tags;`;
     initOrgListeners();
     initMosqueListeners();
     initSqlExport();
+    initDiscoverListeners();
     
     // Auth and Data Loading
     initAuth();
@@ -6530,5 +6549,552 @@ out center tags;`;
         loadOrganizations();
         loadProgramTypes();
         loadData();
+        loadDiscoverModules();
+    }
+
+    // ==========================================================
+    // Keşfet İçerikleri CMS Altyapısı (A-19-2)
+    // ==========================================================
+    let loadedDiscoverArticles = [];
+    let loadedDiscoverModules = [];
+
+    // Helper to generate Turkish slug
+    function convertToSlug(text) {
+        let str = text.trim().toLowerCase();
+        const TurkishChars = {
+            'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u',
+            'â': 'a', 'î': 'i', 'û': 'u'
+        };
+        for (let char in TurkishChars) {
+            str = str.replace(new RegExp(char, 'g'), TurkishChars[char]);
+        }
+        return str
+            .replace(/[^a-z0-9 -]/g, '') // remove invalid chars
+            .replace(/\s+/g, '-')        // collapse whitespace and replace by -
+            .replace(/-+/g, '-');        // collapse dashes
+    }
+
+    // Keşfet Modüllerini Yükle
+    async function loadDiscoverModules() {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+        try {
+            console.log("Loading Discover Modules from Supabase...");
+            const { data, error } = await supabaseClient
+                .from('discover_modules')
+                .select('*')
+                .order('order_no', { ascending: true });
+
+            if (error) throw error;
+
+            loadedDiscoverModules = data || [];
+            
+            if (loadedDiscoverModules.length === 0) {
+                console.warn("No discover modules found, fallback to defaults.");
+                loadedDiscoverModules = [{
+                    slug: 'davet-ameli',
+                    title: 'Davet Ameli',
+                    is_active: true
+                }, {
+                    slug: 'bisikletli-mucahitler',
+                    title: 'Bisikletli Mücahitler',
+                    is_active: true
+                }, {
+                    slug: 'zikir-timi',
+                    title: 'Zikir Timi',
+                    is_active: true
+                }, {
+                    slug: 'faziletli-ameller',
+                    title: 'Faziletli Ameller',
+                    is_active: true
+                }];
+            }
+
+            populateDiscoverDropdowns();
+
+            // Default to loading the first active module
+            const defaultModule = loadedDiscoverModules.find(m => m.is_active) || loadedDiscoverModules[0];
+            if (defaultModule) {
+                const filterEl = document.getElementById('discover-module-filter');
+                if (filterEl && !filterEl.value) {
+                    filterEl.value = defaultModule.slug;
+                    loadDiscoverArticles(defaultModule.slug);
+                }
+            }
+        } catch (err) {
+            console.error("Keşfet modülleri yüklenemedi:", err);
+        }
+    }
+
+    function populateDiscoverDropdowns() {
+        const filterEl = document.getElementById('discover-module-filter');
+        const formModuleEl = document.getElementById('discover-form-module');
+
+        if (filterEl) {
+            filterEl.innerHTML = loadedDiscoverModules
+                .map(m => `<option value="${escapeHtml(m.slug)}">${escapeHtml(m.title)}</option>`)
+                .join('');
+        }
+
+        if (formModuleEl) {
+            formModuleEl.innerHTML = loadedDiscoverModules
+                .map(m => `<option value="${escapeHtml(m.slug)}">${escapeHtml(m.title)}</option>`)
+                .join('');
+        }
+    }
+
+    // Keşfet İçeriklerini Yükle
+    async function loadDiscoverArticles(moduleSlug) {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        showDiscoverLoader();
+
+        try {
+            console.log(`Loading discover articles for module: ${moduleSlug}...`);
+            const { data, error } = await supabaseClient
+                .from('discover_articles')
+                .select('*')
+                .eq('module_slug', moduleSlug);
+
+            if (error) throw error;
+
+            loadedDiscoverArticles = data || [];
+            
+            loadedDiscoverArticles.sort((a, b) => {
+                const orderDiff = (a.order_no || 0) - (b.order_no || 0);
+                if (orderDiff !== 0) return orderDiff;
+                return (a.title || '').localeCompare(b.title || '', 'tr');
+            });
+
+            renderDiscoverArticles(loadedDiscoverArticles);
+
+            const activeCount = loadedDiscoverArticles.filter(a => a.is_active).length;
+            const passiveCount = loadedDiscoverArticles.length - activeCount;
+
+            const activeEl = document.getElementById('stats-active-discover-val');
+            const passiveEl = document.getElementById('stats-passive-discover-val');
+            if (activeEl) activeEl.textContent = activeCount;
+            if (passiveEl) passiveEl.textContent = passiveCount;
+
+            populateParentDropdown(moduleSlug);
+
+        } catch (err) {
+            console.error("Keşfet içerikleri yüklenemedi:", err);
+            showDiscoverError(err);
+        }
+    }
+
+    function populateParentDropdown(moduleSlug, excludeId = null) {
+        const parentEl = document.getElementById('discover-form-parent');
+        if (!parentEl) return;
+
+        const potentialParents = loadedDiscoverArticles.filter(a => {
+            if (excludeId && a.id === excludeId) return false;
+            return !a.parent_slug;
+        });
+
+        parentEl.innerHTML = '<option value="">Yok (Ana Başlık)</option>' + 
+            potentialParents.map(p => `<option value="${escapeHtml(p.slug)}">${escapeHtml(p.title)} (${escapeHtml(p.slug)})</option>`).join('');
+    }
+
+    function renderDiscoverArticles(articles) {
+        const tbody = document.getElementById('discover-articles-list-body');
+        const countEl = document.getElementById('discover-articles-count');
+        const listWrapper = document.querySelector('.discover-table-wrapper');
+
+        if (!tbody) return;
+
+        tbody.innerHTML = '';
+        if (countEl) countEl.textContent = articles.length;
+
+        if (articles.length === 0) {
+            showDiscoverEmpty();
+            if (listWrapper) listWrapper.style.display = 'none';
+            return;
+        }
+
+        hideDiscoverStates();
+        if (listWrapper) listWrapper.style.display = 'block';
+
+        articles.forEach(item => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid var(--md-outline-variant, #e0e0e0)';
+            
+            const orderTd = `<td style="padding: 12px 16px; text-align: center; font-weight: 600;">${item.order_no || 0}</td>`;
+            
+            const titleTd = `<td style="padding: 12px 16px;">
+                <div style="font-weight: 700; color: var(--md-primary);">${escapeHtml(item.title || '')}</div>
+                <div style="font-size: 11px; color: #777; margin-top: 2px;">Slug: <code>${escapeHtml(item.slug || '')}</code></div>
+            </td>`;
+            
+            const categoryTd = `<td style="padding: 12px 16px;">
+                <span class="category-badge" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(item.category || '-')}</span>
+            </td>`;
+            
+            const parentTd = `<td style="padding: 12px 16px;">
+                ${item.parent_slug ? `<span style="font-size: 13px; font-weight: 500; color: var(--md-secondary);"><i class="fa-solid fa-folder-tree"></i> ${escapeHtml(item.parent_slug)}</span>` : '<span style="color: #bbb;">-</span>'}
+            </td>`;
+            
+            const statusClass = item.is_active ? 'status-badge status-approved' : 'status-badge status-rejected';
+            const statusText = item.is_active ? 'Yayında' : 'Taslak';
+            const statusTd = `<td style="padding: 12px 16px; text-align: center;">
+                <span class="${statusClass}" style="font-size: 11px; padding: 2px 8px;">${statusText}</span>
+            </td>`;
+
+            const featuredText = item.is_featured ? '<span class="status-badge status-approved" style="background-color: #fef3c7; color: #92400e; border: 1px solid #fcd34d; font-size: 11px; padding: 2px 8px;"><i class="fa-solid fa-star"></i> Evet</span>' : '<span style="color: #bbb;">Hayır</span>';
+            const featuredTd = `<td style="padding: 12px 16px; text-align: center;">
+                ${featuredText}
+            </td>`;
+
+            const coverText = item.cover_image_url ? '<span style="color: var(--md-primary); font-weight: 600;"><i class="fa-solid fa-circle-check"></i> Var</span>' : '<span style="color: #bbb;">Yok</span>';
+            const coverTd = `<td style="padding: 12px 16px; text-align: center;">
+                ${coverText}
+            </td>`;
+
+            const pdfText = item.pdf_url ? '<span style="color: #ef4444; font-weight: 600;"><i class="fa-solid fa-file-pdf"></i> Var</span>' : '<span style="color: #bbb;">Yok</span>';
+            const pdfTd = `<td style="padding: 12px 16px; text-align: center;">
+                ${pdfText}
+            </td>`;
+
+            const actionsTd = `<td style="padding: 12px 16px; text-align: center; white-space: nowrap;">
+                <div style="display: flex; gap: 8px; justify-content: center;">
+                    <button class="btn btn-secondary btn-sm btn-discover-edit-item" data-id="${item.id}" title="Düzenle" style="min-height: 32px; padding: 4px 8px;">
+                        <i class="fa-solid fa-pen-to-square"></i> Düzenle
+                    </button>
+                    <button class="btn btn-secondary btn-sm btn-discover-toggle-item" data-id="${item.id}" data-active="${item.is_active}" title="${item.is_active ? 'Taslağa Al' : 'Yayınla'}" style="min-height: 32px; padding: 4px 8px;">
+                        <i class="fa-solid ${item.is_active ? 'fa-eye-slash' : 'fa-eye'}"></i> ${item.is_active ? 'Pasif' : 'Aktif'}
+                    </button>
+                    <button class="btn btn-secondary btn-sm btn-discover-delete-item" data-id="${item.id}" title="Kalıcı Olarak Sil" style="min-height: 32px; padding: 4px 8px; background-color: var(--md-error-container); color: var(--md-error); border-color: rgba(186, 26, 26, 0.2);">
+                        <i class="fa-solid fa-trash-can"></i> Sil
+                    </button>
+                </div>
+            </td>`;
+
+            tr.innerHTML = orderTd + titleTd + categoryTd + parentTd + statusTd + featuredTd + coverTd + pdfTd + actionsTd;
+            tbody.appendChild(tr);
+        });
+
+        tbody.querySelectorAll('.btn-discover-edit-item').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                openDiscoverModal(id);
+            });
+        });
+
+        tbody.querySelectorAll('.btn-discover-toggle-item').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const currentActive = btn.getAttribute('data-active') === 'true';
+                await toggleDiscoverArticleStatus(id, !currentActive);
+            });
+        });
+
+        tbody.querySelectorAll('.btn-discover-delete-item').forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                if (confirm('Bu içeriği kalıcı olarak silmek istediğinize emin misiniz?')) {
+                    await deleteDiscoverArticle(id);
+                }
+            });
+        });
+    }
+
+    function showDiscoverLoader() {
+        document.getElementById('discover-loader')?.classList.remove('hidden');
+        document.getElementById('discover-error-container')?.classList.add('hidden');
+        document.getElementById('discover-empty-container')?.classList.add('hidden');
+        const tableWrapper = document.querySelector('.discover-table-wrapper');
+        if (tableWrapper) tableWrapper.style.display = 'none';
+    }
+
+    function hideDiscoverStates() {
+        document.getElementById('discover-loader')?.classList.add('hidden');
+        document.getElementById('discover-error-container')?.classList.add('hidden');
+        document.getElementById('discover-empty-container')?.classList.add('hidden');
+    }
+
+    function showDiscoverEmpty() {
+        document.getElementById('discover-loader')?.classList.add('hidden');
+        document.getElementById('discover-error-container')?.classList.add('hidden');
+        document.getElementById('discover-empty-container')?.classList.remove('hidden');
+    }
+
+    function showDiscoverError(err) {
+        document.getElementById('discover-loader')?.classList.add('hidden');
+        document.getElementById('discover-empty-container')?.classList.add('hidden');
+        
+        const errContainer = document.getElementById('discover-error-container');
+        if (errContainer) errContainer.classList.remove('hidden');
+
+        const sqlBox = document.getElementById('discover-sql-suggestion');
+        if (sqlBox) {
+            sqlBox.innerHTML = `
+-- Lütfen bu SQL komutunu Supabase SQL Editor üzerinde çalıştırın:
+-- (Hata detayları: ${escapeHtml(err.message || err.details || '')})
+
+ALTER TABLE discover_articles ADD COLUMN IF NOT EXISTS summary TEXT;
+ALTER TABLE discover_articles ADD COLUMN IF NOT EXISTS cover_image_url VARCHAR(512);
+ALTER TABLE discover_articles ADD COLUMN IF NOT EXISTS pdf_url VARCHAR(512);
+ALTER TABLE discover_articles ADD COLUMN IF NOT EXISTS infographic_urls jsonb DEFAULT '[]'::jsonb;
+ALTER TABLE discover_articles ADD COLUMN IF NOT EXISTS is_featured BOOLEAN DEFAULT FALSE;
+`;
+            sqlBox.classList.remove('hidden');
+        }
+    }
+
+    function openDiscoverModal(id = null) {
+        const modal = document.getElementById('discover-modal');
+        if (!modal) return;
+
+        const currentFilterModule = document.getElementById('discover-module-filter').value || 'davet-ameli';
+
+        if (!id) {
+            // Create New Mode
+            document.getElementById('discover-modal-title').textContent = "Yeni Keşfet İçeriği Ekle";
+            document.getElementById('discover-article-id').value = '';
+            document.getElementById('discover-form-module').value = currentFilterModule;
+            document.getElementById('discover-form-title').value = '';
+            document.getElementById('discover-form-slug').value = '';
+            document.getElementById('discover-form-category').value = '';
+            document.getElementById('discover-form-order').value = (loadedDiscoverArticles.length + 1) * 10;
+            document.getElementById('discover-form-summary').value = '';
+            document.getElementById('discover-form-content').value = '';
+            document.getElementById('discover-form-cover').value = '';
+            document.getElementById('discover-form-pdf').value = '';
+            document.getElementById('discover-form-infographics').value = '';
+            document.getElementById('discover-form-active').checked = true;
+            document.getElementById('discover-form-featured').checked = false;
+
+            populateParentDropdown(currentFilterModule);
+            document.getElementById('discover-form-parent').value = '';
+        } else {
+            // Edit Mode
+            const item = loadedDiscoverArticles.find(a => a.id === id);
+            if (!item) return;
+
+            document.getElementById('discover-modal-title').textContent = "Keşfet İçeriğini Düzenle";
+            document.getElementById('discover-article-id').value = item.id;
+            document.getElementById('discover-form-module').value = item.module_slug;
+            document.getElementById('discover-form-title').value = item.title || '';
+            document.getElementById('discover-form-slug').value = item.slug || '';
+            document.getElementById('discover-form-category').value = item.category || '';
+            document.getElementById('discover-form-order').value = item.order_no || 0;
+            document.getElementById('discover-form-summary').value = item.summary || '';
+            document.getElementById('discover-form-content').value = item.content || '';
+            document.getElementById('discover-form-cover').value = item.cover_image_url || '';
+            document.getElementById('discover-form-pdf').value = item.pdf_url || '';
+            document.getElementById('discover-form-infographics').value = (item.infographic_urls || []).join('\n');
+            document.getElementById('discover-form-active').checked = item.is_active;
+            document.getElementById('discover-form-featured').checked = item.is_featured || false;
+
+            populateParentDropdown(item.module_slug, item.id);
+            document.getElementById('discover-form-parent').value = item.parent_slug || '';
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    async function toggleDiscoverArticleStatus(id, newStatus) {
+        if (!supabaseClient) return;
+        try {
+            const { error } = await supabaseClient
+                .from('discover_articles')
+                .update({ is_active: newStatus })
+                .eq('id', id);
+
+            if (error) throw error;
+
+            if (typeof showToast === 'function') {
+                showToast("Yayın durumu başarıyla güncellendi.", "success");
+            }
+            
+            const currentModule = document.getElementById('discover-module-filter').value;
+            loadDiscoverArticles(currentModule);
+        } catch (err) {
+            console.error("Durum güncellenemedi:", err);
+            if (typeof showToast === 'function') {
+                showToast("Hata: " + (err.message || "İşlem başarısız."), "error");
+            }
+        }
+    }
+
+    async function deleteDiscoverArticle(id) {
+        if (!supabaseClient) return;
+        try {
+            const { error } = await supabaseClient
+                .from('discover_articles')
+                .delete()
+                .eq('id', id);
+
+            if (error) throw error;
+
+            if (typeof showToast === 'function') {
+                showToast("İçerik başarıyla silindi.", "success");
+            }
+
+            const currentModule = document.getElementById('discover-module-filter').value;
+            loadDiscoverArticles(currentModule);
+        } catch (err) {
+            console.error("İçerik silinemedi:", err);
+            if (typeof showToast === 'function') {
+                showToast("Hata: " + (err.message || "Silme işlemi başarısız."), "error");
+            }
+        }
+    }
+
+    async function saveDiscoverArticle() {
+        if (!supabaseClient) return;
+
+        const id = document.getElementById('discover-article-id').value;
+        const moduleSlug = document.getElementById('discover-form-module').value;
+        const title = document.getElementById('discover-form-title').value.trim();
+        const slug = document.getElementById('discover-form-slug').value.trim();
+        const category = document.getElementById('discover-form-category').value.trim();
+        const parentSlug = document.getElementById('discover-form-parent').value;
+        const orderNo = parseInt(document.getElementById('discover-form-order').value) || 0;
+        const summary = document.getElementById('discover-form-summary').value.trim();
+        const content = document.getElementById('discover-form-content').value;
+        const coverImageUrl = document.getElementById('discover-form-cover').value.trim();
+        const pdfUrl = document.getElementById('discover-form-pdf').value.trim();
+        
+        const infographicUrlsText = document.getElementById('discover-form-infographics').value;
+        const infographicUrls = infographicUrlsText
+            .split('\n')
+            .map(url => url.trim())
+            .filter(url => url.length > 0);
+
+        const isActive = document.getElementById('discover-form-active').checked;
+        const isFeatured = document.getElementById('discover-form-featured').checked;
+
+        if (!title || !slug) {
+            alert('Lütfen Başlık ve Slug alanlarını doldurunuz.');
+            return;
+        }
+
+        const payload = {
+            module_slug: moduleSlug,
+            title: title,
+            slug: slug,
+            category: category || null,
+            parent_slug: parentSlug || null,
+            order_no: orderNo,
+            content: content || null,
+            is_active: isActive,
+            summary: summary || null,
+            cover_image_url: coverImageUrl || null,
+            pdf_url: pdfUrl || null,
+            infographic_urls: infographicUrls,
+            is_featured: isFeatured
+        };
+
+        try {
+            let result;
+            if (id) {
+                result = await supabaseClient
+                    .from('discover_articles')
+                    .update(payload)
+                    .eq('id', id);
+            } else {
+                result = await supabaseClient
+                    .from('discover_articles')
+                    .insert([payload]);
+            }
+
+            if (result.error) throw result.error;
+
+            if (typeof showToast === 'function') {
+                showToast("Keşfet içeriği başarıyla kaydedildi.", "success");
+            }
+
+            document.getElementById('discover-modal').classList.add('hidden');
+
+            const filterEl = document.getElementById('discover-module-filter');
+            if (filterEl) {
+                filterEl.value = moduleSlug;
+            }
+            loadDiscoverArticles(moduleSlug);
+
+        } catch (err) {
+            console.error("Kaydetme hatası:", err);
+            alert("İçerik kaydedilirken bir hata oluştu:\n" + (err.message || err.details || ""));
+        }
+    }
+
+    function initDiscoverListeners() {
+        const tabSuggestions = document.getElementById('main-tab-suggestions');
+        const tabPrograms = document.getElementById('main-tab-programs');
+        const tabOrganizations = document.getElementById('main-tab-organizations');
+        const tabMosques = document.getElementById('main-tab-mosques');
+        const tabDiscover = document.getElementById('main-tab-discover');
+
+        const suggestionsContent = document.getElementById('suggestions-tab-content');
+        const programsContent = document.getElementById('programs-tab-content');
+        const organizationsContent = document.getElementById('organizations-tab-content');
+        const mosquesContent = document.getElementById('mosques-tab-content');
+        const discoverContent = document.getElementById('discover-tab-content');
+
+        if (tabDiscover && discoverContent) {
+            tabDiscover.addEventListener('click', async () => {
+                tabDiscover.classList.add('active');
+                if (tabSuggestions) tabSuggestions.classList.remove('active');
+                if (tabPrograms) tabPrograms.classList.remove('active');
+                if (tabOrganizations) tabOrganizations.classList.remove('active');
+                if (tabMosques) tabMosques.classList.remove('active');
+
+                discoverContent.classList.remove('hidden');
+                if (suggestionsContent) suggestionsContent.classList.add('hidden');
+                if (programsContent) programsContent.classList.add('hidden');
+                if (organizationsContent) organizationsContent.classList.add('hidden');
+                if (mosquesContent) mosquesContent.classList.add('hidden');
+
+                await loadDiscoverModules();
+            });
+        }
+
+        document.getElementById('discover-module-filter')?.addEventListener('change', (e) => {
+            loadDiscoverArticles(e.target.value);
+        });
+
+        document.getElementById('discover-refresh-btn')?.addEventListener('click', () => {
+            const moduleSlug = document.getElementById('discover-module-filter').value;
+            loadDiscoverArticles(moduleSlug);
+        });
+
+        document.getElementById('discover-retry-btn')?.addEventListener('click', () => {
+            const moduleSlug = document.getElementById('discover-module-filter').value;
+            loadDiscoverArticles(moduleSlug);
+        });
+
+        document.getElementById('add-discover-article-btn')?.addEventListener('click', () => {
+            openDiscoverModal();
+        });
+
+        document.getElementById('discover-btn-cancel')?.addEventListener('click', () => {
+            document.getElementById('discover-modal').classList.add('hidden');
+        });
+        document.getElementById('discover-modal-close-top')?.addEventListener('click', () => {
+            document.getElementById('discover-modal').classList.add('hidden');
+        });
+
+        document.getElementById('discover-btn-save')?.addEventListener('click', () => {
+            saveDiscoverArticle();
+        });
+
+        document.getElementById('discover-form-module')?.addEventListener('change', (e) => {
+            populateParentDropdown(e.target.value);
+        });
+
+        document.getElementById('discover-form-title')?.addEventListener('input', (e) => {
+            const id = document.getElementById('discover-article-id').value;
+            if (!id) {
+                const slugEl = document.getElementById('discover-form-slug');
+                if (slugEl) {
+                    slugEl.value = convertToSlug(e.target.value);
+                }
+            }
+        });
     }
 });
