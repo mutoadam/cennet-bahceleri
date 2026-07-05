@@ -6750,6 +6750,12 @@ out center tags;`;
         }
     }
 
+    // Helper to clean leading emojis and whitespace from module title
+    function cleanModuleTitle(title) {
+        if (!title) return "";
+        return title.replace(/^(📚|🚴|❤️|📖|🕌)\s*/, '').trim();
+    }
+
     // Ağacı Ekrana Çiz (Arama Filtrelemesi Dahil)
     function renderCmsTree() {
         const container = document.getElementById('cms-tree-container');
@@ -6760,19 +6766,43 @@ out center tags;`;
 
         if (loadedDiscoverArticles.length === 0) {
             emptyEl?.classList.remove('hidden');
+            const statsEl = document.getElementById('cms-tree-stats');
+            if (statsEl) {
+                statsEl.innerHTML = `
+                    <div style="font-weight: 600;">Toplam:</div>
+                    <div style="display: flex; gap: 12px;">
+                        <span><strong>0</strong> içerik</span>
+                        <span><strong>0</strong> ana başlık</span>
+                    </div>
+                `;
+            }
             return;
         } else {
             emptyEl?.classList.add('hidden');
         }
 
-        // Apply Search Filter if any
-        let filteredArticles = [...loadedDiscoverArticles];
-        const term = currentSearchTerm.trim().toLowerCase();
+        const activeModule = loadedDiscoverModules.find(m => m.slug === currentSelectedModuleSlug);
+        const rawModuleTitle = activeModule ? activeModule.title : "Keşfet";
+        const cleanedModuleTitle = cleanModuleTitle(rawModuleTitle);
+
+        // Turkish-aware lowercasing helper
+        const turkishToLower = (text) => {
+            if (!text) return "";
+            return text.toString()
+                .replace(/İ/g, "i")
+                .replace(/I/g, "ı")
+                .toLowerCase();
+        };
+
+        const term = currentSearchTerm.trim();
+        const termLower = turkishToLower(term);
 
         // Auto-expand nodes that match children when search is active
-        if (term) {
+        if (termLower) {
             loadedDiscoverArticles.forEach(item => {
-                const matches = (item.title || '').toLowerCase().includes(term) || (item.slug || '').toLowerCase().includes(term);
+                const titleLower = turkishToLower(item.title);
+                const slugLower = turkishToLower(item.slug);
+                const matches = titleLower.includes(termLower) || slugLower.includes(termLower);
                 if (matches && item.parent_slug) {
                     expandedNodes.add(item.parent_slug);
                 }
@@ -6780,27 +6810,101 @@ out center tags;`;
         }
 
         // Group into parents and children
-        const rootArticles = filteredArticles.filter(a => !a.parent_slug);
-        const childArticles = filteredArticles.filter(a => a.parent_slug);
+        const allRootArticles = loadedDiscoverArticles.filter(a => !a.parent_slug);
+        const allChildArticles = loadedDiscoverArticles.filter(a => a.parent_slug);
 
-        // Render each root element
-        rootArticles.forEach(root => {
-            const children = childArticles.filter(c => c.parent_slug === root.slug);
+        // Filter based on search term
+        let displayRootArticles = [];
+        let displayChildArticles = [];
+
+        if (termLower) {
+            allRootArticles.forEach(root => {
+                const rootTitleLower = turkishToLower(root.title);
+                const rootSlugLower = turkishToLower(root.slug);
+                const rootMatches = rootTitleLower.includes(termLower) || rootSlugLower.includes(termLower);
+
+                const children = allChildArticles.filter(c => c.parent_slug === root.slug);
+                const matchingChildren = children.filter(c => {
+                    const childTitleLower = turkishToLower(c.title);
+                    const childSlugLower = turkishToLower(c.slug);
+                    return childTitleLower.includes(termLower) || childSlugLower.includes(termLower);
+                });
+
+                if (rootMatches || matchingChildren.length > 0) {
+                    displayRootArticles.push(root);
+                    displayChildArticles.push(...matchingChildren);
+                }
+            });
+        } else {
+            displayRootArticles = [...allRootArticles];
+            displayChildArticles = [...allChildArticles];
+        }
+
+        // Module Root Node Container
+        const moduleNodeDiv = document.createElement('div');
+        moduleNodeDiv.className = 'cms-tree-node';
+
+        const moduleExpandedKey = 'module-' + currentSelectedModuleSlug;
+        const isModuleExpanded = !expandedNodes.has(moduleExpandedKey + '-collapsed');
+        const moduleChevronClass = isModuleExpanded ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-down collapsed';
+
+        // Render Module Root Row
+        const moduleRow = document.createElement('div');
+        moduleRow.className = 'cms-tree-row';
+        moduleRow.style.fontWeight = '700';
+        moduleRow.style.borderBottom = '1px dashed var(--md-outline)';
+        moduleRow.style.paddingBottom = '8px';
+        moduleRow.style.marginBottom = '6px';
+        moduleRow.innerHTML = `
+            <div class="cms-tree-row-content">
+                <span class="toggle-icon module-toggle-btn" style="cursor: pointer;">
+                    <i class="${moduleChevronClass}"></i>
+                </span>
+                <span class="item-icon" style="font-size: 16px;">📂</span>
+                <span class="item-title" style="font-size: 15px; color: var(--md-primary);">${escapeHtml(cleanedModuleTitle)}</span>
+            </div>
+        `;
+
+        moduleNodeDiv.appendChild(moduleRow);
+
+        // Children Container for Module (Root level articles of the module)
+        const moduleChildrenContainer = document.createElement('div');
+        moduleChildrenContainer.className = 'cms-tree-children';
+        moduleChildrenContainer.style.marginLeft = '0';
+        moduleChildrenContainer.style.borderLeft = 'none';
+        moduleChildrenContainer.style.paddingLeft = '0';
+        if (!isModuleExpanded) {
+            moduleChildrenContainer.classList.add('collapsed');
+        }
+
+        // Add event listener to module expand/collapse
+        const moduleToggle = moduleRow.querySelector('.module-toggle-btn');
+        if (moduleToggle) {
+            moduleToggle.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const icon = moduleToggle.querySelector('i');
+                if (expandedNodes.has(moduleExpandedKey + '-collapsed')) {
+                    expandedNodes.delete(moduleExpandedKey + '-collapsed');
+                    moduleChildrenContainer.classList.remove('collapsed');
+                    icon.classList.remove('collapsed');
+                } else {
+                    expandedNodes.add(moduleExpandedKey + '-collapsed');
+                    moduleChildrenContainer.classList.add('collapsed');
+                    icon.classList.add('collapsed');
+                }
+            });
+        }
+
+        // Render root articles under Module Folder
+        displayRootArticles.forEach(root => {
+            const children = displayChildArticles.filter(c => c.parent_slug === root.slug);
             const isParent = children.length > 0;
             const isExpanded = expandedNodes.has(root.slug);
 
-            // Filter out root itself if it doesn't match and has no matching children
-            if (term) {
-                const rootMatches = (root.title || '').toLowerCase().includes(term) || (root.slug || '').toLowerCase().includes(term);
-                const anyChildMatches = children.some(c => (c.title || '').toLowerCase().includes(term) || (c.slug || '').toLowerCase().includes(term));
-                if (!rootMatches && !anyChildMatches) {
-                    return; // Skip this root
-                }
-            }
+            const rootNodeDiv = document.createElement('div');
+            rootNodeDiv.className = 'cms-tree-node';
+            rootNodeDiv.style.marginLeft = '12px'; // Indent under module root
 
-            const nodeDiv = document.createElement('div');
-            nodeDiv.className = 'cms-tree-node';
-            
             // Build Row Badges
             let badgesHtml = '';
             if (root.is_featured) {
@@ -6814,38 +6918,35 @@ out center tags;`;
 
             const isActiveRow = currentEditingArticleId === root.id ? 'active' : '';
 
-            // Icon for item
-            const itemIcon = isParent ? 'fa-solid fa-folder' : 'fa-regular fa-file-lines';
-            const iconColor = isParent ? 'color: var(--md-secondary);' : 'color: var(--md-primary);';
+            // Icon for item: root level article is folder if it has children, else file
+            const itemEmoji = isParent ? '📂' : '📄';
 
             // Chevron toggle if parent
             const toggleIconClass = isParent ? (isExpanded ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-down collapsed') : 'fa-solid fa-chevron-down hidden';
 
-            nodeDiv.innerHTML = '<div class="cms-tree-row ' + isActiveRow + '" data-id="' + root.id + '" data-slug="' + escapeHtml(root.slug) + '">' +
-                '<div class="cms-tree-row-content">' +
-                '<span class="toggle-icon ' + (isParent ? '' : 'hidden') + '" data-slug="' + escapeHtml(root.slug) + '">' +
-                '<i class="' + toggleIconClass + '"></i>' +
-                '</span>' +
-                '<i class="' + itemIcon + ' item-icon" style="' + iconColor + '"></i>' +
-                '<span class="item-title">' + escapeHtml(root.title || '') + '</span>' +
-                '</div>' +
-                '<div class="cms-tree-row-badges">' +
-                badgesHtml +
-                '</div>' +
-                '</div>';
+            rootNodeDiv.innerHTML = `
+                <div class="cms-tree-row ${isActiveRow}" data-id="${root.id}" data-slug="${escapeHtml(root.slug)}">
+                    <div class="cms-tree-row-content">
+                        <span class="toggle-icon ${isParent ? '' : 'hidden'}" data-slug="${escapeHtml(root.slug)}">
+                            <i class="${toggleIconClass}"></i>
+                        </span>
+                        <span class="item-icon">${itemEmoji}</span>
+                        <span class="item-title">${escapeHtml(root.title || '')}</span>
+                    </div>
+                    <div class="cms-tree-row-badges">
+                        ${badgesHtml}
+                    </div>
+                </div>
+            `;
 
-            // If children exist, create sub-list
+            // If children exist, create sub-list container
             if (isParent) {
                 const childrenContainer = document.createElement('div');
                 childrenContainer.className = 'cms-tree-children ' + (isExpanded ? '' : 'collapsed');
                 childrenContainer.id = 'children-of-' + root.slug;
+                childrenContainer.style.marginLeft = '20px'; // Indent under parent folder
 
                 children.forEach(child => {
-                    if (term) {
-                        const childMatches = (child.title || '').toLowerCase().includes(term) || (child.slug || '').toLowerCase().includes(term);
-                        if (!childMatches) return; // Skip non-matching child
-                    }
-
                     const childRow = document.createElement('div');
                     const isChildActive = currentEditingArticleId === child.id ? 'active' : '';
                     
@@ -6863,13 +6964,15 @@ out center tags;`;
                     childRow.setAttribute('data-id', child.id);
                     childRow.setAttribute('data-slug', child.slug);
                     childRow.style.paddingLeft = '12px';
-                    childRow.innerHTML = '<div class="cms-tree-row-content">' +
-                        '<i class="fa-regular fa-file-lines item-icon" style="color: var(--md-primary); opacity: 0.85;"></i>' +
-                        '<span class="item-title" style="font-size: 13.5px;">' + escapeHtml(child.title || '') + '</span>' +
-                        '</div>' +
-                        '<div class="cms-tree-row-badges">' +
-                        childBadges +
-                        '</div>';
+                    childRow.innerHTML = `
+                        <div class="cms-tree-row-content">
+                            <span class="item-icon">📄</span>
+                            <span class="item-title" style="font-size: 13.5px;">${escapeHtml(child.title || '')}</span>
+                        </div>
+                        <div class="cms-tree-row-badges">
+                            ${childBadges}
+                        </div>
+                    `;
 
                     // Click event on child
                     childRow.addEventListener('click', (e) => {
@@ -6880,10 +6983,10 @@ out center tags;`;
                     childrenContainer.appendChild(childRow);
                 });
 
-                nodeDiv.appendChild(childrenContainer);
+                rootNodeDiv.appendChild(childrenContainer);
 
-                // Expand/collapse logic on chevron
-                const toggleBtn = nodeDiv.querySelector('.toggle-icon');
+                // Expand/collapse logic on parent chevron
+                const toggleBtn = rootNodeDiv.querySelector('.toggle-icon');
                 if (toggleBtn) {
                     toggleBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -6903,16 +7006,34 @@ out center tags;`;
             }
 
             // Click event on parent row
-            const parentRow = nodeDiv.querySelector('.cms-tree-row');
-            if (parentRow) {
-                parentRow.addEventListener('click', (e) => {
+            const parentRowEl = rootNodeDiv.querySelector('.cms-tree-row');
+            if (parentRowEl) {
+                parentRowEl.addEventListener('click', (e) => {
                     if (e.target.closest('.toggle-icon')) return;
                     selectTreeItem(root.id);
                 });
             }
 
-            container.appendChild(nodeDiv);
+            moduleChildrenContainer.appendChild(rootNodeDiv);
         });
+
+        moduleNodeDiv.appendChild(moduleChildrenContainer);
+        container.appendChild(moduleNodeDiv);
+
+        // Update statistics counter under the tree
+        const totalCount = loadedDiscoverArticles.length;
+        const mainHeaderCount = loadedDiscoverArticles.filter(a => !a.parent_slug).length;
+
+        const statsEl = document.getElementById('cms-tree-stats');
+        if (statsEl) {
+            statsEl.innerHTML = `
+                <div style="font-weight: 600;">Toplam:</div>
+                <div style="display: flex; gap: 12px;">
+                    <span><strong>${totalCount}</strong> içerik</span>
+                    <span><strong>${mainHeaderCount}</strong> ana başlık</span>
+                </div>
+            `;
+        }
     }
 
     // Ağaçtan eleman tıklandığında seçme ve editörü açma
