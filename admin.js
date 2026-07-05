@@ -7147,6 +7147,9 @@ out center tags;`;
             document.getElementById('cms-field-parent').disabled = false;
             document.getElementById('cms-field-parent').value = item.parent_slug || '';
         }
+
+        // Render infographics visual grid on load
+        renderCmsInfographicsPreview();
     }
 
     // Parent seçim listesini doldur
@@ -7299,6 +7302,370 @@ out center tags;`;
         }
     }
 
+    // === İnfografik Upload + URL Yönetimi Fonksiyonları ===
+
+    function renderCmsInfographicsPreview() {
+        const textarea = document.getElementById('cms-field-infographics');
+        const grid = document.getElementById('cms-infographics-preview-grid');
+        if (!textarea || !grid) return;
+
+        const urls = textarea.value.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+        grid.innerHTML = '';
+
+        if (urls.length === 0) {
+            grid.innerHTML = `
+                <div style="grid-column: span 12; text-align: center; color: var(--md-on-surface-variant); padding: 16px; font-size: 13px;">
+                    <i class="fa-solid fa-images" style="font-size: 24px; color: var(--md-outline); margin-bottom: 8px; display: block;"></i>
+                    Henüz infografik görseli eklenmedi.
+                </div>
+            `;
+            return;
+        }
+
+        urls.forEach((url, index) => {
+            const card = document.createElement('div');
+            card.className = 'infographic-preview-card';
+            card.style.cssText = `
+                position: relative;
+                border: 1px solid var(--md-outline);
+                border-radius: var(--radius-sm);
+                background: var(--md-surface-card);
+                overflow: hidden;
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                box-shadow: var(--shadow-xs, 0 1px 2px rgba(0,0,0,0.05));
+            `;
+
+            // Image Container
+            const imgContainer = document.createElement('div');
+            imgContainer.style.cssText = `
+                width: 100%;
+                height: 90px;
+                background: #f1f1f1;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                overflow: hidden;
+                position: relative;
+            `;
+
+            const img = document.createElement('img');
+            img.src = url;
+            img.style.cssText = `
+                width: 100%;
+                height: 100%;
+                object-fit: cover;
+            `;
+            img.onerror = () => {
+                img.style.display = 'none';
+                const icon = document.createElement('i');
+                icon.className = 'fa-solid fa-triangle-exclamation';
+                icon.style.cssText = 'color: var(--md-error); font-size: 20px;';
+                imgContainer.appendChild(icon);
+            };
+            imgContainer.appendChild(img);
+
+            // Actions Container
+            const actions = document.createElement('div');
+            actions.style.cssText = `
+                display: flex;
+                width: 100%;
+                border-top: 1px solid var(--md-outline);
+                background: var(--md-surface-card);
+            `;
+
+            // Move Left/Up Button
+            const btnLeft = document.createElement('button');
+            btnLeft.type = 'button';
+            btnLeft.className = 'btn-preview-action';
+            btnLeft.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+            btnLeft.style.cssText = `
+                flex: 1;
+                border: none;
+                background: transparent;
+                padding: 6px 0;
+                font-size: 11px;
+                cursor: pointer;
+                color: var(--md-on-surface);
+                transition: background 0.2s;
+                border-right: 1px solid var(--md-outline);
+            `;
+            if (index === 0) {
+                btnLeft.disabled = true;
+                btnLeft.style.opacity = '0.3';
+                btnLeft.style.cursor = 'not-allowed';
+            } else {
+                btnLeft.addEventListener('click', () => {
+                    moveInfographic(index, -1);
+                });
+            }
+
+            // Delete Button
+            const btnDelete = document.createElement('button');
+            btnDelete.type = 'button';
+            btnDelete.className = 'btn-preview-action-delete';
+            btnDelete.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+            btnDelete.style.cssText = `
+                flex: 1;
+                border: none;
+                background: transparent;
+                padding: 6px 0;
+                font-size: 11px;
+                cursor: pointer;
+                color: var(--md-error);
+                transition: background 0.2s;
+                border-right: 1px solid var(--md-outline);
+            `;
+            btnDelete.addEventListener('click', () => {
+                deleteInfographic(index);
+            });
+
+            // Move Right/Down Button
+            const btnRight = document.createElement('button');
+            btnRight.type = 'button';
+            btnRight.className = 'btn-preview-action';
+            btnRight.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+            btnRight.style.cssText = `
+                flex: 1;
+                border: none;
+                background: transparent;
+                padding: 6px 0;
+                font-size: 11px;
+                cursor: pointer;
+                color: var(--md-on-surface);
+                transition: background 0.2s;
+            `;
+            if (index === urls.length - 1) {
+                btnRight.disabled = true;
+                btnRight.style.opacity = '0.3';
+                btnRight.style.cursor = 'not-allowed';
+            } else {
+                btnRight.addEventListener('click', () => {
+                    moveInfographic(index, 1);
+                });
+            }
+
+            // Hover styles
+            [btnLeft, btnDelete, btnRight].forEach(btn => {
+                if (!btn.disabled) {
+                    btn.addEventListener('mouseenter', () => {
+                        btn.style.background = 'rgba(0,0,0,0.05)';
+                    });
+                    btn.addEventListener('mouseleave', () => {
+                        btn.style.background = 'transparent';
+                    });
+                }
+            });
+
+            actions.appendChild(btnLeft);
+            actions.appendChild(btnDelete);
+            actions.appendChild(btnRight);
+
+            card.appendChild(imgContainer);
+            card.appendChild(actions);
+
+            // Index badge
+            const badge = document.createElement('span');
+            badge.textContent = index + 1;
+            badge.style.cssText = `
+                position: absolute;
+                top: 4px;
+                left: 4px;
+                background: rgba(0,0,0,0.6);
+                color: white;
+                font-size: 10px;
+                font-weight: bold;
+                padding: 2px 6px;
+                border-radius: 4px;
+                pointer-events: none;
+            `;
+            card.appendChild(badge);
+
+            grid.appendChild(card);
+        });
+    }
+
+    function moveInfographic(index, direction) {
+        const textarea = document.getElementById('cms-field-infographics');
+        if (!textarea) return;
+
+        const urls = textarea.value.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= urls.length) return;
+
+        // Swap elements
+        const temp = urls[index];
+        urls[index] = urls[targetIndex];
+        urls[targetIndex] = temp;
+
+        textarea.value = urls.join('\n');
+        renderCmsInfographicsPreview();
+    }
+
+    function deleteInfographic(index) {
+        const textarea = document.getElementById('cms-field-infographics');
+        if (!textarea) return;
+
+        const urls = textarea.value.split('\n').map(u => u.trim()).filter(u => u.length > 0);
+        urls.splice(index, 1);
+
+        textarea.value = urls.join('\n');
+        renderCmsInfographicsPreview();
+    }
+
+    function addManualInfographicUrl() {
+        const input = document.getElementById('cms-infographic-url-input');
+        const textarea = document.getElementById('cms-field-infographics');
+        if (!input || !textarea) return;
+
+        const newUrl = input.value.trim();
+        if (!newUrl) return;
+
+        if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+            alert('Lütfen geçerli bir internet adresi (https://...) giriniz.');
+            return;
+        }
+
+        const currentText = textarea.value.trim();
+        textarea.value = currentText ? `${currentText}\n${newUrl}` : newUrl;
+        input.value = '';
+        renderCmsInfographicsPreview();
+    }
+
+    async function uploadCmsInfographic(file) {
+        if (!supabaseClient) return;
+
+        const progressEl = document.getElementById('cms-infographic-upload-progress');
+        const statusEl = document.getElementById('cms-infographic-upload-status');
+        const textarea = document.getElementById('cms-field-infographics');
+
+        if (progressEl) {
+            progressEl.classList.remove('hidden');
+        }
+        if (statusEl) {
+            statusEl.textContent = `"${file.name}" yükleniyor...`;
+        }
+
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_infographic_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+            const filePath = `infographics/${fileName}`;
+
+            console.log("Uploading infographic photo to storage:", filePath);
+
+            let uploadResult = null;
+            let finalBucket = 'infographics';
+
+            try {
+                uploadResult = await supabaseClient.storage
+                    .from('infographics')
+                    .upload(filePath, file);
+                
+                if (uploadResult && uploadResult.error) {
+                    console.log("Failed in infographics bucket, trying 'discover-content' bucket.", uploadResult.error);
+                    finalBucket = 'discover-content';
+                    uploadResult = await supabaseClient.storage
+                        .from('discover-content')
+                        .upload(filePath, file);
+                }
+
+                if (uploadResult && uploadResult.error) {
+                    console.log("Failed in discover-content, trying 'program-photos' bucket.", uploadResult.error);
+                    finalBucket = 'program-photos';
+                    uploadResult = await supabaseClient.storage
+                        .from('program-photos')
+                        .upload(filePath, file);
+                }
+
+                if (uploadResult && uploadResult.error) {
+                    console.log("Failed in program-photos bucket, trying 'suggestions' bucket.", uploadResult.error);
+                    finalBucket = 'suggestions';
+                    uploadResult = await supabaseClient.storage
+                        .from('suggestions')
+                        .upload(filePath, file);
+                }
+            } catch (uploadErr) {
+                console.warn("Storage upload error during direct attempt:", uploadErr);
+                try {
+                    finalBucket = 'discover-content';
+                    uploadResult = await supabaseClient.storage
+                        .from('discover-content')
+                        .upload(filePath, file);
+                    
+                    if (uploadResult && uploadResult.error) {
+                        finalBucket = 'program-photos';
+                        uploadResult = await supabaseClient.storage
+                            .from('program-photos')
+                            .upload(filePath, file);
+                    }
+                } catch (fallbackErr) {
+                    console.warn("Fallback upload error:", fallbackErr);
+                }
+            }
+
+            if (uploadResult && !uploadResult.error) {
+                try {
+                    const { data: publicUrlData } = supabaseClient.storage
+                        .from(finalBucket)
+                        .getPublicUrl(filePath);
+                    
+                    const photoUrl = publicUrlData.publicUrl;
+                    console.log("Resolved public infographic URL:", photoUrl);
+
+                    if (textarea) {
+                        const currentText = textarea.value.trim();
+                        textarea.value = currentText ? `${currentText}\n${photoUrl}` : photoUrl;
+                        textarea.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+
+                    if (typeof showToast === 'function') {
+                        showToast(`"${file.name}" başarıyla yüklendi.`, "success");
+                    }
+                    renderCmsInfographicsPreview();
+                } catch (urlErr) {
+                    console.warn("Could not get public URL:", urlErr);
+                    if (typeof showToast === 'function') {
+                        showToast("Fotoğraf yüklendi fakat genel URL alınamadı.", "error");
+                    }
+                }
+            } else {
+                console.error("Photo upload failed:", uploadResult ? uploadResult.error : "No upload result");
+                if (typeof showToast === 'function') {
+                    showToast(`"${file.name}" yüklenirken hata oluştu.`, "error");
+                }
+            }
+        } catch (err) {
+            console.error("Photo upload try/catch error:", err);
+            if (typeof showToast === 'function') {
+                showToast("Yükleme sırasında teknik bir sorun oluştu.", "error");
+            }
+        } finally {
+            if (progressEl) {
+                progressEl.classList.add('hidden');
+            }
+        }
+    }
+
+    async function handleCmsInfographicFilesUpload(files) {
+        if (!files || files.length === 0) return;
+        
+        const progressEl = document.getElementById('cms-infographic-upload-progress');
+        const statusEl = document.getElementById('cms-infographic-upload-status');
+        
+        if (progressEl) progressEl.classList.remove('hidden');
+        
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (statusEl) {
+                statusEl.textContent = `Görsel ${i + 1} / ${files.length} yükleniyor: "${file.name}"...`;
+            }
+            await uploadCmsInfographic(file);
+        }
+        
+        if (progressEl) progressEl.classList.add('hidden');
+    }
+
     // Event Listenerları Tanımla
     function initDiscoverListeners() {
         const tabSuggestions = document.getElementById('main-tab-suggestions');
@@ -7375,6 +7742,52 @@ out center tags;`;
                     if (slugEl) {
                         slugEl.value = convertToSlug(e.target.value);
                     }
+                }
+            });
+        }
+
+        // Infographics Manager Listeners
+        const infographicsTextarea = document.getElementById('cms-field-infographics');
+        if (infographicsTextarea) {
+            infographicsTextarea.addEventListener('input', () => {
+                renderCmsInfographicsPreview();
+            });
+            infographicsTextarea.addEventListener('change', () => {
+                renderCmsInfographicsPreview();
+            });
+        }
+
+        const infographicFileInput = document.getElementById('cms-infographic-file-input');
+        const infographicUploadBtn = document.getElementById('cms-infographic-upload-btn');
+        const infographicAddUrlBtn = document.getElementById('cms-infographic-add-url-btn');
+        const infographicUrlInput = document.getElementById('cms-infographic-url-input');
+
+        if (infographicUploadBtn && infographicFileInput) {
+            infographicUploadBtn.addEventListener('click', () => {
+                infographicFileInput.click();
+            });
+        }
+
+        if (infographicFileInput) {
+            infographicFileInput.addEventListener('change', async (e) => {
+                const files = e.target.files;
+                if (files && files.length > 0) {
+                    await handleCmsInfographicFilesUpload(files);
+                    infographicFileInput.value = '';
+                }
+            });
+        }
+
+        if (infographicAddUrlBtn) {
+            infographicAddUrlBtn.addEventListener('click', () => {
+                addManualInfographicUrl();
+            });
+        }
+
+        if (infographicUrlInput) {
+            infographicUrlInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    addManualInfographicUrl();
                 }
             });
         }
