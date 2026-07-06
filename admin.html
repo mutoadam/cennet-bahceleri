@@ -1911,6 +1911,65 @@
         </div>
     </div>
 
+    <!-- PDF Ekleme Modalı -->
+    <div id="pdf-add-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 600px; width: 90%;">
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-file-pdf" style="font-size: 24px; color: #dc2626;"></i>
+                    <div>
+                        <h3 style="margin: 0; font-size: 20px; font-weight: 700;">Yeni PDF Kitapçık Ekle</h3>
+                        <span id="pdf-modal-folder-badge" class="category-badge" style="background-color: var(--md-primary-container); color: var(--md-primary); font-size: 12px; display: inline-block; margin-top: 4px;">Klasör: -</span>
+                    </div>
+                </div>
+                <button id="pdf-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="pdf-add-form" class="edit-form-grid" style="display: flex; flex-direction: column; gap: 16px;" onsubmit="return false;">
+                    <input type="hidden" id="pdf-modal-parent-slug">
+                    
+                    <div class="form-group">
+                        <label for="pdf-modal-title" style="font-weight: 600; font-size: 13px;"><i class="fa-solid fa-heading"></i> PDF Başlığı *</label>
+                        <input type="text" id="pdf-modal-title" class="form-control" placeholder="Örn: Soru-Cevap Broşürü" required style="width: 100%;">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pdf-modal-summary" style="font-weight: 600; font-size: 13px;"><i class="fa-solid fa-align-left"></i> Kısa Açıklama</label>
+                        <textarea id="pdf-modal-summary" class="form-control" rows="2" placeholder="PDF kitapçığın içeriği hakkında kısa bir açıklama..." style="width: 100%;"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="pdf-modal-file" style="font-weight: 600; font-size: 13px;"><i class="fa-solid fa-file-arrow-up"></i> PDF Dosyası Seç *</label>
+                        <input type="file" id="pdf-modal-file" accept="application/pdf" class="form-control" required style="width: 100%; padding: 8px;">
+                        <small id="pdf-modal-file-info" class="form-text text-muted" style="display: block; margin-top: 4px; color: var(--md-on-surface-variant);">Sadece .pdf formatında dosyalar yüklenebilir.</small>
+                    </div>
+
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+                        <div class="form-group">
+                            <label for="pdf-modal-order" style="font-weight: 600; font-size: 13px;"><i class="fa-solid fa-sort-numeric-down"></i> Sıra No *</label>
+                            <input type="number" id="pdf-modal-order" class="form-control" value="10" min="0" required style="width: 100%;">
+                        </div>
+                        <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 24px;">
+                            <input type="checkbox" id="pdf-modal-active" checked style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--md-primary);">
+                            <label for="pdf-modal-active" style="margin: 0; cursor: pointer; font-weight: 600; font-size: 14px;">Aktif (Yayında)</label>
+                        </div>
+                    </div>
+
+                    <!-- Upload Progress -->
+                    <div id="pdf-modal-upload-progress" class="hidden" style="padding: 12px; background: var(--md-primary-container); color: var(--md-primary); border-radius: var(--radius-sm); font-size: 13px; display: flex; align-items: center; gap: 8px; font-weight: 600;">
+                        <i class="fa-solid fa-spinner fa-spin"></i> <span id="pdf-modal-upload-status">PDF Yükleniyor...</span>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px;">
+                <button id="pdf-btn-cancel" class="btn btn-secondary">İptal</button>
+                <button id="pdf-btn-save" class="btn btn-primary" style="background-color: var(--md-primary); color: white;"><i class="fa-solid fa-cloud-arrow-up"></i> Yükle ve Kaydet</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Supabase JS CDN (v2) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Config File (contains keys and setup) -->
