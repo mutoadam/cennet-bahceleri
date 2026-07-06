@@ -744,12 +744,12 @@
                                     </div>
                                 </details>
 
-                                <div class="pdfs-manager" style="border: 1px solid var(--md-outline); border-radius: var(--radius-sm); padding: 16px; background-color: rgba(0,0,0,0.02);">
+                                <div class="pdfs-manager" style="pointer-events: auto; position: relative; z-index: 5; border: 1px solid var(--md-outline); border-radius: var(--radius-sm); padding: 16px; background-color: rgba(0,0,0,0.02);">
                                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; flex-wrap: wrap; gap: 10px;">
                                         <span style="font-weight: 700; font-size: 14px; color: var(--md-primary); display: flex; align-items: center; gap: 6px;"><i class="fa-solid fa-book-open"></i> 📚 PDF Galerisi / Sıralama</span>
                                         <div style="display: flex; gap: 8px; align-items: center;">
                                             <input type="file" id="cms-pdf-file-input" accept="application/pdf" style="display: none;" multiple>
-                                            <button type="button" id="cms-pdf-upload-btn" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 12px; padding: 4px 10px;">
+                                            <button type="button" id="cms-pdf-upload-btn" class="btn btn-secondary btn-sm" style="display: flex; align-items: center; gap: 6px; min-height: 32px; font-size: 12px; padding: 4px 10px; cursor: pointer; pointer-events: auto; position: relative; z-index: 6;">
                                                 <i class="fa-solid fa-cloud-arrow-up"></i> PDF Yükle (Toplu Seçim)
                                             </button>
                                         </div>
@@ -761,14 +761,14 @@
                                     </div>
 
                                     <!-- Visual PDF Preview/Management Grid -->
-                                    <div id="cms-pdfs-preview-grid" class="pdfs-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; margin-bottom: 12px;">
+                                    <div id="cms-pdfs-preview-grid" class="pdfs-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 12px; margin-bottom: 12px; pointer-events: auto; position: relative; z-index: 6;">
                                         <!-- Card items generated dynamically -->
                                     </div>
 
                                     <!-- Manuel PDF URL Ekleme -->
                                     <div style="display: flex; gap: 8px; margin-top: 12px; align-items: center;">
                                         <input type="text" id="cms-pdf-url-input" class="form-control" placeholder="Dış PDF adresi ekle (https://...)" style="flex: 1; height: 36px; font-size: 13px; margin: 0; padding: 4px 10px;">
-                                        <button type="button" id="cms-pdf-add-url-btn" class="btn btn-secondary btn-sm" style="min-height: 36px; font-size: 12px; padding: 0 16px;">Ekle</button>
+                                        <button type="button" id="cms-pdf-add-url-btn" class="btn btn-secondary btn-sm" style="min-height: 36px; font-size: 12px; padding: 0 16px; cursor: pointer; pointer-events: auto; position: relative; z-index: 6;">Ekle</button>
                                     </div>
                                 </div>
                             </div>
@@ -1954,7 +1954,7 @@
                         <span id="pdf-modal-folder-badge" class="category-badge" style="background-color: var(--md-primary-container); color: var(--md-primary); font-size: 12px; display: inline-block; margin-top: 4px;">Klasör: -</span>
                     </div>
                 </div>
-                <button id="pdf-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                <button type="button" id="pdf-modal-close-top" class="modal-close-btn" aria-label="Kapat">
                     <i class="fa-solid fa-xmark"></i>
                 </button>
             </div>
@@ -1996,8 +1996,8 @@
                 </form>
             </div>
             <div class="modal-footer" style="display: flex; justify-content: flex-end; gap: 12px; padding: 16px 24px;">
-                <button id="pdf-btn-cancel" class="btn btn-secondary">İptal</button>
-                <button id="pdf-btn-save" class="btn btn-primary" style="background-color: var(--md-primary); color: white;"><i class="fa-solid fa-cloud-arrow-up"></i> Yükle ve Kaydet</button>
+                <button type="button" id="pdf-btn-cancel" class="btn btn-secondary">İptal</button>
+                <button type="button" id="pdf-btn-save" class="btn btn-primary" style="background-color: var(--md-primary); color: white;"><i class="fa-solid fa-cloud-arrow-up"></i> Yükle ve Kaydet</button>
             </div>
         </div>
     </div>
