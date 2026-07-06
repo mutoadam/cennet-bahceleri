@@ -7345,21 +7345,6 @@ out center tags;`;
             if (saveBtn) saveBtn.disabled = false;
             if (cancelBtn) cancelBtn.disabled = false;
         }
-    }value = (item.infographic_urls || []).join('\n');
-            document.getElementById('cms-field-active').checked = item.is_active;
-            document.getElementById('cms-field-featured').checked = item.is_featured || false;
-
-            // Delete button visible in Edit Mode
-            document.getElementById('cms-action-delete').style.display = 'flex';
-
-            // Populate parent select dropdown excluding current item
-            populateCmsParentDropdown(item.module_slug, item.id);
-            document.getElementById('cms-field-parent').disabled = false;
-            document.getElementById('cms-field-parent').value = item.parent_slug || '';
-        }
-
-        // Render infographics visual grid on load
-        renderCmsInfographicsPreview();
     }
 
     // Parent seçim listesini doldur
