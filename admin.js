@@ -7642,6 +7642,9 @@ out center tags;`;
                 padding-top: 8px;
                 margin-top: 4px;
                 gap: 4px;
+                position: relative;
+                z-index: 10;
+                pointer-events: auto;
             `;
 
             // Preview / Open Button
@@ -7658,9 +7661,15 @@ out center tags;`;
                 align-items: center;
                 justify-content: center;
                 gap: 4px;
+                cursor: pointer;
+                pointer-events: auto;
             `;
-            btnPreview.addEventListener('click', () => {
-                window.open(url, '_blank');
+            btnPreview.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (url) {
+                    window.open(url, '_blank');
+                }
             });
 
             // Move Up Button
@@ -7672,13 +7681,18 @@ out center tags;`;
                 font-size: 11px;
                 min-height: 26px;
                 padding: 2px 6px;
+                cursor: pointer;
+                pointer-events: auto;
             `;
             if (index === 0) {
                 btnUp.disabled = true;
                 btnUp.style.opacity = '0.3';
                 btnUp.style.cursor = 'not-allowed';
+                btnUp.style.pointerEvents = 'none';
             } else {
-                btnUp.addEventListener('click', () => {
+                btnUp.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     movePdf(index, -1);
                 });
             }
@@ -7692,13 +7706,18 @@ out center tags;`;
                 font-size: 11px;
                 min-height: 26px;
                 padding: 2px 6px;
+                cursor: pointer;
+                pointer-events: auto;
             `;
             if (index === lines.length - 1) {
                 btnDown.disabled = true;
                 btnDown.style.opacity = '0.3';
                 btnDown.style.cursor = 'not-allowed';
+                btnDown.style.pointerEvents = 'none';
             } else {
-                btnDown.addEventListener('click', () => {
+                btnDown.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
                     movePdf(index, 1);
                 });
             }
@@ -7718,8 +7737,12 @@ out center tags;`;
                 display: flex;
                 align-items: center;
                 justify-content: center;
+                cursor: pointer;
+                pointer-events: auto;
             `;
-            btnDelete.addEventListener('click', () => {
+            btnDelete.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 deletePdf(index);
             });
 
@@ -7803,6 +7826,8 @@ out center tags;`;
         allLines[lineIndex2] = temp;
 
         textarea.value = allLines.join('\n');
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        textarea.dispatchEvent(new Event('change', { bubbles: true }));
         renderCmsPdfsPreview();
     }
 
@@ -7825,6 +7850,8 @@ out center tags;`;
         allLines.splice(lineToDelete, 1);
 
         textarea.value = allLines.join('\n');
+        textarea.dispatchEvent(new Event('input', { bubbles: true }));
+        textarea.dispatchEvent(new Event('change', { bubbles: true }));
         renderCmsPdfsPreview();
     }
 
@@ -8464,10 +8491,26 @@ out center tags;`;
         }
 
         // PDF Ekleme Listeners
-        document.getElementById('pdf-btn-save')?.addEventListener('click', savePdfArticle);
-        document.getElementById('pdf-btn-cancel')?.addEventListener('click', closePdfAddModal);
-        document.getElementById('pdf-modal-close')?.addEventListener('click', closePdfAddModal);
-        document.getElementById('pdf-modal-close-top')?.addEventListener('click', closePdfAddModal);
+        document.getElementById('pdf-btn-save')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            savePdfArticle();
+        });
+        document.getElementById('pdf-btn-cancel')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closePdfAddModal();
+        });
+        document.getElementById('pdf-modal-close')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closePdfAddModal();
+        });
+        document.getElementById('pdf-modal-close-top')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            closePdfAddModal();
+        });
 
         // PDF Manager Listeners
         const pdfTextarea = document.getElementById('cms-field-pdf');
@@ -8486,7 +8529,9 @@ out center tags;`;
         const pdfUrlInput = document.getElementById('cms-pdf-url-input');
 
         if (pdfUploadBtn && pdfFileInput) {
-            pdfUploadBtn.addEventListener('click', () => {
+            pdfUploadBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 pdfFileInput.click();
             });
         }
@@ -8502,7 +8547,9 @@ out center tags;`;
         }
 
         if (pdfAddUrlBtn) {
-            pdfAddUrlBtn.addEventListener('click', () => {
+            pdfAddUrlBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
                 addManualPdfUrl();
             });
         }
@@ -8510,6 +8557,8 @@ out center tags;`;
         if (pdfUrlInput) {
             pdfUrlInput.addEventListener('keypress', (e) => {
                 if (e.key === 'Enter') {
+                    e.preventDefault();
+                    e.stopPropagation();
                     addManualPdfUrl();
                 }
             });
