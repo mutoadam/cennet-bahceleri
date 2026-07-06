@@ -6756,7 +6756,6 @@ out center tags;`;
         return title.replace(/^(📚|🚴|❤️|📖|🕌)\s*/, '').trim();
     }
 
-    // Ağacı Ekrana Çiz (Arama Filtrelemesi Dahil)
     function renderCmsTree() {
         const container = document.getElementById('cms-tree-container');
         const emptyEl = document.getElementById('cms-tree-empty');
@@ -6809,36 +6808,42 @@ out center tags;`;
             });
         }
 
-        // Group into parents and children
-        const allRootArticles = loadedDiscoverArticles.filter(a => !a.parent_slug);
-        const allChildArticles = loadedDiscoverArticles.filter(a => a.parent_slug);
-
-        // Filter based on search term
-        let displayRootArticles = [];
-        let displayChildArticles = [];
-
+        // Build parent/children maps and filters recursively
+        const matchedSlugs = new Set();
         if (termLower) {
-            allRootArticles.forEach(root => {
-                const rootTitleLower = turkishToLower(root.title);
-                const rootSlugLower = turkishToLower(root.slug);
-                const rootMatches = rootTitleLower.includes(termLower) || rootSlugLower.includes(termLower);
-
-                const children = allChildArticles.filter(c => c.parent_slug === root.slug);
-                const matchingChildren = children.filter(c => {
-                    const childTitleLower = turkishToLower(c.title);
-                    const childSlugLower = turkishToLower(c.slug);
-                    return childTitleLower.includes(termLower) || childSlugLower.includes(termLower);
-                });
-
-                if (rootMatches || matchingChildren.length > 0) {
-                    displayRootArticles.push(root);
-                    displayChildArticles.push(...matchingChildren);
+            // Find direct matches and trace ancestors
+            loadedDiscoverArticles.forEach(item => {
+                const titleLower = turkishToLower(item.title);
+                const slugLower = turkishToLower(item.slug);
+                const matches = titleLower.includes(termLower) || slugLower.includes(termLower);
+                if (matches) {
+                    matchedSlugs.add(item.slug);
+                    let parentSlug = item.parent_slug;
+                    while (parentSlug) {
+                        matchedSlugs.add(parentSlug);
+                        const parentItem = loadedDiscoverArticles.find(a => a.slug === parentSlug);
+                        parentSlug = parentItem ? parentItem.parent_slug : null;
+                    }
                 }
             });
-        } else {
-            displayRootArticles = [...allRootArticles];
-            displayChildArticles = [...allChildArticles];
         }
+
+        const filteredArticles = termLower 
+            ? loadedDiscoverArticles.filter(a => matchedSlugs.has(a.slug))
+            : [...loadedDiscoverArticles];
+
+        // Group into parents and children Map
+        const childrenMap = {};
+        filteredArticles.forEach(item => {
+            if (item.parent_slug) {
+                if (!childrenMap[item.parent_slug]) {
+                    childrenMap[item.parent_slug] = [];
+                }
+                childrenMap[item.parent_slug].push(item);
+            }
+        });
+
+        const displayRootArticles = filteredArticles.filter(a => !a.parent_slug);
 
         // Module Root Node Container
         const moduleNodeDiv = document.createElement('div');
@@ -6867,7 +6872,7 @@ out center tags;`;
 
         moduleNodeDiv.appendChild(moduleRow);
 
-        // Children Container for Module (Root level articles of the module)
+        // Children Container for Module
         const moduleChildrenContainer = document.createElement('div');
         moduleChildrenContainer.className = 'cms-tree-children';
         moduleChildrenContainer.style.marginLeft = '0';
@@ -6877,7 +6882,7 @@ out center tags;`;
             moduleChildrenContainer.classList.add('collapsed');
         }
 
-        // Add event listener to module expand/collapse
+        // Module expand/collapse handler
         const moduleToggle = moduleRow.querySelector('.module-toggle-btn');
         if (moduleToggle) {
             moduleToggle.addEventListener('click', (e) => {
@@ -6895,98 +6900,88 @@ out center tags;`;
             });
         }
 
-        // Render root articles under Module Folder
-        displayRootArticles.forEach(root => {
-            const children = displayChildArticles.filter(c => c.parent_slug === root.slug);
+        // Recursive render helper
+        function renderNode(item, depth = 1) {
+            const children = childrenMap[item.slug] || [];
             const isParent = children.length > 0;
-            const isExpanded = expandedNodes.has(root.slug);
+            const isExpanded = expandedNodes.has(item.slug);
 
-            const rootNodeDiv = document.createElement('div');
-            rootNodeDiv.className = 'cms-tree-node';
-            rootNodeDiv.style.marginLeft = '12px'; // Indent under module root
+            const nodeDiv = document.createElement('div');
+            nodeDiv.className = 'cms-tree-node';
+            nodeDiv.style.marginLeft = depth === 1 ? '12px' : '20px';
 
-            // Build Row Badges
             let badgesHtml = '';
-            if (root.is_featured) {
+            if (item.is_featured) {
                 badgesHtml += '<i class="fa-solid fa-star" style="color: #f59e0b;" title="Öne Çıkan"></i>';
             }
-            if (root.is_active) {
+            if (item.is_active) {
                 badgesHtml += '<i class="fa-solid fa-circle" style="color: #22c55e; font-size: 8px;" title="Yayında"></i>';
             } else {
                 badgesHtml += '<i class="fa-solid fa-eye-slash" style="color: #999;" title="Taslak"></i>';
             }
 
-            const isActiveRow = currentEditingArticleId === root.id ? 'active' : '';
+            const isActiveRow = currentEditingArticleId === item.id ? 'active' : '';
 
-            // Icon for item: root level article is folder if it has children, else file
-            const itemEmoji = isParent ? '📂' : '📄';
+            // Icon/Emoji styling
+            let itemEmoji = '📄';
+            if (item.category === 'folder') {
+                itemEmoji = '📂';
+            } else if (item.category === 'pdf') {
+                itemEmoji = '📄';
+            } else if (isParent) {
+                itemEmoji = '📂';
+            }
 
-            // Chevron toggle if parent
+            // PDF Ekle button (for PDF subfolders)
+            let pdfAddBtnHtml = '';
+            if (item.category === 'folder' && item.parent_slug === 'pdf-kutuphanesi') {
+                pdfAddBtnHtml = `
+                    <button class="btn btn-secondary btn-xs cms-pdf-add-btn" data-slug="${escapeHtml(item.slug)}" style="font-size: 11px; padding: 2px 6px; min-height: 24px; margin-left: 8px; display: inline-flex; align-items: center; gap: 4px; border-radius: 4px; background-color: var(--md-secondary-container); color: var(--md-secondary); border: 1px solid rgba(181, 141, 61, 0.2);">
+                        <i class="fa-solid fa-file-pdf"></i> PDF Ekle
+                    </button>
+                `;
+            }
+
             const toggleIconClass = isParent ? (isExpanded ? 'fa-solid fa-chevron-down' : 'fa-solid fa-chevron-down collapsed') : 'fa-solid fa-chevron-down hidden';
 
-            rootNodeDiv.innerHTML = `
-                <div class="cms-tree-row ${isActiveRow}" data-id="${root.id}" data-slug="${escapeHtml(root.slug)}">
-                    <div class="cms-tree-row-content">
-                        <span class="toggle-icon ${isParent ? '' : 'hidden'}" data-slug="${escapeHtml(root.slug)}">
-                            <i class="${toggleIconClass}"></i>
-                        </span>
-                        <span class="item-icon">${itemEmoji}</span>
-                        <span class="item-title">${escapeHtml(root.title || '')}</span>
-                    </div>
-                    <div class="cms-tree-row-badges">
-                        ${badgesHtml}
-                    </div>
+            const rowDiv = document.createElement('div');
+            rowDiv.className = `cms-tree-row ${isActiveRow}`;
+            rowDiv.setAttribute('data-id', item.id);
+            rowDiv.setAttribute('data-slug', item.slug);
+            if (depth > 2) {
+                rowDiv.style.paddingLeft = '12px';
+            }
+
+            rowDiv.innerHTML = `
+                <div class="cms-tree-row-content">
+                    <span class="toggle-icon ${isParent ? '' : 'hidden'}" data-slug="${escapeHtml(item.slug)}">
+                        <i class="${toggleIconClass}"></i>
+                    </span>
+                    <span class="item-icon" style="${item.category === 'pdf' ? 'color: #dc2626;' : ''}">${item.category === 'pdf' ? '📄' : itemEmoji}</span>
+                    <span class="item-title" style="${item.category === 'pdf' ? 'font-size: 13.5px;' : ''}">${escapeHtml(item.title || '')} ${item.category === 'pdf' ? '<span class="badge" style="font-size: 10px; background-color: #fee2e2; color: #dc2626; margin-left: 4px; font-weight: 600; padding: 1px 4px; border-radius: 4px;">PDF</span>' : ''} ${pdfAddBtnHtml}</span>
+                </div>
+                <div class="cms-tree-row-badges">
+                    ${badgesHtml}
                 </div>
             `;
 
-            // If children exist, create sub-list container
+            nodeDiv.appendChild(rowDiv);
+
             if (isParent) {
                 const childrenContainer = document.createElement('div');
                 childrenContainer.className = 'cms-tree-children ' + (isExpanded ? '' : 'collapsed');
-                childrenContainer.id = 'children-of-' + root.slug;
-                childrenContainer.style.marginLeft = '20px'; // Indent under parent folder
+                childrenContainer.id = 'children-of-' + item.slug;
+                childrenContainer.style.marginLeft = '20px';
 
                 children.forEach(child => {
-                    const childRow = document.createElement('div');
-                    const isChildActive = currentEditingArticleId === child.id ? 'active' : '';
-                    
-                    let childBadges = '';
-                    if (child.is_featured) {
-                        childBadges += '<i class="fa-solid fa-star" style="color: #f59e0b;" title="Öne Çıkan"></i>';
-                    }
-                    if (child.is_active) {
-                        childBadges += '<i class="fa-solid fa-circle" style="color: #22c55e; font-size: 8px;" title="Yayında"></i>';
-                    } else {
-                        childBadges += '<i class="fa-solid fa-eye-slash" style="color: #999;" title="Taslak"></i>';
-                    }
-
-                    childRow.className = 'cms-tree-row ' + isChildActive;
-                    childRow.setAttribute('data-id', child.id);
-                    childRow.setAttribute('data-slug', child.slug);
-                    childRow.style.paddingLeft = '12px';
-                    childRow.innerHTML = `
-                        <div class="cms-tree-row-content">
-                            <span class="item-icon">📄</span>
-                            <span class="item-title" style="font-size: 13.5px;">${escapeHtml(child.title || '')}</span>
-                        </div>
-                        <div class="cms-tree-row-badges">
-                            ${childBadges}
-                        </div>
-                    `;
-
-                    // Click event on child
-                    childRow.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        selectTreeItem(child.id);
-                    });
-
-                    childrenContainer.appendChild(childRow);
+                    const childNode = renderNode(child, depth + 1);
+                    childrenContainer.appendChild(childNode);
                 });
 
-                rootNodeDiv.appendChild(childrenContainer);
+                nodeDiv.appendChild(childrenContainer);
 
-                // Expand/collapse logic on parent chevron
-                const toggleBtn = rootNodeDiv.querySelector('.toggle-icon');
+                // Expand/collapse child event
+                const toggleBtn = rowDiv.querySelector('.toggle-icon');
                 if (toggleBtn) {
                     toggleBtn.addEventListener('click', (e) => {
                         e.stopPropagation();
@@ -7005,22 +7000,34 @@ out center tags;`;
                 }
             }
 
-            // Click event on parent row
-            const parentRowEl = rootNodeDiv.querySelector('.cms-tree-row');
-            if (parentRowEl) {
-                parentRowEl.addEventListener('click', (e) => {
-                    if (e.target.closest('.toggle-icon')) return;
-                    selectTreeItem(root.id);
+            // Row click event
+            rowDiv.addEventListener('click', (e) => {
+                if (e.target.closest('.cms-pdf-add-btn') || e.target.closest('.toggle-icon')) return;
+                selectTreeItem(item.id);
+            });
+
+            // PDF Ekle button click event
+            const pdfAddBtn = rowDiv.querySelector('.cms-pdf-add-btn');
+            if (pdfAddBtn) {
+                pdfAddBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    openPdfAddModal(item);
                 });
             }
 
-            moduleChildrenContainer.appendChild(rootNodeDiv);
+            return nodeDiv;
+        }
+
+        // Render root articles under Module Folder
+        displayRootArticles.forEach(root => {
+            const rootNode = renderNode(root, 1);
+            moduleChildrenContainer.appendChild(rootNode);
         });
 
         moduleNodeDiv.appendChild(moduleChildrenContainer);
         container.appendChild(moduleNodeDiv);
 
-        // Update statistics counter under the tree
+        // Update tree statistics
         const totalCount = loadedDiscoverArticles.length;
         const mainHeaderCount = loadedDiscoverArticles.filter(a => !a.parent_slug).length;
 
@@ -7079,7 +7086,7 @@ out center tags;`;
 
         placeholder.classList.add('hidden');
         formWrapper.classList.remove('hidden');
-
+        
         // Populate parent module badge
         const activeModule = loadedDiscoverModules.find(m => m.slug === currentSelectedModuleSlug);
         const moduleBadge = document.getElementById('cms-editor-module-badge');
@@ -7136,6 +7143,209 @@ out center tags;`;
             document.getElementById('cms-field-cover').value = item.cover_image_url || '';
             document.getElementById('cms-field-pdf').value = item.pdf_url || '';
             document.getElementById('cms-field-infographics').value = (item.infographic_urls || []).join('\n');
+            document.getElementById('cms-field-active').checked = item.is_active;
+            document.getElementById('cms-field-featured').checked = item.is_featured || false;
+
+            // Delete button visible in Edit Mode
+            document.getElementById('cms-action-delete').style.display = 'flex';
+
+            // Populate parent select dropdown excluding current item
+            populateCmsParentDropdown(item.module_slug, item.id);
+            document.getElementById('cms-field-parent').disabled = false;
+            document.getElementById('cms-field-parent').value = item.parent_slug || '';
+        }
+
+        // Render infographics visual grid on load
+        renderCmsInfographicsPreview();
+    }
+
+    // Parent seçim listesini doldur
+    function populateCmsParentDropdown(moduleSlug, excludeId = null) {
+        const parentEl = document.getElementById('cms-field-parent');
+        if (!parentEl) return;
+
+        const potentialParents = loadedDiscoverArticles.filter(a => {
+            if (excludeId && (a.id === excludeId || a.id == excludeId)) return false;
+            return !a.parent_slug || a.category === 'folder';
+        });
+
+        parentEl.innerHTML = '<option value="">Yok (Ana Başlık)</option>' + 
+            potentialParents.map(p => '<option value="' + escapeHtml(p.slug) + '">' + escapeHtml(p.title) + ' (' + escapeHtml(p.slug) + ')</option>').join('');
+    }
+
+    // === PDF Ekleme & Upload Altyapısı ===
+
+    function openPdfAddModal(folderItem) {
+        console.log("PDF Ekle clicked for folder:", folderItem);
+        
+        const modal = document.getElementById('pdf-add-modal');
+        const folderBadge = document.getElementById('pdf-modal-folder-badge');
+        const parentSlugInput = document.getElementById('pdf-modal-parent-slug');
+        
+        if (!modal) return;
+
+        // Reset form fields
+        document.getElementById('pdf-modal-title').value = '';
+        document.getElementById('pdf-modal-summary').value = '';
+        document.getElementById('pdf-modal-file').value = '';
+        document.getElementById('pdf-modal-order').value = (loadedDiscoverArticles.filter(a => a.parent_slug === folderItem.slug).length + 1) * 10;
+        document.getElementById('pdf-modal-active').checked = true;
+        document.getElementById('pdf-modal-upload-progress')?.classList.add('hidden');
+
+        // Set folder details
+        if (folderBadge) {
+            folderBadge.textContent = `Klasör: ${folderItem.title}`;
+        }
+        if (parentSlugInput) {
+            parentSlugInput.value = folderItem.slug;
+        }
+
+        modal.classList.remove('hidden');
+        document.body.style.overflow = "hidden";
+    }
+
+    function closePdfAddModal() {
+        const modal = document.getElementById('pdf-add-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = "";
+        }
+    }
+
+    async function uploadCmsPdf(file, slug) {
+        if (!supabaseClient) return null;
+
+        const path = `davet-ameli/pdfs/${slug}-${Date.now()}.pdf`;
+        const buckets = ['discover-content', 'infographics', 'public', 'program-photos'];
+
+        for (const bucket of buckets) {
+            try {
+                console.log(`Trying to upload PDF to bucket "${bucket}" at path "${path}"...`);
+                const { data, error } = await supabaseClient.storage
+                    .from(bucket)
+                    .upload(path, file, {
+                        cacheControl: '3600',
+                        upsert: false
+                    });
+
+                if (error) {
+                    console.warn(`Upload to bucket "${bucket}" failed:`, error.message);
+                    continue; // Try next bucket
+                }
+
+                if (data) {
+                    console.log(`Successfully uploaded PDF to bucket "${bucket}"!`);
+                    const { data: publicUrlData } = supabaseClient.storage
+                        .from(bucket)
+                        .getPublicUrl(path);
+                    
+                    return {
+                        publicUrl: publicUrlData.publicUrl,
+                        bucket: bucket,
+                        path: path
+                    };
+                }
+            } catch (e) {
+                console.warn(`Exception while uploading to bucket "${bucket}":`, e);
+            }
+        }
+
+        throw new Error("PDF dosyası Supabase Storage'a yüklenemedi. Bucket bulunamadı veya yetki hatası oluştu.");
+    }
+
+    async function savePdfArticle() {
+        const parentSlug = document.getElementById('pdf-modal-parent-slug').value;
+        const title = document.getElementById('pdf-modal-title').value.trim();
+        const summary = document.getElementById('pdf-modal-summary').value.trim();
+        const fileInput = document.getElementById('pdf-modal-file');
+        const orderNo = parseInt(document.getElementById('pdf-modal-order').value) || 10;
+        const isActive = document.getElementById('pdf-modal-active').checked;
+
+        if (!title) {
+            alert('Lütfen PDF Başlığı giriniz.');
+            return;
+        }
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('Lütfen bir PDF dosyası seçiniz.');
+            return;
+        }
+
+        const file = fileInput.files[0];
+        if (file.type !== 'application/pdf' && !file.name.endsWith('.pdf')) {
+            alert('Lütfen geçerli bir PDF dosyası seçiniz.');
+            return;
+        }
+
+        const progressEl = document.getElementById('pdf-modal-upload-progress');
+        const statusEl = document.getElementById('pdf-modal-upload-status');
+        const saveBtn = document.getElementById('pdf-btn-save');
+        const cancelBtn = document.getElementById('pdf-btn-cancel');
+
+        if (progressEl) progressEl.classList.remove('hidden');
+        if (statusEl) statusEl.textContent = 'PDF dosyası yükleniyor, lütfen bekleyin...';
+        
+        if (saveBtn) saveBtn.disabled = true;
+        if (cancelBtn) cancelBtn.disabled = true;
+
+        try {
+            let finalSlug = convertToSlug(title);
+            
+            const duplicateExists = loadedDiscoverArticles.some(a => a.parent_slug === parentSlug && a.slug === finalSlug);
+            if (duplicateExists) {
+                const suffix = '-' + Date.now().toString().substring(10);
+                finalSlug = finalSlug + suffix;
+                if (typeof showToast === 'function') {
+                    showToast(`Çakışmayı önlemek için slug "${finalSlug}" olarak belirlendi.`, "warning");
+                }
+            }
+
+            if (statusEl) statusEl.textContent = 'Dosya depolama alanına yükleniyor...';
+            const uploadRes = await uploadCmsPdf(file, finalSlug);
+            
+            if (!uploadRes || !uploadRes.publicUrl) {
+                throw new Error("Yükleme işlemi tamamlandı fakat dosya adresi alınamadı.");
+            }
+
+            if (statusEl) statusEl.textContent = 'Veritabanı kaydı oluşturuluyor...';
+            const payload = {
+                module_slug: "davet-ameli",
+                parent_slug: parentSlug,
+                slug: finalSlug,
+                title: title,
+                summary: summary || null,
+                content: null,
+                cover_image_url: null,
+                pdf_url: uploadRes.publicUrl,
+                infographic_urls: [],
+                category: "pdf",
+                order_no: orderNo,
+                is_featured: false,
+                is_active: isActive
+            };
+
+            const { error: insertError } = await supabaseClient
+                .from('discover_articles')
+                .insert([payload]);
+
+            if (insertError) throw insertError;
+
+            if (typeof showToast === 'function') {
+                showToast("PDF başarıyla yüklendi ve kütüphaneye eklendi.", "success");
+            }
+
+            closePdfAddModal();
+            await loadCmsArticles(currentSelectedModuleSlug || 'davet-ameli');
+
+        } catch (err) {
+            console.error("PDF kaydetme hatası:", err);
+            alert("PDF yüklenirken bir hata oluştu:\n" + (err.message || err.details || ""));
+        } finally {
+            if (progressEl) progressEl.classList.add('hidden');
+            if (saveBtn) saveBtn.disabled = false;
+            if (cancelBtn) cancelBtn.disabled = false;
+        }
+    }value = (item.infographic_urls || []).join('\n');
             document.getElementById('cms-field-active').checked = item.is_active;
             document.getElementById('cms-field-featured').checked = item.is_featured || false;
 
@@ -7791,6 +8001,17 @@ out center tags;`;
                 }
             });
         }
+
+        // PDF Ekleme Listeners
+        document.getElementById('pdf-btn-save')?.addEventListener('click', savePdfArticle);
+        document.getElementById('pdf-btn-cancel')?.addEventListener('click', closePdfAddModal);
+        document.getElementById('pdf-modal-close')?.addEventListener('click', closePdfAddModal);
+        document.getElementById('pdf-modal-close-top')?.addEventListener('click', closePdfAddModal);
     }
+
+    // Expose PDF functions globally
+    window.openPdfAddModal = openPdfAddModal;
+    window.closePdfAddModal = closePdfAddModal;
+    window.savePdfArticle = savePdfArticle;
 
 });
