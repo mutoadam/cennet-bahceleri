@@ -7157,6 +7157,8 @@ out center tags;`;
 
         // Render infographics visual grid on load
         renderCmsInfographicsPreview();
+        // Render PDF visual grid on load
+        renderCmsPdfsPreview();
     }
 
     // Parent seçim listesini doldur
@@ -7495,6 +7497,480 @@ out center tags;`;
             console.error("Pasife alma hatası:", err);
             alert("İçerik pasife alınırken hata oluştu:\n" + err.message);
         }
+    }
+
+    // === PDF Galerisi / Sıralama Altyapısı ===
+
+    function getFileNameFromUrl(url) {
+        if (!url) return '';
+        const parts = url.split('/');
+        let last = parts[parts.length - 1] || '';
+        if (last.includes('?')) {
+            last = last.split('?')[0];
+        }
+        const hashIndex = last.indexOf('#');
+        if (hashIndex !== -1) {
+            last = last.substring(0, hashIndex);
+        }
+        return decodeURIComponent(last);
+    }
+
+    function renderCmsPdfsPreview() {
+        const textarea = document.getElementById('cms-field-pdf');
+        const grid = document.getElementById('cms-pdfs-preview-grid');
+        if (!textarea || !grid) return;
+
+        // Extract lines
+        const lines = textarea.value.split('\n').map(l => l.trim()).filter(l => {
+            // Ignore directory placeholder like 'discover-content/davet-ameli/pdfs/'
+            if (l.endsWith('/') || !l.toLowerCase().includes('.pdf')) return false;
+            return l.length > 0;
+        });
+
+        grid.innerHTML = '';
+
+        if (lines.length === 0) {
+            grid.innerHTML = `
+                <div style="grid-column: span 12; text-align: center; color: var(--md-on-surface-variant); padding: 16px; font-size: 13px;">
+                    <i class="fa-solid fa-file-pdf" style="font-size: 24px; color: var(--md-outline); margin-bottom: 8px; display: block;"></i>
+                    Henüz PDF kitapçık eklenmedi.
+                </div>
+            `;
+            return;
+        }
+
+        lines.forEach((line, index) => {
+            const hashIndex = line.indexOf('#');
+            let url = hashIndex !== -1 ? line.substring(0, hashIndex).trim() : line.trim();
+            let title = hashIndex !== -1 ? line.substring(hashIndex + 1).trim() : '';
+            
+            if (!title) {
+                title = getFileNameFromUrl(url);
+            }
+
+            const card = document.createElement('div');
+            card.className = 'pdf-preview-card';
+            card.style.cssText = `
+                position: relative;
+                border: 1px solid var(--md-outline);
+                border-radius: var(--radius-sm);
+                background: var(--md-surface-card);
+                padding: 12px;
+                display: flex;
+                flex-direction: column;
+                gap: 8px;
+                box-shadow: var(--shadow-xs, 0 1px 2px rgba(0,0,0,0.05));
+            `;
+
+            // PDF Info section
+            const infoContainer = document.createElement('div');
+            infoContainer.style.cssText = `
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                width: 100%;
+            `;
+
+            // PDF Icon
+            const iconDiv = document.createElement('div');
+            iconDiv.style.cssText = `
+                width: 36px;
+                height: 36px;
+                background-color: #fee2e2;
+                color: #dc2626;
+                border-radius: var(--radius-sm);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 18px;
+                flex-shrink: 0;
+            `;
+            iconDiv.innerHTML = '<i class="fa-solid fa-file-pdf"></i>';
+            infoContainer.appendChild(iconDiv);
+
+            // Details (File name & title input)
+            const detailsDiv = document.createElement('div');
+            detailsDiv.style.cssText = `
+                flex: 1;
+                min-width: 0;
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+            `;
+
+            const fileNameSpan = document.createElement('span');
+            fileNameSpan.textContent = getFileNameFromUrl(url);
+            fileNameSpan.title = url;
+            fileNameSpan.style.cssText = `
+                font-size: 11px;
+                color: var(--md-on-surface-variant);
+                white-space: nowrap;
+                overflow: hidden;
+                text-overflow: ellipsis;
+                display: block;
+            `;
+            detailsDiv.appendChild(fileNameSpan);
+
+            // Title input
+            const titleInput = document.createElement('input');
+            titleInput.type = 'text';
+            titleInput.className = 'form-control';
+            titleInput.placeholder = 'PDF Başlığı';
+            titleInput.value = title;
+            titleInput.style.cssText = `
+                height: 28px;
+                font-size: 12px;
+                padding: 2px 6px;
+                margin: 0;
+                width: 100%;
+            `;
+            titleInput.addEventListener('input', (e) => {
+                const newTitle = e.target.value.trim();
+                updatePdfTitleInTextarea(index, newTitle);
+            });
+            detailsDiv.appendChild(titleInput);
+
+            infoContainer.appendChild(detailsDiv);
+            card.appendChild(infoContainer);
+
+            // Actions row
+            const actions = document.createElement('div');
+            actions.style.cssText = `
+                display: flex;
+                width: 100%;
+                border-top: 1px solid var(--md-outline);
+                padding-top: 8px;
+                margin-top: 4px;
+                gap: 4px;
+            `;
+
+            // Preview / Open Button
+            const btnPreview = document.createElement('button');
+            btnPreview.type = 'button';
+            btnPreview.className = 'btn btn-secondary btn-xs';
+            btnPreview.innerHTML = '<i class="fa-solid fa-eye"></i> Aç';
+            btnPreview.style.cssText = `
+                flex: 1;
+                font-size: 11px;
+                min-height: 26px;
+                padding: 2px 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+            `;
+            btnPreview.addEventListener('click', () => {
+                window.open(url, '_blank');
+            });
+
+            // Move Up Button
+            const btnUp = document.createElement('button');
+            btnUp.type = 'button';
+            btnUp.className = 'btn btn-secondary btn-xs';
+            btnUp.innerHTML = '<i class="fa-solid fa-arrow-up"></i>';
+            btnUp.style.cssText = `
+                font-size: 11px;
+                min-height: 26px;
+                padding: 2px 6px;
+            `;
+            if (index === 0) {
+                btnUp.disabled = true;
+                btnUp.style.opacity = '0.3';
+                btnUp.style.cursor = 'not-allowed';
+            } else {
+                btnUp.addEventListener('click', () => {
+                    movePdf(index, -1);
+                });
+            }
+
+            // Move Down Button
+            const btnDown = document.createElement('button');
+            btnDown.type = 'button';
+            btnDown.className = 'btn btn-secondary btn-xs';
+            btnDown.innerHTML = '<i class="fa-solid fa-arrow-down"></i>';
+            btnDown.style.cssText = `
+                font-size: 11px;
+                min-height: 26px;
+                padding: 2px 6px;
+            `;
+            if (index === lines.length - 1) {
+                btnDown.disabled = true;
+                btnDown.style.opacity = '0.3';
+                btnDown.style.cursor = 'not-allowed';
+            } else {
+                btnDown.addEventListener('click', () => {
+                    movePdf(index, 1);
+                });
+            }
+
+            // Delete Button
+            const btnDelete = document.createElement('button');
+            btnDelete.type = 'button';
+            btnDelete.className = 'btn btn-secondary btn-xs';
+            btnDelete.style.backgroundColor = 'var(--md-error-container)';
+            btnDelete.style.color = 'var(--md-error)';
+            btnDelete.style.borderColor = 'rgba(186, 26, 26, 0.2)';
+            btnDelete.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+            btnDelete.style.cssText = `
+                font-size: 11px;
+                min-height: 26px;
+                padding: 2px 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            `;
+            btnDelete.addEventListener('click', () => {
+                deletePdf(index);
+            });
+
+            actions.appendChild(btnPreview);
+            actions.appendChild(btnUp);
+            actions.appendChild(btnDown);
+            actions.appendChild(btnDelete);
+            card.appendChild(actions);
+
+            // Index/Order Badge
+            const badge = document.createElement('span');
+            badge.textContent = index + 1;
+            badge.style.cssText = `
+                position: absolute;
+                top: -8px;
+                left: -8px;
+                background: var(--md-primary);
+                color: white;
+                font-size: 10px;
+                font-weight: bold;
+                width: 20px;
+                height: 20px;
+                border-radius: 50%;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                box-shadow: var(--shadow-sm);
+                pointer-events: none;
+            `;
+            card.appendChild(badge);
+
+            grid.appendChild(card);
+        });
+    }
+
+    function updatePdfTitleInTextarea(index, newTitle) {
+        const textarea = document.getElementById('cms-field-pdf');
+        if (!textarea) return;
+
+        const lines = textarea.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        let actualIndex = 0;
+        
+        const updatedLines = lines.map((line) => {
+            if (line.endsWith('/') || !line.toLowerCase().includes('.pdf')) {
+                return line;
+            }
+            if (actualIndex === index) {
+                const hashIndex = line.indexOf('#');
+                const url = hashIndex !== -1 ? line.substring(0, hashIndex).trim() : line.trim();
+                actualIndex++;
+                return newTitle ? `${url}#${newTitle}` : url;
+            }
+            actualIndex++;
+            return line;
+        });
+
+        textarea.value = updatedLines.join('\n');
+    }
+
+    function movePdf(index, direction) {
+        const textarea = document.getElementById('cms-field-pdf');
+        if (!textarea) return;
+
+        const allLines = textarea.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        
+        const pdfIndexes = [];
+        allLines.forEach((line, i) => {
+            if (!line.endsWith('/') && line.toLowerCase().includes('.pdf')) {
+                pdfIndexes.push(i);
+            }
+        });
+
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= pdfIndexes.length) return;
+
+        const lineIndex1 = pdfIndexes[index];
+        const lineIndex2 = pdfIndexes[targetIndex];
+
+        const temp = allLines[lineIndex1];
+        allLines[lineIndex1] = allLines[lineIndex2];
+        allLines[lineIndex2] = temp;
+
+        textarea.value = allLines.join('\n');
+        renderCmsPdfsPreview();
+    }
+
+    function deletePdf(index) {
+        const textarea = document.getElementById('cms-field-pdf');
+        if (!textarea) return;
+
+        const allLines = textarea.value.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+        
+        const pdfIndexes = [];
+        allLines.forEach((line, i) => {
+            if (!line.endsWith('/') && line.toLowerCase().includes('.pdf')) {
+                pdfIndexes.push(i);
+            }
+        });
+
+        if (index < 0 || index >= pdfIndexes.length) return;
+
+        const lineToDelete = pdfIndexes[index];
+        allLines.splice(lineToDelete, 1);
+
+        textarea.value = allLines.join('\n');
+        renderCmsPdfsPreview();
+    }
+
+    function addManualPdfUrl() {
+        const input = document.getElementById('cms-pdf-url-input');
+        const textarea = document.getElementById('cms-field-pdf');
+        if (!input || !textarea) return;
+
+        const newUrl = input.value.trim();
+        if (!newUrl) return;
+
+        if (!newUrl.toLowerCase().includes('.pdf')) {
+            alert('Lütfen geçerli bir PDF adresi (.pdf) giriniz.');
+            return;
+        }
+
+        if (!newUrl.startsWith('http://') && !newUrl.startsWith('https://')) {
+            alert('Lütfen geçerli bir internet adresi (https://...) giriniz.');
+            return;
+        }
+
+        const currentText = textarea.value.trim();
+        const isPlaceholder = currentText.endsWith('/') && !currentText.toLowerCase().includes('.pdf');
+        textarea.value = (isPlaceholder || !currentText) ? newUrl : `${currentText}\n${newUrl}`;
+        input.value = '';
+        renderCmsPdfsPreview();
+    }
+
+    async function uploadCmsPdfFile(file) {
+        if (!supabaseClient) return;
+
+        const progressEl = document.getElementById('cms-pdf-upload-progress');
+        const statusEl = document.getElementById('cms-pdf-upload-status');
+        const textarea = document.getElementById('cms-field-pdf');
+
+        if (progressEl) {
+            progressEl.classList.remove('hidden');
+        }
+        if (statusEl) {
+            statusEl.textContent = `"${file.name}" yükleniyor...`;
+        }
+
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}_pdf_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
+            const filePath = `davet-ameli/pdfs/${fileName}`;
+
+            console.log("Uploading PDF to storage:", filePath);
+
+            let uploadResult = null;
+            let finalBucket = 'discover-content'; 
+
+            try {
+                uploadResult = await supabaseClient.storage
+                    .from('discover-content')
+                    .upload(filePath, file);
+                
+                if (uploadResult && uploadResult.error) {
+                    console.log("Failed in discover-content, trying 'infographics' bucket.", uploadResult.error);
+                    finalBucket = 'infographics';
+                    uploadResult = await supabaseClient.storage
+                        .from('infographics')
+                        .upload(filePath, file);
+                }
+
+                if (uploadResult && uploadResult.error) {
+                    console.log("Failed in infographics, trying 'public' bucket.", uploadResult.error);
+                    finalBucket = 'public';
+                    uploadResult = await supabaseClient.storage
+                        .from('public')
+                        .upload(filePath, file);
+                }
+            } catch (uploadErr) {
+                console.warn("Storage upload error during direct attempt:", uploadErr);
+            }
+
+            if (uploadResult && !uploadResult.error) {
+                try {
+                    const { data: publicUrlData } = supabaseClient.storage
+                        .from(finalBucket)
+                        .getPublicUrl(filePath);
+                    
+                    const pdfUrl = publicUrlData.publicUrl;
+                    console.log("Resolved public PDF URL:", pdfUrl);
+
+                    const fileTitle = file.name.replace(/\.[^/.]+$/, ""); 
+                    const pdfLine = `${pdfUrl}#${fileTitle}`;
+
+                    if (textarea) {
+                        const currentText = textarea.value.trim();
+                        const isPlaceholder = currentText.endsWith('/') && !currentText.toLowerCase().includes('.pdf');
+                        textarea.value = (isPlaceholder || !currentText) ? pdfLine : `${currentText}\n${pdfLine}`;
+                        textarea.dispatchEvent(new Event('change', { bubbles: true }));
+                    }
+
+                    if (typeof showToast === 'function') {
+                        showToast(`"${file.name}" başarıyla yüklendi.`, "success");
+                    }
+                    renderCmsPdfsPreview();
+                } catch (urlErr) {
+                    console.warn("Could not get public URL:", urlErr);
+                    if (typeof showToast === 'function') {
+                        showToast("PDF yüklendi fakat genel URL alınamadı.", "error");
+                    }
+                }
+            } else {
+                console.error("PDF upload failed:", uploadResult ? uploadResult.error : "No upload result");
+                if (typeof showToast === 'function') {
+                    showToast(`"${file.name}" yüklenirken hata oluştu.`, "error");
+                }
+            }
+        } catch (err) {
+            console.error("PDF upload try/catch error:", err);
+            if (typeof showToast === 'function') {
+                showToast("Yükleme sırasında teknik bir sorun oluştu.", "error");
+            }
+        } finally {
+            if (progressEl) {
+                progressEl.classList.add('hidden');
+            }
+        }
+    }
+
+    async function handleCmsPdfFilesUpload(files) {
+        if (!files || files.length === 0) return;
+        
+        const progressEl = document.getElementById('cms-pdf-upload-progress');
+        const statusEl = document.getElementById('cms-pdf-upload-status');
+        
+        if (progressEl) progressEl.classList.remove('hidden');
+        
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+                if (typeof showToast === 'function') {
+                    showToast(`"${file.name}" bir PDF dosyası değil!`, "error");
+                }
+                continue;
+            }
+            if (statusEl) {
+                statusEl.textContent = `PDF ${i + 1} / ${files.length} yükleniyor: "${file.name}"...`;
+            }
+            await uploadCmsPdfFile(file);
+        }
+        
+        if (progressEl) progressEl.classList.add('hidden');
     }
 
     // === İnfografik Upload + URL Yönetimi Fonksiyonları ===
@@ -7992,6 +8468,52 @@ out center tags;`;
         document.getElementById('pdf-btn-cancel')?.addEventListener('click', closePdfAddModal);
         document.getElementById('pdf-modal-close')?.addEventListener('click', closePdfAddModal);
         document.getElementById('pdf-modal-close-top')?.addEventListener('click', closePdfAddModal);
+
+        // PDF Manager Listeners
+        const pdfTextarea = document.getElementById('cms-field-pdf');
+        if (pdfTextarea) {
+            pdfTextarea.addEventListener('input', () => {
+                renderCmsPdfsPreview();
+            });
+            pdfTextarea.addEventListener('change', () => {
+                renderCmsPdfsPreview();
+            });
+        }
+
+        const pdfFileInput = document.getElementById('cms-pdf-file-input');
+        const pdfUploadBtn = document.getElementById('cms-pdf-upload-btn');
+        const pdfAddUrlBtn = document.getElementById('cms-pdf-add-url-btn');
+        const pdfUrlInput = document.getElementById('cms-pdf-url-input');
+
+        if (pdfUploadBtn && pdfFileInput) {
+            pdfUploadBtn.addEventListener('click', () => {
+                pdfFileInput.click();
+            });
+        }
+
+        if (pdfFileInput) {
+            pdfFileInput.addEventListener('change', async (e) => {
+                const files = e.target.files;
+                if (files && files.length > 0) {
+                    await handleCmsPdfFilesUpload(files);
+                    pdfFileInput.value = '';
+                }
+            });
+        }
+
+        if (pdfAddUrlBtn) {
+            pdfAddUrlBtn.addEventListener('click', () => {
+                addManualPdfUrl();
+            });
+        }
+
+        if (pdfUrlInput) {
+            pdfUrlInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    addManualPdfUrl();
+                }
+            });
+        }
     }
 
     // Expose PDF functions globally
