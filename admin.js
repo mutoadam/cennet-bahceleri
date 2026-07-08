@@ -7188,17 +7188,30 @@ out center tags;`;
         const editingArticle = excludeId ? loadedDiscoverArticles.find(a => a.id === excludeId || a.id == excludeId) : null;
         const editingSlug = editingArticle ? editingArticle.slug : null;
 
+        console.log("populateCmsParentDropdown debugging:", { moduleSlug, excludeId, editingSlug, loadedArticlesCount: loadedDiscoverArticles.length });
+
         // Show ALL headings/articles in the module, but apply cycle prevention
         const potentialParents = loadedDiscoverArticles.filter(a => {
             // Exclude current editing item by id
-            if (excludeId && (a.id === excludeId || a.id == excludeId)) return false;
+            if (excludeId && (a.id === excludeId || a.id == excludeId)) {
+                console.log("Excluding current editing item by ID:", a.title);
+                return false;
+            }
             // Exclude current editing item by slug
-            if (editingSlug && a.slug === editingSlug) return false;
+            if (editingSlug && a.slug === editingSlug) {
+                console.log("Excluding current editing item by Slug:", a.title);
+                return false;
+            }
             // Prevent cycles
-            if (editingSlug && willCreateCycle(editingSlug, a.slug, loadedDiscoverArticles)) return false;
+            if (editingSlug && willCreateCycle(editingSlug, a.slug, loadedDiscoverArticles)) {
+                console.log("Excluding potential parent because it creates a cycle:", a.title);
+                return false;
+            }
             
             return true;
         });
+
+        console.log("Potential parents determined:", potentialParents.map(p => p.title));
 
         parentEl.innerHTML = '<option value="">Yok (Ana Başlık)</option>' + 
             potentialParents.map(p => '<option value="' + escapeHtml(p.slug) + '">' + escapeHtml(p.title) + ' (' + escapeHtml(p.slug) + ')</option>').join('');
@@ -7378,24 +7391,7 @@ out center tags;`;
         }
     }
 
-    // Secondary definition updated to use the same logic
-    function populateCmsParentDropdown(moduleSlug, excludeId = null) {
-        const parentEl = document.getElementById('cms-field-parent');
-        if (!parentEl) return;
 
-        const editingArticle = excludeId ? loadedDiscoverArticles.find(a => a.id === excludeId || a.id == excludeId) : null;
-        const editingSlug = editingArticle ? editingArticle.slug : null;
-
-        const potentialParents = loadedDiscoverArticles.filter(a => {
-            if (excludeId && (a.id === excludeId || a.id == excludeId)) return false;
-            if (editingSlug && a.slug === editingSlug) return false;
-            if (editingSlug && willCreateCycle(editingSlug, a.slug, loadedDiscoverArticles)) return false;
-            return true;
-        });
-
-        parentEl.innerHTML = '<option value="">Yok (Ana Başlık)</option>' + 
-            potentialParents.map(p => '<option value="' + escapeHtml(p.slug) + '">' + escapeHtml(p.title) + ' (' + escapeHtml(p.slug) + ')</option>').join('');
-    }
 
     // CMS İçerik Kaydet (Insert veya Update)
     async function saveCmsArticle() {
@@ -7690,6 +7686,7 @@ out center tags;`;
                 position: relative;
                 z-index: 10;
                 pointer-events: auto;
+                flex-wrap: wrap;
             `;
 
             // Preview / Open Button
@@ -7715,6 +7712,31 @@ out center tags;`;
                 if (url) {
                     window.open(url, '_blank');
                 }
+            });
+
+            // Alt İçeriğe Dönüştür Button
+            const btnConvertToChild = document.createElement('button');
+            btnConvertToChild.type = 'button';
+            btnConvertToChild.className = 'btn btn-secondary btn-xs';
+            btnConvertToChild.style.backgroundColor = 'var(--md-primary-container)';
+            btnConvertToChild.style.color = 'var(--md-primary)';
+            btnConvertToChild.style.borderColor = 'rgba(181, 141, 61, 0.2)';
+            btnConvertToChild.innerHTML = '<i class="fa-solid fa-folder-plus"></i> Alt İçeriğe Dönüştür';
+            btnConvertToChild.style.cssText = `
+                font-size: 11px;
+                min-height: 26px;
+                padding: 2px 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 4px;
+                cursor: pointer;
+                pointer-events: auto;
+            `;
+            btnConvertToChild.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                convertToChildContent(url, title, index);
             });
 
             // Move Up Button
@@ -7792,6 +7814,7 @@ out center tags;`;
             });
 
             actions.appendChild(btnPreview);
+            actions.appendChild(btnConvertToChild);
             actions.appendChild(btnUp);
             actions.appendChild(btnDown);
             actions.appendChild(btnDelete);
@@ -7821,6 +7844,71 @@ out center tags;`;
 
             grid.appendChild(card);
         });
+    }
+
+    async function convertToChildContent(url, title, index) {
+        if (!supabaseClient) return;
+        const parentId = document.getElementById('cms-field-id').value;
+        if (!parentId) {
+            alert('Önce mevcut içeriği kaydetmeniz veya bir içerik seçmeniz gerekir.');
+            return;
+        }
+
+        const parentItem = loadedDiscoverArticles.find(a => a.id === parentId || a.id == parentId);
+        if (!parentItem) {
+            alert('Mevcut içerik bulunamadı.');
+            return;
+        }
+
+        const confirmMsg = `'${title}' isimli PDF dosyasını '${parentItem.title}' başlığının altına yeni bir alt içerik (child) olarak dönüştürmek istediğinize emin misiniz?\n\nBu işlem yeni bir içerik oluşturacaktır. Mevcut PDF galerisindeki dosya silinmeyecektir (kopyalanacaktır).`;
+        if (!confirm(confirmMsg)) {
+            return;
+        }
+
+        let finalSlug = convertToSlug(title);
+        const duplicateExists = loadedDiscoverArticles.some(a => a.parent_slug === parentItem.slug && a.slug === finalSlug);
+        if (duplicateExists) {
+            const suffix = '-' + Date.now().toString().substring(10);
+            finalSlug = finalSlug + suffix;
+        }
+
+        const orderNo = (index + 1) * 10;
+        const payload = {
+            module_slug: parentItem.module_slug || currentSelectedModuleSlug || 'davet-ameli',
+            parent_slug: parentItem.slug,
+            slug: finalSlug,
+            title: title,
+            summary: `PDF Kitapçık: ${title}`,
+            content: null,
+            cover_image_url: null,
+            pdf_url: url,
+            infographic_urls: [],
+            category: 'pdf',
+            order_no: orderNo,
+            is_active: true
+        };
+
+        try {
+            console.log("Converting PDF card to child content. Payload:", payload);
+            const { data, error: insertError } = await supabaseClient
+                .from('discover_articles')
+                .insert([payload]);
+
+            if (insertError) throw insertError;
+
+            alert('Alt içerik başarıyla oluşturuldu!');
+
+            // Expand the parent node so the newly created child is immediately visible in the tree
+            expandedNodes.add(parentItem.slug);
+
+            // Reload articles and tree
+            if (currentSelectedModuleSlug) {
+                await loadCmsArticles(currentSelectedModuleSlug);
+            }
+        } catch (err) {
+            console.error("Alt içerik oluşturma hatası:", err);
+            alert("Alt içerik oluşturulurken bir hata oluştu:\n" + (err.message || err.details || ""));
+        }
     }
 
     function updatePdfTitleInTextarea(index, newTitle) {
