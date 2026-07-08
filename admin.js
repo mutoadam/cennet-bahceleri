@@ -7161,14 +7161,43 @@ out center tags;`;
         renderCmsPdfsPreview();
     }
 
+    // Cycle check helper to prevent infinite loops in content tree
+    function willCreateCycle(articleSlug, selectedParentSlug, articles) {
+        if (!articleSlug || !selectedParentSlug) return false;
+        if (articleSlug === selectedParentSlug) return true;
+        
+        let currentParentSlug = selectedParentSlug;
+        const visited = new Set();
+        while (currentParentSlug) {
+            if (currentParentSlug === articleSlug) return true;
+            if (visited.has(currentParentSlug)) return true; // safety check
+            visited.add(currentParentSlug);
+            
+            const parentItem = articles.find(a => a.slug === currentParentSlug);
+            currentParentSlug = parentItem ? parentItem.parent_slug : null;
+        }
+        return false;
+    }
+
     // Parent seçim listesini doldur
     function populateCmsParentDropdown(moduleSlug, excludeId = null) {
         const parentEl = document.getElementById('cms-field-parent');
         if (!parentEl) return;
 
+        // Find the slug of the editing article (if any)
+        const editingArticle = excludeId ? loadedDiscoverArticles.find(a => a.id === excludeId || a.id == excludeId) : null;
+        const editingSlug = editingArticle ? editingArticle.slug : null;
+
+        // Show ALL headings/articles in the module, but apply cycle prevention
         const potentialParents = loadedDiscoverArticles.filter(a => {
+            // Exclude current editing item by id
             if (excludeId && (a.id === excludeId || a.id == excludeId)) return false;
-            return !a.parent_slug || a.category === 'folder';
+            // Exclude current editing item by slug
+            if (editingSlug && a.slug === editingSlug) return false;
+            // Prevent cycles
+            if (editingSlug && willCreateCycle(editingSlug, a.slug, loadedDiscoverArticles)) return false;
+            
+            return true;
         });
 
         parentEl.innerHTML = '<option value="">Yok (Ana Başlık)</option>' + 
@@ -7349,14 +7378,19 @@ out center tags;`;
         }
     }
 
-    // Parent seçim listesini doldur
+    // Secondary definition updated to use the same logic
     function populateCmsParentDropdown(moduleSlug, excludeId = null) {
         const parentEl = document.getElementById('cms-field-parent');
         if (!parentEl) return;
 
+        const editingArticle = excludeId ? loadedDiscoverArticles.find(a => a.id === excludeId || a.id == excludeId) : null;
+        const editingSlug = editingArticle ? editingArticle.slug : null;
+
         const potentialParents = loadedDiscoverArticles.filter(a => {
             if (excludeId && (a.id === excludeId || a.id == excludeId)) return false;
-            return !a.parent_slug;
+            if (editingSlug && a.slug === editingSlug) return false;
+            if (editingSlug && willCreateCycle(editingSlug, a.slug, loadedDiscoverArticles)) return false;
+            return true;
         });
 
         parentEl.innerHTML = '<option value="">Yok (Ana Başlık)</option>' + 
@@ -7391,6 +7425,17 @@ out center tags;`;
         if (!title || !slug) {
             alert('Lütfen Başlık ve Slug alanlarını doldurunuz.');
             return;
+        }
+
+        if (slug && parentSlug) {
+            if (slug === parentSlug) {
+                alert('Döngü Hatası: Bir başlık kendisinin üst başlığı (parent) olamaz!');
+                return;
+            }
+            if (willCreateCycle(slug, parentSlug, loadedDiscoverArticles)) {
+                alert('Döngü Hatası: Seçilen üst başlık (parent), bu başlığın kendi alt başlığı veya torunudur! Lütfen sonsuz döngü yaratmayacak başka bir başlık seçiniz.');
+                return;
+            }
         }
 
         const payload = {
