@@ -2374,6 +2374,29 @@ body:not(.logged-out) #admin-login-screen {
     box-shadow: var(--shadow-lg);
     text-align: center;
     animation: modalSlideIn 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+    position: relative; /* Loader overlay için gerekli */
+    overflow: hidden;
+}
+
+.auth-loading-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(255, 255, 255, 0.9);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    gap: 12px;
+}
+
+.auth-loading-overlay p {
+    margin: 0 !important;
+    font-weight: 600;
+    color: var(--md-primary);
 }
 
 .login-box .logo-area {

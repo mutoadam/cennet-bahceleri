@@ -34,7 +34,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let knownColumns = ['id', 'program_name', 'venue_name', 'city', 'district', 'day', 'time', 'teacher', 'organization', 'women_friendly', 'address', 'google_maps_link', 'description', 'contact_name', 'contact_phone', 'photo_url', 'status', 'created_at', 'updated_at', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
     let activeOrganizations = [];
     let activeProgramTypes = [];
-    
+
     // Keşfet İçerikleri CMS Altyapısı v2 State Değişkenleri
     let loadedDiscoverArticles = [];
     let loadedDiscoverModules = [];
@@ -42,7 +42,11 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentEditingArticleId = null;
     let expandedNodes = new Set();
     let currentSearchTerm = '';
-    
+
+    // Auth & Yükleme Kontrolü
+    let isDataLoaded = false;
+    let isInitialAuthCheckDone = false;
+
     const SAKARYA_DISTRICTS = [
         "Adapazarı",
         "Akyazı",
@@ -105,12 +109,94 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             supabaseClient = supabase.createClient(supabaseUrl, supabaseKey);
+
+            // Auth Durum Değişikliklerini Dinle
+            supabaseClient.auth.onAuthStateChange((event, session) => {
+                console.log("Auth Event:", event);
+                handleAuthStateChange(session);
+            });
+
+            // İlk açılışta mevcut oturumu kontrol et
+            supabaseClient.auth.getSession().then(({ data: { session } }) => {
+                isInitialAuthCheckDone = true;
+                handleAuthStateChange(session);
+            });
+
             return true;
         } catch (error) {
             console.error('Supabase başlatma hatası:', error);
             showError();
             return false;
         }
+    }
+
+    /**
+     * Merkezi Auth Durum Yönetimi
+     * @param {object} session Supabase Session nesnesi
+     */
+    async function handleAuthStateChange(session) {
+        if (session && session.user) {
+            // Oturum var, admin yetkisini doğrula
+            const isAdmin = await verifyAdminAccess();
+
+            if (isAdmin) {
+                document.body.classList.remove('logged-out');
+                // Verileri sadece bir kez yükle
+                if (!isDataLoaded) {
+                    isDataLoaded = true;
+                    loadOrganizations();
+                    loadProgramTypes();
+                    loadData();
+                    loadDiscoverModules();
+                }
+            } else {
+                // Auth başarılı ama admin_users listesinde yok
+                console.warn("Yetkisiz admin erişimi reddedildi.");
+                showToast("Bu hesabın admin yetkisi bulunmuyor.", "error");
+                await supabaseClient.auth.signOut();
+                showLoginForm();
+            }
+        } else {
+            // Oturum yok veya çıkış yapıldı
+            showLoginForm();
+        }
+    }
+
+    /**
+     * Kullanıcının admin_users tablosunda olup olmadığını RPC ile kontrol eder.
+     * @returns {Promise<boolean>}
+     */
+    async function verifyAdminAccess() {
+        const authLoading = document.getElementById('auth-loading-overlay');
+        if (authLoading) authLoading.classList.remove('hidden');
+
+        try {
+            const { data, error } = await supabaseClient.rpc('is_admin');
+
+            if (error) {
+                console.error("Yetki kontrolü hatası:", error);
+                return false;
+            }
+
+            return data === true;
+        } catch (err) {
+            console.error("verifyAdminAccess exception:", err);
+            return false;
+        } finally {
+            if (authLoading) authLoading.classList.add('hidden');
+        }
+    }
+
+    function showLoginForm() {
+        document.body.classList.add('logged-out');
+        isDataLoaded = false;
+
+        // Formu resetle
+        const loginForm = document.getElementById('login-form-el');
+        if (loginForm) loginForm.reset();
+
+        const loginError = document.getElementById('login-error');
+        if (loginError) loginError.classList.add('hidden');
     }
 
     // Column detection helper
@@ -6468,69 +6554,79 @@ out center tags;`;
     }
 
     // ==========================================
-    // Admin Basit Giriş Koruması (S-1)
+    // Supabase Auth Giriş Yönetimi (S-1)
     // ==========================================
-    const CORRECT_USERNAME = "admin";
-    const CORRECT_PASSWORD = "cennet2026";
-    const SESSION_KEY = "cennet_admin_logged_in";
-
-    function checkAuth() {
-        const isLoggedIn = sessionStorage.getItem(SESSION_KEY) === "true" || localStorage.getItem(SESSION_KEY) === "true";
-        if (isLoggedIn) {
-            document.body.classList.remove('logged-out');
-            return true;
-        } else {
-            document.body.classList.add('logged-out');
-            return false;
-        }
-    }
 
     function initAuth() {
         const loginForm = document.getElementById('login-form-el');
-        const usernameInput = document.getElementById('login-username');
+        const emailInput = document.getElementById('login-username'); // id'si html'de login-username kalabilir ama type email yaptık
         const passwordInput = document.getElementById('login-password');
         const loginError = document.getElementById('login-error');
         const logoutBtn = document.getElementById('logout-btn');
 
         if (loginForm) {
-            loginForm.addEventListener('submit', (e) => {
+            loginForm.addEventListener('submit', async (e) => {
                 e.preventDefault();
-                const username = usernameInput.value.trim();
-                const password = passwordInput.value.trim();
 
-                if (username === CORRECT_USERNAME && password === CORRECT_PASSWORD) {
-                    sessionStorage.setItem(SESSION_KEY, "true");
-                    localStorage.setItem(SESSION_KEY, "true");
-                    
-                    if (loginError) loginError.classList.add('hidden');
-                    document.body.classList.remove('logged-out');
-                    
-                    // Run initial load after successful login
-                    loadOrganizations();
-                    loadProgramTypes();
-                    loadData();
-                    if (typeof showToast === 'function') {
-                        showToast("Giriş başarılı. Hoş geldiniz!", "success");
+                if (!supabaseClient) {
+                    if (!initSupabase()) return;
+                }
+
+                const email = emailInput.value.trim();
+                const password = passwordInput.value.trim();
+                const submitBtn = loginForm.querySelector('button[type="submit"]');
+
+                // Görsel geri bildirim
+                if (submitBtn) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Giriş Yapılıyor...';
+                }
+                if (loginError) loginError.classList.add('hidden');
+
+                try {
+                    const { data, error } = await supabaseClient.auth.signInWithPassword({
+                        email: email,
+                        password: password
+                    });
+
+                    if (error) {
+                        console.error("Giriş hatası:", error.message);
+                        if (loginError) {
+                            loginError.textContent = "E-posta veya parola hatalı.";
+                            loginError.classList.remove('hidden');
+                        }
+                        if (typeof showToast === 'function') {
+                            showToast("Giriş başarısız!", "error");
+                        }
+                    } else {
+                        // signInWithPassword başarılı olsa bile handleAuthStateChange
+                        // is_admin kontrolü yapıp yetkisizleri atacaktır.
+                        if (typeof showToast === 'function') {
+                            showToast("Giriş denemesi başarılı, yetki kontrol ediliyor...", "success");
+                        }
                     }
-                } else {
-                    if (loginError) loginError.classList.remove('hidden');
-                    if (typeof showToast === 'function') {
-                        showToast("Giriş başarısız! Hatalı bilgiler.", "error");
+                } catch (err) {
+                    console.error("Login catch error:", err);
+                } finally {
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = '<i class="fa-solid fa-right-to-bracket"></i> Giriş Yap';
                     }
                 }
             });
         }
 
         if (logoutBtn) {
-            logoutBtn.addEventListener('click', () => {
-                sessionStorage.removeItem(SESSION_KEY);
-                localStorage.removeItem(SESSION_KEY);
-                document.body.classList.add('logged-out');
-                if (usernameInput) usernameInput.value = '';
-                if (passwordInput) passwordInput.value = '';
-                if (loginError) loginError.classList.add('hidden');
-                if (typeof showToast === 'function') {
-                    showToast("Oturum kapatıldı.", "success");
+            logoutBtn.addEventListener('click', async () => {
+                if (supabaseClient) {
+                    // Eski sistemden kalan anahtarları temizle
+                    sessionStorage.removeItem('cennet_admin_logged_in');
+                    localStorage.removeItem('cennet_admin_logged_in');
+
+                    await supabaseClient.auth.signOut();
+                    if (typeof showToast === 'function') {
+                        showToast("Oturum kapatıldı.", "success");
+                    }
                 }
             });
         }
@@ -6551,14 +6647,9 @@ out center tags;`;
     initSqlExport();
     initDiscoverListeners();
     
-    // Auth and Data Loading
+    // Auth Initialization
+    initSupabase();
     initAuth();
-    if (checkAuth()) {
-        loadOrganizations();
-        loadProgramTypes();
-        loadData();
-        loadDiscoverModules();
-    }
 
     // ==========================================================
     // Keşfet İçerikleri CMS Altyapısı v2 (Profesyonel İki Panel)

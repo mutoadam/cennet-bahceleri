@@ -15,9 +15,15 @@
 </head>
 <body class="logged-out">
 
-    <!-- S-1: Admin Basit Giriş Ekranı -->
+    <!-- S-1: Admin Giriş Ekranı -->
     <div id="admin-login-screen" class="login-screen-overlay hidden">
         <div class="login-box">
+            <!-- Yetki Kontrolü Loader -->
+            <div id="auth-loading-overlay" class="auth-loading-overlay hidden">
+                <div class="spinner"></div>
+                <p>Yetki doğrulanıyor...</p>
+            </div>
+
             <div class="logo-area" style="margin-bottom: 24px;">
                 <div class="logo-icon"><i class="fa-solid fa-mosque"></i></div>
                 <div>
@@ -30,8 +36,8 @@
             
             <form id="login-form-el" class="login-form">
                 <div class="form-group">
-                    <label for="login-username"><i class="fa-solid fa-user"></i> Kullanıcı Adı</label>
-                    <input type="text" id="login-username" class="form-control" required placeholder="admin" autocomplete="username">
+                    <label for="login-username"><i class="fa-solid fa-envelope"></i> E-posta</label>
+                    <input type="email" id="login-username" class="form-control" required placeholder="admin@example.com" autocomplete="email">
                 </div>
                 
                 <div class="form-group" style="margin-top: 16px;">
