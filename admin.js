@@ -464,143 +464,160 @@ document.addEventListener('DOMContentLoaded', () => {
         return text.toString().replace(/[&<>"']/g, m => map[m]);
     }
 
-    // Sync Approved/Added Suggestion to Programs Table (Paket F2)
+    // Sync Approved/Added Suggestion to Programs Table (Paket F2/B12.2A4)
     async function syncSuggestionToProgram(suggestion, sourceType, logoUrlOverride = null, organizationIdOverride = null) {
-        if (!supabaseClient) return;
+        if (!supabaseClient) return { success: false, error: 'Supabase client not initialized' };
         console.log("syncSuggestionToProgram başlatıldı - sourceType:", sourceType);
 
-        // 1. Duplicate check: programs tablosunda aynı suggestion_id varsa tekrar insert yapılmasın
+        let programId = null;
+        let wasExisting = false;
+
+        // 1. Duplicate check: programs tablosunda aynı suggestion_id varsa yeni insert yapılmasın
         const { data: existingPrograms, error: checkError } = await supabaseClient
             .from('programs')
             .select('id')
             .eq('suggestion_id', suggestion.id);
 
         if (checkError) {
-            console.error("Duplicate kontrolü sırasında hata oluştu:", checkError);
+            console.error("Duplicate kontrolü sırasında hata oluştu:", checkError.message);
             throw checkError;
         }
 
         if (existingPrograms && existingPrograms.length > 0) {
-            console.log(`suggestion_id: ${suggestion.id} zaten programs tablosunda mevcut. Tekrar eklenmedi.`);
-            return; // Treat as success
-        }
-
-        // 2. Resolve women_friendly
-        let women_friendly = false;
-        if (
-            suggestion.women_friendly === true || 
-            suggestion.is_ladies_suitable === true || 
-            suggestion.isLadiesSuitable === true || 
-            suggestion.ladies_suitable === true || 
-            suggestion.ladies_only === true || 
-            suggestion.ladiesOnly === true
-        ) {
-            women_friendly = true;
+            console.log(`suggestion_id: ${suggestion.id} zaten programs tablosunda mevcut. Mevcut ID kullanılıyor.`);
+            programId = existingPrograms[0].id;
+            wasExisting = true;
         } else {
-            const descLower = (suggestion.description || '').toLowerCase();
-            if (descLower.includes('hanımlara uygundur') || descLower.includes('hanimlara uygundur')) {
+            // 2. Resolve women_friendly
+            let women_friendly = false;
+            if (
+                suggestion.women_friendly === true ||
+                suggestion.is_ladies_suitable === true ||
+                suggestion.isLadiesSuitable === true ||
+                suggestion.ladies_suitable === true ||
+                suggestion.ladies_only === true ||
+                suggestion.ladiesOnly === true
+            ) {
                 women_friendly = true;
-            }
-        }
-
-        // 3. Resolve organization_id
-        let organization_id = organizationIdOverride;
-        if (!organization_id && suggestion.organization) {
-            const foundOrg = activeOrganizations.find(o => (o.name || '').toLowerCase() === suggestion.organization.toLowerCase());
-            if (foundOrg) {
-                organization_id = foundOrg.id;
-            }
-        }
-
-        // 4. Resolve photo_url & logo_url
-        const photo_url = suggestion.photo_url || suggestion.photoUrl || suggestion.image_url || suggestion.imageUrl || suggestion.photo || suggestion.image || null;
-        const originalLogoUrl = logoUrlOverride || suggestion.logo_url || suggestion.logoUrl || null;
-        let logo_url = originalLogoUrl;
-
-        // Fallback: If logo_url is empty but organization_id is set, find logo_url from organizations
-        if (!logo_url && organization_id) {
-            const foundOrg = activeOrganizations.find(o => o.id === organization_id);
-            if (foundOrg && foundOrg.logo_url) {
-                logo_url = foundOrg.logo_url;
-            }
-        }
-
-        console.log("Payload logo_url before save:", originalLogoUrl);
-        console.log("Payload logo_url after fallback:", logo_url);
-
-        // 5. Construct programs payload
-        const programPayload = {
-            suggestion_id: suggestion.id,
-            program_name: suggestion.program_name || '',
-            venue_name: suggestion.venue_name || '',
-            city: suggestion.city || 'Sakarya',
-            district: suggestion.district || '',
-            day: suggestion.day || '',
-            time: suggestion.time || '',
-            teacher: suggestion.teacher || suggestion.speaker || suggestion.hoca || suggestion.lecturer || '',
-            organization: suggestion.organization || suggestion.institution || suggestion.association || suggestion.community || suggestion.cemaat || suggestion.dernek || suggestion.kurum || '',
-            organization_id: organization_id,
-            women_friendly: women_friendly,
-            address: suggestion.address || suggestion.location || '',
-            google_maps_link: suggestion.google_maps_link || suggestion.googleMapsLink || suggestion.maps_link || suggestion.mapsLink || suggestion.map_link || suggestion.mapLink || '',
-            description: suggestion.description || '',
-            contact_name: suggestion.contact_name || suggestion.contact_person || suggestion.contactPerson || suggestion.sender_name || suggestion.sender || '',
-            contact_phone: suggestion.contact_phone || suggestion.contactPhone || suggestion.phone || suggestion.whatsapp || suggestion.telefon || '',
-            photo_url: photo_url,
-            logo_url: logo_url,
-            status: 'active',
-            source: sourceType
-        };
-
-        console.log("Programs tablosuna veri aktarılıyor...");
-
-        // 6. Insert to programs (robust fallback in case columns don't exist)
-        const { error: insertError } = await supabaseClient
-            .from('programs')
-            .insert(programPayload);
-
-        if (insertError) {
-            console.error("Programs tablosuna ekleme hatası:", insertError);
-            const errMsg = (insertError.message || '').toLowerCase();
-            let columnPruned = false;
-            
-            if (errMsg.includes('logo_url') && 'logo_url' in programPayload) {
-                console.warn("logo_url column seems to be missing in programs table. Retrying sync without logo_url.");
-                delete programPayload.logo_url;
-                columnPruned = true;
-            }
-            if (errMsg.includes('organization_id') && 'organization_id' in programPayload) {
-                console.warn("organization_id column seems to be missing in programs table. Retrying sync without organization_id.");
-                delete programPayload.organization_id;
-                columnPruned = true;
+            } else {
+                const descLower = (suggestion.description || '').toLowerCase();
+                if (descLower.includes('hanımlara uygundur') || descLower.includes('hanimlara uygundur')) {
+                    women_friendly = true;
+                }
             }
 
-            if (columnPruned) {
-                const { error: retryError } = await supabaseClient
-                    .from('programs')
-                    .insert(programPayload);
-                if (retryError) {
-                    const errMsg2 = (retryError.message || '').toLowerCase();
-                    if (errMsg2.includes('organization_id') && 'organization_id' in programPayload) {
-                        delete programPayload.organization_id;
-                        const { error: retryError2 } = await supabaseClient
-                            .from('programs')
-                            .insert(programPayload);
-                        if (retryError2) throw retryError2;
-                    } else if (errMsg2.includes('logo_url') && 'logo_url' in programPayload) {
-                        delete programPayload.logo_url;
-                        const { error: retryError2 } = await supabaseClient
-                            .from('programs')
-                            .insert(programPayload);
-                        if (retryError2) throw retryError2;
-                    } else {
-                        throw retryError;
-                    }
+            // 3. Resolve organization_id
+            let organization_id = organizationIdOverride;
+            if (!organization_id && suggestion.organization) {
+                const foundOrg = activeOrganizations.find(o => (o.name || '').toLowerCase() === suggestion.organization.toLowerCase());
+                if (foundOrg) {
+                    organization_id = foundOrg.id;
+                }
+            }
+
+            // 4. Resolve photo_url & logo_url
+            const photo_url = suggestion.photo_url || suggestion.photoUrl || suggestion.image_url || suggestion.imageUrl || suggestion.photo || suggestion.image || null;
+            const originalLogoUrl = logoUrlOverride || suggestion.logo_url || suggestion.logoUrl || null;
+            let logo_url = originalLogoUrl;
+
+            // Fallback: If logo_url is empty but organization_id is set, find logo_url from organizations
+            if (!logo_url && organization_id) {
+                const foundOrg = activeOrganizations.find(o => o.id === organization_id);
+                if (foundOrg && foundOrg.logo_url) {
+                    logo_url = foundOrg.logo_url;
+                }
+            }
+
+            // 5. Construct programs payload
+            const programPayload = {
+                suggestion_id: suggestion.id,
+                program_name: suggestion.program_name || '',
+                venue_name: suggestion.venue_name || '',
+                city: suggestion.city || 'Sakarya',
+                district: suggestion.district || '',
+                day: suggestion.day || '',
+                time: suggestion.time || '',
+                teacher: suggestion.teacher || suggestion.speaker || suggestion.hoca || suggestion.lecturer || '',
+                organization: suggestion.organization || suggestion.institution || suggestion.association || suggestion.community || suggestion.cemaat || suggestion.dernek || suggestion.kurum || '',
+                organization_id: organization_id,
+                women_friendly: women_friendly,
+                address: suggestion.address || suggestion.location || '',
+                google_maps_link: suggestion.google_maps_link || suggestion.googleMapsLink || suggestion.maps_link || suggestion.mapsLink || suggestion.map_link || suggestion.mapLink || '',
+                description: suggestion.description || '',
+                contact_name: suggestion.contact_name || suggestion.contact_person || suggestion.contactPerson || suggestion.sender_name || suggestion.sender || '',
+                contact_phone: suggestion.contact_phone || suggestion.contactPhone || suggestion.phone || suggestion.whatsapp || suggestion.telefon || '',
+                photo_url: photo_url,
+                logo_url: logo_url,
+                status: 'active',
+                source: sourceType
+            };
+
+            console.log("Programs tablosuna veri aktarılıyor...");
+
+            // 6. Insert to programs (robust fallback in case columns don't exist)
+            const { data: insertedData, error: insertError } = await supabaseClient
+                .from('programs')
+                .insert(programPayload)
+                .select('id')
+                .single();
+
+            if (insertError) {
+                console.error("Programs tablosuna ekleme hatası:", insertError.message);
+                const errMsg = (insertError.message || '').toLowerCase();
+                let columnPruned = false;
+
+                if (errMsg.includes('logo_url') && 'logo_url' in programPayload) {
+                    delete programPayload.logo_url;
+                    columnPruned = true;
+                }
+                if (errMsg.includes('organization_id') && 'organization_id' in programPayload) {
+                    delete programPayload.organization_id;
+                    columnPruned = true;
+                }
+
+                if (columnPruned) {
+                    console.warn("Retrying insert after pruning missing columns...");
+                    const { data: retryData, error: retryError } = await supabaseClient
+                        .from('programs')
+                        .insert(programPayload)
+                        .select('id')
+                        .single();
+                    if (retryError) throw retryError;
+                    programId = retryData.id;
+                } else {
+                    throw insertError;
                 }
             } else {
-                throw insertError;
+                programId = insertedData.id;
             }
         }
+
+        // 7. B12.2A4 - Fotoğrafları RPC ile aktar
+        if (programId) {
+            console.log(`Fotoğraflar programa aktarılıyor. Program ID: ${programId}`);
+            const { data: photoCount, error: rpcError } = await supabaseClient.rpc(
+                'admin_sync_suggestion_photos_to_program',
+                {
+                    p_suggestion_id: suggestion.id,
+                    p_program_id: programId
+                }
+            );
+
+            if (rpcError) {
+                console.error("Fotoğraf senkronizasyonu hatası (RPC):", rpcError.code);
+                throw rpcError;
+            }
+
+            console.log(`Fotoğraf aktarımı tamamlandı. Toplam aktarılan: ${photoCount || 0}`);
+            return {
+                success: true,
+                programId: programId,
+                photoCount: photoCount || 0,
+                wasExisting: wasExisting
+            };
+        }
+
+        return { success: false, error: 'Program ID elde edilemedi' };
     }
 
     // Modal functions (Paket A — Admin İncele Modalı)
@@ -1550,7 +1567,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // Status Update Handler (Paket B)
+    // Status Update Handler (Paket B/B12.2A4)
     async function handleStatusUpdate(newStatus) {
         if (!supabaseClient || !currentSuggestion) return;
 
@@ -1579,15 +1596,24 @@ document.addEventListener('DOMContentLoaded', () => {
 
         try {
             const id = currentSuggestion.id;
+
+            // B12.2A4 - GÜVENLİ ONAY SIRALAMASI
+            // Onay durumunda önce senkronizasyonu (program oluşturma + fotoğraf aktarımı) yapıyoruz.
+            if (newStatus === 'approved') {
+                console.log("Onay işlemi: Önce programa aktarım yapılıyor...");
+                const syncRes = await syncSuggestionToProgram(currentSuggestion, 'suggestion');
+
+                if (!syncRes || !syncRes.success) {
+                    throw new Error(syncRes?.error || "Programa aktarım sırasında bilinmeyen bir hata oluştu.");
+                }
+                console.log("Programa aktarım başarılı. Şimdi öneri durumu güncelleniyor.");
+            }
+
+            // Şimdi öneri durumunu güncelle
             let updatePayload = { status: newStatus };
-            
-            // Safe check for updated_at column
             if ('updated_at' in currentSuggestion) {
                 updatePayload.updated_at = new Date().toISOString();
             }
-
-            console.log("Update id:", currentSuggestion.id);
-            console.log("Yeni status:", newStatus);
 
             let { data, error } = await supabaseClient
                 .from('suggestions')
@@ -1596,7 +1622,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .select();
 
             if (error && updatePayload.updated_at) {
-                console.warn("updated_at ile güncelleme başarısız oldu, sadece status deneniyor:", error);
+                console.warn("updated_at ile güncelleme başarısız oldu, sadece status deneniyor...");
                 const retryRes = await supabaseClient
                     .from('suggestions')
                     .update({ status: newStatus })
@@ -1606,51 +1632,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 error = retryRes.error;
             }
 
-            console.log("Update işlemi tamamlandı.");
-            if (error) {
-                console.error(error);
-            }
-
-            if (error) {
-                throw error;
-            }
+            if (error) throw error;
 
             if (!data || data.length === 0) {
-                console.error("Hiç kayıt güncellenmedi. Tabloda id bulunamamış veya RLS engellemiş olabilir.");
-                showToast("Hiç kayıt güncellenmedi.", "error");
-                return;
+                throw new Error("Hiç kayıt güncellenmedi (id bulunamadı veya RLS engeli).");
             }
 
-            let syncSuccess = true;
+            // Başarı mesajını göster
             if (newStatus === 'approved') {
-                try {
-                    await syncSuggestionToProgram(data[0], 'suggestion');
-                } catch (syncError) {
-                    syncSuccess = false;
-                    console.error("Programs tablosuna aktarım hatası:", syncError);
-                }
-            }
-
-            // Show success toast
-            if (newStatus === 'approved') {
-                if (syncSuccess) {
-                    showToast("Öneri onaylandı ve programa aktarıldı.", "success");
-                } else {
-                    showToast("Öneri onaylandı fakat programa aktarılamadı.", "error");
-                }
+                showToast("Öneri onaylandı ve programa aktarıldı.", "success");
             } else {
                 showToast("Öneri reddedildi.", "success");
             }
 
-            // Close modal
+            // Modalı kapat ve listeyi yenile
             closeInspectModal();
-
-            // Refresh list & counters
             await loadData();
 
         } catch (error) {
-            console.error('İşlem sırasında hata oluştu:', error);
-            showToast("İşlem sırasında hata oluştu.", "error");
+            console.error('İşlem sırasında hata oluştu:', error.message);
+            showToast("İşlem sırasında hata oluştu: " + (error.message || 'Lütfen tekrar deneyin.'), "error");
         } finally {
             // Restore buttons
             if (approveBtn) {
@@ -2054,44 +2055,33 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw responseError;
             }
 
-            // After successful insert as 'pending', update the status to 'approved'
+            // B12.2A4 - GÜVENLİ MANUEL EKLEME SIRALAMASI
+            // Önce senkronizasyonu (program oluşturma + fotoğraf aktarımı) yapıyoruz.
             if (responseData && responseData.length > 0) {
-                const insertedId = responseData[0].id;
-                console.log(`Successfully inserted pending suggestion ID: ${insertedId}. Now updating to approved...`);
-                const { data: updateData, error: updateError } = await supabaseClient
-                    .from('suggestions')
-                    .update({ status: 'approved' })
-                    .eq('id', insertedId)
-                    .select();
+                const suggestion = responseData[0];
+                const logo_url = document.getElementById('add-program-logo-url')?.value.trim() || '';
+                const organization_id = document.getElementById('add-org-select')?.value || null;
 
-                if (updateError) {
-                    console.error("Failed to update manually added suggestion status to approved:", updateError);
-                    throw updateError;
-                } else if (updateData && updateData.length > 0) {
-                    responseData = updateData;
+                console.log("Manuel program ekleme: Önce programa aktarım yapılıyor...");
+                const syncRes = await syncSuggestionToProgram(suggestion, 'admin_manual', logo_url, organization_id);
+
+                if (syncRes && syncRes.success) {
+                    console.log("Programa aktarım başarılı. Şimdi öneri durumu onaylanıyor...");
+                    const { error: updateError } = await supabaseClient
+                        .from('suggestions')
+                        .update({ status: 'approved' })
+                        .eq('id', suggestion.id);
+
+                    if (updateError) {
+                        console.warn("Program oluşturuldu fakat öneri durumu onaylanamadı:", updateError.message);
+                    }
+                    showToast("Program başarıyla eklendi ve yayına hazırlandı.", "success");
+                } else {
+                    console.error("Programa aktarım başarısız:", syncRes?.error);
+                    showToast("Program kaydı oluşturuldu fakat yayına aktarılamadı.", "error");
                 }
             }
 
-            // Success
-            let syncSuccess = true;
-            if (responseData && responseData.length > 0) {
-                try {
-                    const logo_url = document.getElementById('add-program-logo-url')?.value.trim() || '';
-                    const organization_id = document.getElementById('add-org-select')?.value || null;
-                    await syncSuggestionToProgram(responseData[0], 'admin_manual', logo_url, organization_id);
-                } catch (syncError) {
-                    syncSuccess = false;
-                    console.error("Programs tablosuna aktarım hatası (manuel):", syncError);
-                }
-            } else {
-                syncSuccess = false;
-            }
-
-            if (syncSuccess) {
-                showToast("Program başarıyla eklendi ve yayına hazırlandı.", "success");
-            } else {
-                showToast("Program eklendi fakat programs tablosuna aktarılamadı.", "error");
-            }
             closeAddModal();
 
             // Set current tab to approved
