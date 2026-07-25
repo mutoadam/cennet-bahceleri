@@ -3478,8 +3478,19 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.overflow = "hidden";
         }
 
-        // B12.2A3.3A - Program Galerisi Yükle (Asenkron)
-        loadProgramGallery(item.id, item.photo_url);
+        // B12.2A3.3A - Program Galerisi İlkleme (Salt Okunur / Legacy Fallback)
+        const currentPhotoUrl = typeof item.photo_url === 'string' ? item.photo_url.trim() : '';
+
+        // Önce mevcut state'i temizle ve legacy fotoğrafı göster
+        const galleryGrid = document.getElementById('edit-program-gallery-grid');
+        if (galleryGrid) galleryGrid.innerHTML = '';
+
+        if (currentPhotoUrl) {
+            renderProgramGallery([], currentPhotoUrl);
+        }
+
+        // Ardından veritabanından güncel galeri kayıtlarını getir (Asenkron)
+        loadProgramGallery(item.id, currentPhotoUrl);
     }
 
     function closeProgramEditModal(force = false) {
@@ -3516,10 +3527,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (container) container.classList.remove('hidden');
         if (loader) loader.classList.remove('hidden');
-        if (grid) {
-            grid.innerHTML = '';
-            grid.classList.add('hidden');
-        }
+
+        // ÖNEMLİ: Loader açılırken mevcut fallback fotoğrafını gizlemiyoruz (Süreklilik)
         if (errorEl) errorEl.classList.add('hidden');
 
         try {
@@ -3540,7 +3549,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (error) {
                 console.warn("Program galerisi çekilirken hata oluştu:", error.code);
                 if (errorEl) errorEl.classList.remove('hidden');
-                renderProgramGallery([], fallbackUrl);
+                // Hata durumunda, eğer grid boşsa fallback'i render et
+                if (!grid || grid.innerHTML === '') {
+                    renderProgramGallery([], fallbackUrl);
+                }
                 return;
             }
 
@@ -3549,7 +3561,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error("Program gallery loading exception:", err);
             if (errorEl) errorEl.classList.remove('hidden');
-            renderProgramGallery([], fallbackUrl);
+            if (!grid || grid.innerHTML === '') {
+                renderProgramGallery([], fallbackUrl);
+            }
         } finally {
             if (loader) loader.classList.add('hidden');
         }
@@ -3565,14 +3579,22 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!grid) return;
         grid.innerHTML = '';
 
-        if (photos.length > 0) {
+        const normalizedFallback = typeof fallbackUrl === 'string' ? fallbackUrl.trim() : '';
+
+        if (photos && photos.length > 0) {
+            // Metadata Galerisini Göster
             grid.classList.remove('hidden');
+            if (container) container.classList.remove('hidden');
+
             photos.forEach(photo => {
+                const photoUrl = typeof photo.photo_url === 'string' ? photo.photo_url.trim() : '';
+                if (!photoUrl) return;
+
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'gallery-item';
 
                 const img = document.createElement('img');
-                img.src = photo.photo_url;
+                img.src = photoUrl;
                 img.alt = "Program Fotoğrafı";
                 img.loading = "lazy";
                 img.onerror = () => { itemDiv.style.display = 'none'; };
@@ -3588,16 +3610,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 grid.appendChild(itemDiv);
             });
-        } else if (fallbackUrl) {
-            // Legacy Fallback
+        } else if (normalizedFallback) {
+            // Legacy Fallback Göster
             grid.classList.remove('hidden');
+            if (container) container.classList.remove('hidden');
+
             const itemDiv = document.createElement('div');
             itemDiv.className = 'gallery-item';
 
             const img = document.createElement('img');
-            img.src = fallbackUrl;
+            img.src = normalizedFallback;
             img.alt = "Program Fotoğrafı (Fallback)";
-            img.onerror = () => { container?.classList.add('hidden'); };
+            img.onerror = () => {
+                grid.classList.add('hidden');
+                if (container) container.classList.add('hidden');
+            };
 
             itemDiv.appendChild(img);
 
@@ -3608,7 +3635,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             grid.appendChild(itemDiv);
         } else {
-            // Hiç fotoğraf yok
+            // Hiç fotoğraf yok, alanı gizle
+            grid.classList.add('hidden');
             if (container) container.classList.add('hidden');
         }
     }
