@@ -1000,7 +1000,7 @@ body {
 }
 
 /* Suggestion Gallery Grid (B12.2A3.1) */
-.suggestion-gallery-grid {
+.suggestion-gallery-grid, .program-gallery-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 12px;
