@@ -446,6 +446,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // B. Construct insert payload
             const suggestionPayload = {
+                id: crypto.randomUUID(),
                 program_name: programName,
                 venue_name: venueName,
                 district: district,
@@ -472,20 +473,18 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Inserting suggestion data:", suggestionPayload);
 
             // C. Insert into Supabase 'suggestions' table
-            const { data, error } = await supabaseClient
+            const { error } = await supabaseClient
                 .from('suggestions')
-                .insert([suggestionPayload])
-                .select();
+                .insert([suggestionPayload]);
 
             if (error) {
                 throw error;
             }
 
-            console.log("Successfully inserted suggestion:", data);
+            console.log("Successfully inserted suggestion.");
 
             // D. Trigger notifications safely (e.g. notify.js)
             const notificationData = {
-                id: data && data[0] ? data[0].id : null,
                 ...suggestionPayload
             };
             await triggerNotification(notificationData);
