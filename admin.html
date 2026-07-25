@@ -1207,6 +1207,23 @@
                                 <input type="url" id="edit-program-photo-url" class="form-control" placeholder="Örn: https://...">
                             </div>
                         </details>
+
+                        <!-- Registered Photos Gallery (B12.2A3.3A) -->
+                        <div id="edit-program-gallery-container" class="form-group full-width hidden" style="margin-top: 20px; padding: 16px; background-color: rgba(0,0,0,0.02); border: 1px solid var(--md-outline); border-radius: var(--radius-sm);">
+                            <label style="margin-bottom: 12px; display: block; font-weight: 700; color: var(--md-primary);"><i class="fa-solid fa-images"></i> Kayıtlı Fotoğraflar (Galeri)</label>
+
+                            <div id="edit-program-gallery-loading" class="hidden" style="text-align: center; padding: 12px; color: var(--md-on-surface-variant); font-size: 14px;">
+                                <i class="fa-solid fa-spinner fa-spin"></i> Galeri yükleniyor...
+                            </div>
+
+                            <div id="edit-program-gallery-grid" class="program-gallery-grid">
+                                <!-- JS will inject items here -->
+                            </div>
+
+                            <div id="edit-program-gallery-error" class="hidden" style="color: var(--md-error); font-size: 13px; margin-top: 8px;">
+                                <i class="fa-solid fa-circle-exclamation"></i> Galeri yüklenemedi, kapak fotoğrafı gösteriliyor.
+                            </div>
+                        </div>
                     </div>
                     <div class="form-group full-width logo-upload-group" style="grid-column: span 2;">
                         <label><i class="fa-solid fa-image-portrait"></i> Program/Kurum/Cemaat/Oluşum Logosu Yükle</label>

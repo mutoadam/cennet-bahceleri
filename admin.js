@@ -3477,6 +3477,9 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.classList.remove('hidden');
             document.body.style.overflow = "hidden";
         }
+
+        // B12.2A3.3A - Program Galerisi Yükle (Asenkron)
+        loadProgramGallery(item.id, item.photo_url);
     }
 
     function closeProgramEditModal(force = false) {
@@ -3490,8 +3493,124 @@ document.addEventListener('DOMContentLoaded', () => {
             modal.classList.add('hidden');
             document.body.style.overflow = "";
         }
+
+        // B12.2A3.3A - Galeri State Temizle
+        const galleryGrid = document.getElementById('edit-program-gallery-grid');
+        if (galleryGrid) galleryGrid.innerHTML = '';
+        document.getElementById('edit-program-gallery-container')?.classList.add('hidden');
+
         currentEditProgram = null;
         initialProgramState = null;
+    }
+
+    /**
+     * B12.2A3.3A - Program Galerisi Veri Yükleme
+     */
+    async function loadProgramGallery(programId, fallbackUrl) {
+        if (!programId || !supabaseClient) return;
+
+        const container = document.getElementById('edit-program-gallery-container');
+        const loader = document.getElementById('edit-program-gallery-loading');
+        const grid = document.getElementById('edit-program-gallery-grid');
+        const errorEl = document.getElementById('edit-program-gallery-error');
+
+        if (container) container.classList.remove('hidden');
+        if (loader) loader.classList.remove('hidden');
+        if (grid) {
+            grid.innerHTML = '';
+            grid.classList.add('hidden');
+        }
+        if (errorEl) errorEl.classList.add('hidden');
+
+        try {
+            console.log(`Loading gallery for program: ${programId}`);
+
+            const { data: photos, error } = await supabaseClient
+                .from('program_photos')
+                .select('id, program_id, photo_url, sort_order, is_cover, bucket_name, storage_path')
+                .eq('program_id', programId)
+                .order('sort_order', { ascending: true });
+
+            // Race Condition Kontrolü: Hala aynı program mı açık?
+            if (!currentEditProgram || currentEditProgram.id !== programId) {
+                console.log("Program gallery load ignored: Modal context changed.");
+                return;
+            }
+
+            if (error) {
+                console.warn("Program galerisi çekilirken hata oluştu:", error.code);
+                if (errorEl) errorEl.classList.remove('hidden');
+                renderProgramGallery([], fallbackUrl);
+                return;
+            }
+
+            renderProgramGallery(photos || [], fallbackUrl);
+
+        } catch (err) {
+            console.error("Program gallery loading exception:", err);
+            if (errorEl) errorEl.classList.remove('hidden');
+            renderProgramGallery([], fallbackUrl);
+        } finally {
+            if (loader) loader.classList.add('hidden');
+        }
+    }
+
+    /**
+     * B12.2A3.3A - Program Galerisi DOM Render
+     */
+    function renderProgramGallery(photos, fallbackUrl) {
+        const grid = document.getElementById('edit-program-gallery-grid');
+        const container = document.getElementById('edit-program-gallery-container');
+
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        if (photos.length > 0) {
+            grid.classList.remove('hidden');
+            photos.forEach(photo => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'gallery-item';
+
+                const img = document.createElement('img');
+                img.src = photo.photo_url;
+                img.alt = "Program Fotoğrafı";
+                img.loading = "lazy";
+                img.onerror = () => { itemDiv.style.display = 'none'; };
+
+                itemDiv.appendChild(img);
+
+                if (photo.is_cover) {
+                    const badge = document.createElement('span');
+                    badge.className = 'cover-badge';
+                    badge.textContent = 'Kapak';
+                    itemDiv.appendChild(badge);
+                }
+
+                grid.appendChild(itemDiv);
+            });
+        } else if (fallbackUrl) {
+            // Legacy Fallback
+            grid.classList.remove('hidden');
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'gallery-item';
+
+            const img = document.createElement('img');
+            img.src = fallbackUrl;
+            img.alt = "Program Fotoğrafı (Fallback)";
+            img.onerror = () => { container?.classList.add('hidden'); };
+
+            itemDiv.appendChild(img);
+
+            const badge = document.createElement('span');
+            badge.className = 'cover-badge';
+            badge.textContent = 'Kapak';
+            itemDiv.appendChild(badge);
+
+            grid.appendChild(itemDiv);
+        } else {
+            // Hiç fotoğraf yok
+            if (container) container.classList.add('hidden');
+        }
     }
 
     function hasProgramChanges() {
