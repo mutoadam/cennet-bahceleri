@@ -697,17 +697,25 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('modal-created-at').textContent = createdDate;
             document.getElementById('modal-description').textContent = description;
 
-            // Photo logic
+            // Photo logic (Updated for B12.2A3.1 Gallery)
             const photoUrl = item.photo_url || item.photoUrl || item.image_url || item.imageUrl || item.photo || item.image;
             const photoContainer = document.getElementById('modal-photo-container');
-            const photoImg = document.getElementById('modal-photo-img');
+            const galleryGrid = document.getElementById('modal-gallery-grid');
+            const photoFrame = document.getElementById('modal-photo-frame');
+            const galleryLoading = document.getElementById('modal-gallery-loading');
 
-            if (photoUrl) {
-                photoImg.src = photoUrl;
-                photoImg.onerror = () => {
-                    photoContainer.classList.add('hidden');
-                };
+            // Reset states
+            if (galleryGrid) {
+                galleryGrid.innerHTML = '';
+                galleryGrid.classList.add('hidden');
+            }
+            if (photoFrame) photoFrame.classList.add('hidden');
+            if (galleryLoading) galleryLoading.classList.add('hidden');
+
+            if (photoUrl || item.id) {
                 photoContainer.classList.remove('hidden');
+                // Start async gallery load
+                loadSuggestionGallery(item.id, photoUrl);
             } else {
                 photoContainer.classList.add('hidden');
             }
@@ -784,6 +792,129 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.overflow = "";
         }
         exitEditMode();
+    }
+
+    /**
+     * B12.2A3.1 - Admin Öneri İncele Modalında Galeri Yükleme
+     * @param {string} suggestionId Öneri ID'si
+     * @param {string} fallbackUrl Veri tabanında kayıt yoksa kullanılacak tekil URL
+     */
+    async function loadSuggestionGallery(suggestionId, fallbackUrl) {
+        if (!suggestionId || !supabaseClient) return;
+
+        const galleryLoading = document.getElementById('modal-gallery-loading');
+        const galleryGrid = document.getElementById('modal-gallery-grid');
+        const photoFrame = document.getElementById('modal-photo-frame');
+        const photoImg = document.getElementById('modal-photo-img');
+
+        if (galleryLoading) galleryLoading.classList.remove('hidden');
+
+        try {
+            console.log(`Loading gallery for suggestion: ${suggestionId}`);
+
+            const { data: photos, error } = await supabaseClient
+                .from('program_photos')
+                .select('id, photo_url, sort_order, is_cover, bucket_name, storage_path')
+                .eq('suggestion_id', suggestionId)
+                .order('sort_order', { ascending: true });
+
+            // Yarış Durumu Kontrolü (Race Condition check)
+            if (!currentSuggestion || currentSuggestion.id !== suggestionId) {
+                console.log("Gallery load ignored: Modal context changed.");
+                return;
+            }
+
+            if (error) {
+                console.warn("Galeri çekilirken hata oluştu, fallback'e dönülüyor:", error.message);
+                renderGallery([], fallbackUrl);
+                return;
+            }
+
+            renderGallery(photos || [], fallbackUrl);
+
+        } catch (err) {
+            console.error("Gallery loading exception:", err);
+            renderGallery([], fallbackUrl);
+        } finally {
+            if (galleryLoading) galleryLoading.classList.add('hidden');
+        }
+    }
+
+    /**
+     * B12.2A3.1 - Galeri DOM Render İşlemi
+     */
+    function renderGallery(photos, fallbackUrl) {
+        const galleryGrid = document.getElementById('modal-gallery-grid');
+        const photoFrame = document.getElementById('modal-photo-frame');
+        const photoImg = document.getElementById('modal-photo-img');
+
+        if (!galleryGrid) return;
+        galleryGrid.innerHTML = '';
+
+        if (photos.length > 0) {
+            // Galeri Görünümü
+            galleryGrid.classList.remove('hidden');
+            if (photoFrame) photoFrame.classList.add('hidden');
+
+            photos.forEach(photo => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'gallery-item';
+
+                const img = document.createElement('img');
+                img.src = photo.photo_url;
+                img.alt = "Galeri Fotoğrafı";
+                img.loading = "lazy";
+
+                // Hata durumunda gizle
+                img.onerror = () => { itemDiv.style.display = 'none'; };
+
+                itemDiv.appendChild(img);
+
+                if (photo.is_cover) {
+                    const badge = document.createElement('span');
+                    badge.className = 'cover-badge';
+                    badge.textContent = 'Kapak';
+                    itemDiv.appendChild(badge);
+                }
+
+                // Tıklandığında büyük önizlemeye bas (Opsiyonel ama UX için iyi)
+                itemDiv.addEventListener('click', () => {
+                    if (photoImg && photoFrame) {
+                        photoImg.src = photo.photo_url;
+                        photoFrame.classList.remove('hidden');
+                        // Scroll to preview frame if needed
+                        photoFrame.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                    }
+                });
+
+                galleryGrid.appendChild(itemDiv);
+            });
+
+            // İlk fotoğrafı (veya kapak olanı) önizlemeye de bas
+            const coverPhoto = photos.find(p => p.is_cover) || photos[0];
+            if (coverPhoto && photoImg && photoFrame) {
+                photoImg.src = coverPhoto.photo_url;
+                photoFrame.classList.remove('hidden');
+            }
+
+        } else if (fallbackUrl) {
+            // Legacy / Fallback Görünümü
+            galleryGrid.classList.add('hidden');
+            if (photoFrame) {
+                photoFrame.classList.remove('hidden');
+                if (photoImg) {
+                    photoImg.src = fallbackUrl;
+                    photoImg.onerror = () => {
+                        document.getElementById('modal-photo-container')?.classList.add('hidden');
+                    };
+                }
+            }
+        } else {
+            // Hiç fotoğraf yok
+            galleryGrid.classList.add('hidden');
+            if (photoFrame) photoFrame.classList.add('hidden');
+            document.getElementById('modal-photo-container')?.classList.add('hidden');
+        }
     }
 
     // Edit Mode functions (Paket C)

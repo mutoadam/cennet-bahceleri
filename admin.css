@@ -999,6 +999,53 @@ body {
     color: #ffffff;
 }
 
+/* Suggestion Gallery Grid (B12.2A3.1) */
+.suggestion-gallery-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+    padding: 4px;
+}
+
+.gallery-item {
+    position: relative;
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    border: 2px solid var(--md-outline);
+    aspect-ratio: 4/3;
+    background-color: #f0f0f0;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease;
+}
+
+.gallery-item:hover {
+    transform: scale(1.02);
+    border-color: var(--md-secondary);
+}
+
+.gallery-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.cover-badge {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    background-color: var(--md-secondary);
+    color: var(--md-on-secondary);
+    padding: 2px 8px;
+    font-size: 10px;
+    font-weight: 700;
+    border-radius: 4px;
+    text-transform: uppercase;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+    z-index: 2;
+}
+
 .btn-edit {
     background-color: var(--md-secondary-container);
     color: var(--md-secondary);
