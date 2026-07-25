@@ -814,7 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const { data: photos, error } = await supabaseClient
                 .from('program_photos')
-                .select('id, photo_url, sort_order, is_cover, bucket_name, storage_path')
+                .select('id, suggestion_id, photo_url, sort_order, is_cover, bucket_name, storage_path')
                 .eq('suggestion_id', suggestionId)
                 .order('sort_order', { ascending: true });
 
@@ -925,6 +925,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     itemDiv.appendChild(controlsDiv);
                 }
 
+                // B12.2A3.2C - Kaldır Butonu (Yalnız Pending)
+                const statusVal = (currentSuggestion.status || 'pending').toLowerCase();
+                if (statusVal === 'pending' || statusVal === 'beklemede') {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn-delete-photo';
+                    deleteBtn.title = "Bu fotoğrafı galeriden kalıcı olarak kaldır";
+                    deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteSuggestionPhoto(photo, deleteBtn);
+                    });
+                    itemDiv.appendChild(deleteBtn);
+                }
+
                 // Tıklandığında büyük önizlemeye bas
                 itemDiv.addEventListener('click', () => {
                     if (photoImg && photoFrame) {
@@ -975,8 +990,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn.classList.contains('disabled')) return;
 
         const originalHTML = btn.innerHTML;
-        // B12.2A3.2B: Ortak işlem kilidi için tüm galeri butonlarını seç
-        const allGalleryBtns = document.querySelectorAll('.btn-make-cover, .btn-move-photo');
+        // B12.2A3.2B/C: Ortak işlem kilidi için tüm galeri butonlarını seç
+        const allGalleryBtns = document.querySelectorAll('.btn-make-cover, .btn-move-photo, .btn-delete-photo');
 
         // UI Kilitleme
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -1028,7 +1043,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn.classList.contains('disabled')) return;
 
         const originalHTML = btn.innerHTML;
-        const allGalleryBtns = document.querySelectorAll('.btn-make-cover, .btn-move-photo');
+        const allGalleryBtns = document.querySelectorAll('.btn-make-cover, .btn-move-photo, .btn-delete-photo');
 
         // UI Kilitleme
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
@@ -1046,11 +1061,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             );
 
-            // Race Condition Kontrolü
-            if (!currentSuggestion || currentSuggestion.id !== photo.suggestion_id && !error) {
-                // Not: photo nesnesinde suggestion_id select'te yoksa control atlanır
-            }
-
             if (error) throw error;
 
             if (moved === true) {
@@ -1067,6 +1077,101 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error("Fotoğraf sıralama hatası:", err);
             showToast("Fotoğraf sırası güncellenemedi.", "error");
+
+            // UI kilidini aç
+            btn.innerHTML = originalHTML;
+            allGalleryBtns.forEach(b => b.classList.remove('disabled'));
+        }
+    }
+
+    /**
+     * B12.2A3.2C - Fotoğrafı Galeriden Kaldır (RPC + Storage)
+     */
+    async function deleteSuggestionPhoto(photo, btn) {
+        if (!currentSuggestion || !photo || !supabaseClient) return;
+
+        // Pending kontrolü (ekstra güvenlik)
+        const statusVal = (currentSuggestion.status || 'pending').toLowerCase();
+        if (statusVal !== 'pending' && statusVal !== 'beklemede') {
+            showToast("Sadece bekleyen önerilerin fotoğrafları silinebilir.", "error");
+            return;
+        }
+
+        // Onay iste
+        const confirmDelete = confirm("Bu fotoğraf galeriden kalıcı olarak kaldırılsın mı?");
+        if (!confirmDelete) return;
+
+        // Çift tıklama koruması
+        if (btn.classList.contains('disabled')) return;
+
+        const originalHTML = btn.innerHTML;
+        const allGalleryBtns = document.querySelectorAll('.btn-make-cover, .btn-move-photo, .btn-delete-photo');
+
+        // UI Kilitleme
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        allGalleryBtns.forEach(b => b.classList.add('disabled'));
+
+        try {
+            console.log(`Deleting photo ${photo.id} for suggestion ${currentSuggestion.id}`);
+            const targetSuggestionId = currentSuggestion.id;
+
+            // 1. RPC Çağrısı (Database Silme)
+            const { data, error: rpcError } = await supabaseClient.rpc(
+                'admin_delete_pending_suggestion_photo',
+                {
+                    p_suggestion_id: targetSuggestionId,
+                    p_photo_id: photo.id
+                }
+            );
+
+            if (rpcError) throw rpcError;
+
+            // RPC sonucunu çözümle (RETURNS TABLE)
+            const result = Array.isArray(data) ? data[0] : data;
+            if (!result) throw new Error("RPC returned no data.");
+
+            const { deleted_bucket_name, deleted_storage_path, new_cover_photo_url } = result;
+
+            // 2. Storage Silme (Database başarılıysa her durumda devam et)
+            let storageError = null;
+            if (deleted_bucket_name && deleted_storage_path) {
+                const { error } = await supabaseClient.storage
+                    .from(deleted_bucket_name)
+                    .remove([deleted_storage_path]);
+                storageError = error;
+
+                if (storageError) {
+                    console.warn("Storage cleanup failed (DB record deleted):", storageError.message);
+                    showToast("Fotoğraf galeriden kaldırıldı ancak dosya temizliği tamamlanamadı.", "warning");
+                }
+            }
+
+            // 3. Senkronizasyon (Race Condition Kontrolü ile)
+            if (currentSuggestion && currentSuggestion.id === targetSuggestionId) {
+                currentSuggestion.photo_url = new_cover_photo_url || null;
+
+                // UI Güncelleme
+                const photoImg = document.getElementById('modal-photo-img');
+                if (photoImg) {
+                    if (new_cover_photo_url) {
+                        photoImg.src = new_cover_photo_url;
+                    } else {
+                        photoImg.src = "";
+                        // Fotoğraf kalmadıysa container gizlenecek ama renderGallery de yapacak.
+                    }
+                }
+
+                if (!storageError) {
+                    showToast("Fotoğraf kaldırıldı.", "success");
+                }
+
+                // Galeriyi Yenile
+                await loadSuggestionGallery(targetSuggestionId, currentSuggestion.photo_url);
+            }
+
+        } catch (err) {
+            console.error("Fotoğraf silme hatası:", err);
+            showToast("Fotoğraf kaldırılamadı.", "error");
 
             // UI kilidini aç
             btn.innerHTML = originalHTML;
