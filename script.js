@@ -612,8 +612,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     .insert(uploadedPhotosMetadata);
 
                 if (metadataError) {
-                    console.error("Metadata insertion failed, but main suggestion was saved:", metadataError);
-                    // We don't block the success flow if only metadata fails
+                    console.error("Metadata error code:", metadataError.code || "unknown");
+                    showError("Öneriniz kaydedildi ancak ek fotoğrafların kaydı sırasında teknik bir hata oluştu. Ana bilgileriniz ve kapak fotoğrafınız bize ulaştı, lütfen tekrar göndermeyin.");
+                    submitBtn.disabled = true; // Prevent duplicate submission
+
+                    // Still trigger notification so admin knows about the new (partial) suggestion
+                    await triggerNotification({ ...suggestionPayload });
+                    return; // Stop here, do not show the full success screen
                 }
             }
 
@@ -647,8 +652,8 @@ document.addEventListener('DOMContentLoaded', () => {
             window.scrollTo({ top: 0, behavior: 'smooth' });
 
         } catch (error) {
-            console.error('Submission error:', error);
-            showError('Öneriniz kaydedilirken bir veritabanı hatası oluştu: ' + (error.message || 'Lütfen bağlantınızı kontrol edip tekrar deneyin.'));
+            console.error('Submission error occurred'); // Generic log for security
+            showError('Öneriniz kaydedilirken bir hata oluştu. Lütfen bağlantınızı kontrol edip tekrar deneyin.');
         }
     });
 
