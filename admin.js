@@ -875,6 +875,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     badge.className = 'cover-badge';
                     badge.textContent = 'Kapak';
                     itemDiv.appendChild(badge);
+                } else {
+                    // B12.2A3.2A - Kapak Yap Butonu
+                    const makeCoverBtn = document.createElement('button');
+                    makeCoverBtn.className = 'btn-make-cover';
+                    makeCoverBtn.innerHTML = '<i class="fa-solid fa-star"></i> Kapak Yap';
+
+                    makeCoverBtn.addEventListener('click', (e) => {
+                        e.stopPropagation(); // Kart tıklamasını (büyük önizleme) engelle
+                        setSuggestionCover(photo, makeCoverBtn);
+                    });
+
+                    itemDiv.appendChild(makeCoverBtn);
                 }
 
                 // Tıklandığında büyük önizlemeye bas (Opsiyonel ama UX için iyi)
@@ -914,6 +926,63 @@ document.addEventListener('DOMContentLoaded', () => {
             galleryGrid.classList.add('hidden');
             if (photoFrame) photoFrame.classList.add('hidden');
             document.getElementById('modal-photo-container')?.classList.add('hidden');
+        }
+    }
+
+    /**
+     * B12.2A3.2A - Kapak Fotoğrafını Güncelle (RPC Çağrısı)
+     */
+    async function setSuggestionCover(photo, btn) {
+        if (!currentSuggestion || !photo || !supabaseClient) return;
+
+        // Çift tıklama koruması
+        if (btn.classList.contains('disabled')) return;
+
+        const originalHTML = btn.innerHTML;
+        const allCoverBtns = document.querySelectorAll('.btn-make-cover');
+
+        // UI Kilitleme
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...';
+        allCoverBtns.forEach(b => b.classList.add('disabled'));
+
+        try {
+            console.log(`Setting new cover for suggestion ${currentSuggestion.id}: Photo ${photo.id}`);
+
+            const { error } = await supabaseClient.rpc(
+                'admin_set_suggestion_photo_cover',
+                {
+                    p_suggestion_id: currentSuggestion.id,
+                    p_photo_id: photo.id
+                }
+            );
+
+            // Race Condition Kontrolü
+            if (!currentSuggestion || currentSuggestion.id !== photo.suggestion_id && !error) {
+                // Not: photo nesnesinde suggestion_id olmayabilir eğer select'te çekmediysek.
+                // Önceki select'te çekmedik ama currentSuggestion.id ile p_suggestion_id aynı.
+            }
+
+            if (error) throw error;
+
+            // 1. Local State Güncelleme
+            currentSuggestion.photo_url = photo.photo_url;
+
+            // 2. Ana Görsel Senkronizasyonu
+            const photoImg = document.getElementById('modal-photo-img');
+            if (photoImg) photoImg.src = photo.photo_url;
+
+            showToast("Kapak fotoğrafı güncellendi.", "success");
+
+            // 3. Galeriyi Yenile (Böylece rozetler güncellenir)
+            await loadSuggestionGallery(currentSuggestion.id, photo.photo_url);
+
+        } catch (err) {
+            console.error("Kapak değiştirme hatası:", err);
+            showToast("Kapak fotoğrafı güncellenemedi.", "error");
+
+            // UI kilidini aç (Hata durumunda kullanıcı tekrar deneyebilsin)
+            btn.innerHTML = originalHTML;
+            allCoverBtns.forEach(b => b.classList.remove('disabled'));
         }
     }
 
