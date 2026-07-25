@@ -46,6 +46,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Auth & Yükleme Kontrolü
     let isDataLoaded = false;
     let isInitialAuthCheckDone = false;
+    let isProgramGalleryMutating = false; // B12.2A3.3B1
 
     const SAKARYA_DISTRICTS = [
         "Adapazarı",
@@ -3596,6 +3597,19 @@ document.addEventListener('DOMContentLoaded', () => {
                     badge.className = 'cover-badge';
                     badge.textContent = 'Kapak';
                     itemDiv.appendChild(badge);
+                } else {
+                    // B12.2A3.3B1 - Kapak Yap Butonu
+                    const makeCoverBtn = document.createElement('button');
+                    makeCoverBtn.className = 'btn-make-cover';
+                    makeCoverBtn.title = "Bu fotoğrafı kapak yap";
+                    makeCoverBtn.innerHTML = '<i class="fa-solid fa-star"></i> Kapak Yap';
+
+                    makeCoverBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        setProgramPhotoCover(photo, makeCoverBtn);
+                    });
+
+                    itemDiv.appendChild(makeCoverBtn);
                 }
 
                 grid.appendChild(itemDiv);
@@ -3628,6 +3642,71 @@ document.addEventListener('DOMContentLoaded', () => {
             // Hiç fotoğraf yok, alanı gizle
             grid.classList.add('hidden');
             if (container) container.classList.add('hidden');
+        }
+    }
+
+    /**
+     * B12.2A3.3B1 - Program Galerisinde Kapak Değiştirme
+     */
+    async function setProgramPhotoCover(photo, btn) {
+        if (!currentEditProgram || !photo || !supabaseClient) return;
+
+        // Çift tıklama ve işlem kilidi koruması
+        if (btn.classList.contains('disabled') || isProgramGalleryMutating) return;
+
+        const programId = currentEditProgram.id;
+        const originalHTML = btn.innerHTML;
+        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover');
+
+        // UI Kilitleme
+        isProgramGalleryMutating = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        allGalleryBtns.forEach(b => b.classList.add('disabled'));
+
+        try {
+            console.log(`Setting new cover for program ${programId}: Photo ${photo.id}`);
+
+            const { error } = await supabaseClient.rpc(
+                'admin_set_program_photo_cover',
+                {
+                    p_program_id: programId,
+                    p_photo_id: photo.id
+                }
+            );
+
+            if (error) throw error;
+
+            // Race Condition: Hala aynı program mı açık?
+            if (!currentEditProgram || currentEditProgram.id !== programId) {
+                console.log("Program cover update successful but modal context changed.");
+                return;
+            }
+
+            // 1. Local State ve UI Senkronizasyonu
+            currentEditProgram.photo_url = photo.photo_url;
+
+            // #edit-program-photo-url alanını güncelle
+            const photoUrlInput = document.getElementById('edit-program-photo-url');
+            if (photoUrlInput) photoUrlInput.value = photo.photo_url;
+
+            // Mevcut program fotoğraf önizlemesini güncelle
+            const previewImg = document.getElementById('edit-program-photo-preview-img');
+            if (previewImg) previewImg.src = photo.photo_url;
+
+            showToast("Program kapak fotoğrafı güncellendi.", "success");
+
+            // 2. Galeriyi Yenile
+            await loadProgramGallery(programId, photo.photo_url);
+
+        } catch (err) {
+            console.error("Program kapak değiştirme hatası:", err.code || err);
+            showToast("Program kapak fotoğrafı güncellenemedi.", "error");
+
+            // UI kilidini aç
+            btn.innerHTML = originalHTML;
+            allGalleryBtns.forEach(b => b.classList.remove('disabled'));
+        } finally {
+            isProgramGalleryMutating = false;
         }
     }
 
