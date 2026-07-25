@@ -512,6 +512,123 @@ select.form-control {
     animation: fadeIn 0.25s ease-out forwards;
 }
 
+/* Photo Previews Container */
+.photo-previews-container {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 16px;
+    margin-top: 16px;
+    padding: 16px;
+    background: var(--bg-color);
+    border: 1px dashed var(--border-color);
+    border-radius: var(--radius-md);
+}
+
+.photo-preview-item {
+    position: relative;
+    background: white;
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    border: 2px solid transparent;
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+}
+
+.photo-preview-item.is-cover {
+    border-color: var(--accent-color);
+    box-shadow: 0 0 0 2px var(--accent-light);
+}
+
+.preview-img-wrapper {
+    position: relative;
+    width: 100%;
+    padding-top: 100%; /* Square aspect ratio */
+    overflow: hidden;
+}
+
+.preview-img-wrapper img {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.cover-badge {
+    position: absolute;
+    top: 8px;
+    left: 8px;
+    background: var(--accent-color);
+    color: white;
+    padding: 2px 8px;
+    border-radius: var(--radius-full);
+    font-size: 10px;
+    font-weight: bold;
+    text-transform: uppercase;
+    z-index: 2;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.preview-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 8px;
+    background: #f8f9fa;
+    border-top: 1px solid #eee;
+}
+
+.preview-btn {
+    border: none;
+    background: white;
+    color: var(--text-muted);
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: var(--transition);
+    border: 1px solid #ddd;
+}
+
+.preview-btn:hover {
+    background: var(--primary-ultra-light);
+    color: var(--primary-color);
+    border-color: var(--primary-light);
+}
+
+.preview-btn.btn-remove {
+    color: var(--danger-color);
+}
+
+.preview-btn.btn-remove:hover {
+    background: #fff5f5;
+    border-color: var(--danger-color);
+}
+
+.preview-btn.btn-cover {
+    grid-column: span 2;
+    background: var(--accent-color);
+    color: white;
+    border: none;
+    font-weight: bold;
+}
+
+.preview-btn.btn-cover:hover {
+    filter: brightness(1.1);
+}
+
+.preview-btn.btn-cover.active {
+    background: #ccc;
+    cursor: default;
+    pointer-events: none;
+}
+
 /* Footer styling */
 .admin-footer {
     background-color: var(--accent-light);

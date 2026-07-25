@@ -23,6 +23,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const newSuggestionBtn = document.getElementById('new-suggestion-btn');
 
     let supabaseClient = null;
+    let selectedSuggestionPhotos = []; // Central list for photos
+
+    // UI Elements for Multi-Photo
+    const photoInput = document.getElementById('photo_file');
+    const photoPreviewsContainer = document.getElementById('photo-previews');
 
     // Organization Toggle Logic
     const organizationSelect = document.getElementById('organization');
@@ -233,6 +238,128 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // UUID Fallback Helper
+    function generateUUID() {
+        if (typeof crypto.randomUUID === 'function') return crypto.randomUUID();
+        return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+            (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+        );
+    }
+
+    // Photo Selection Handler
+    if (photoInput) {
+        photoInput.addEventListener('change', (e) => {
+            const files = Array.from(e.target.files);
+            if (!files.length) return;
+
+            if (selectedSuggestionPhotos.length + files.length > 6) {
+                alert('En fazla 6 fotoğraf ekleyebilirsiniz.');
+                photoInput.value = ''; // Reset input to allow re-selection
+                return;
+            }
+
+            const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+            const maxSize = 8 * 1024 * 1024; // 8MB
+
+            files.forEach(file => {
+                if (!allowedTypes.includes(file.type)) {
+                    alert(`"${file.name}" desteklenmeyen bir dosya formatı. Sadece JPEG, PNG ve WEBP kabul edilir.`);
+                    return;
+                }
+                if (file.size > maxSize) {
+                    alert(`"${file.name}" çok büyük. En fazla 8 MB yüklenebilir.`);
+                    return;
+                }
+
+                const clientId = Math.random().toString(36).substring(2, 11);
+                const previewUrl = URL.createObjectURL(file);
+
+                selectedSuggestionPhotos.push({
+                    file: file,
+                    previewUrl: previewUrl,
+                    clientId: clientId,
+                    isCover: selectedSuggestionPhotos.length === 0 // First one is cover by default
+                });
+            });
+
+            photoInput.value = ''; // Clear input to allow re-selecting same file
+            renderPhotoPreviews();
+        });
+    }
+
+    // Render Photo Previews
+    function renderPhotoPreviews() {
+        if (!photoPreviewsContainer) return;
+
+        if (selectedSuggestionPhotos.length === 0) {
+            photoPreviewsContainer.innerHTML = '';
+            photoPreviewsContainer.classList.add('hidden');
+            return;
+        }
+
+        photoPreviewsContainer.classList.remove('hidden');
+        photoPreviewsContainer.innerHTML = '';
+
+        selectedSuggestionPhotos.forEach((photo, index) => {
+            const item = document.createElement('div');
+            item.className = `photo-preview-item ${photo.isCover ? 'is-cover' : ''}`;
+
+            item.innerHTML = `
+                <div class="preview-img-wrapper">
+                    ${photo.isCover ? '<span class="cover-badge">Kapak</span>' : ''}
+                    <img src="${photo.previewUrl}" alt="Önizleme">
+                </div>
+                <div class="preview-controls">
+                    <button type="button" class="preview-btn btn-move" onclick="window.movePhoto('${photo.clientId}', -1)" title="Sola Taşı" ${index === 0 ? 'disabled' : ''}>
+                        <i class="fa-solid fa-arrow-left"></i>
+                    </button>
+                    <button type="button" class="preview-btn btn-move" onclick="window.movePhoto('${photo.clientId}', 1)" title="Sağa Taşı" ${index === selectedSuggestionPhotos.length - 1 ? 'disabled' : ''}>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                    <button type="button" class="preview-btn btn-remove" onclick="window.removePhoto('${photo.clientId}')" title="Kaldır">
+                        <i class="fa-solid fa-trash"></i> Kaldır
+                    </button>
+                    <button type="button" class="preview-btn btn-cover ${photo.isCover ? 'active' : ''}" onclick="window.setCoverPhoto('${photo.clientId}')">
+                        ${photo.isCover ? '<i class="fa-solid fa-star"></i> Kapak' : 'Kapak Yap'}
+                    </button>
+                </div>
+            `;
+            photoPreviewsContainer.appendChild(item);
+        });
+    }
+
+    // Exposure of controls to window for onclick handlers
+    window.removePhoto = (clientId) => {
+        const index = selectedSuggestionPhotos.findIndex(p => p.clientId === clientId);
+        if (index > -1) {
+            const removed = selectedSuggestionPhotos.splice(index, 1)[0];
+            URL.revokeObjectURL(removed.previewUrl);
+
+            // If we removed the cover, set the first one as cover
+            if (removed.isCover && selectedSuggestionPhotos.length > 0) {
+                selectedSuggestionPhotos[0].isCover = true;
+            }
+            renderPhotoPreviews();
+        }
+    };
+
+    window.setCoverPhoto = (clientId) => {
+        selectedSuggestionPhotos.forEach(p => p.isCover = (p.clientId === clientId));
+        renderPhotoPreviews();
+    };
+
+    window.movePhoto = (clientId, direction) => {
+        const index = selectedSuggestionPhotos.findIndex(p => p.clientId === clientId);
+        if (index === -1) return;
+
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= selectedSuggestionPhotos.length) return;
+
+        const element = selectedSuggestionPhotos.splice(index, 1)[0];
+        selectedSuggestionPhotos.splice(newIndex, 0, element);
+        renderPhotoPreviews();
+    };
+
     // Initialize on load
     if (initSupabase()) {
         detectSuggestionsOrgIdColumn().then(() => {
@@ -367,7 +494,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let womenFriendly = false;
         let googleMapsLink = null;
         let address = "Belirtilmedi";
-        let photoFile = null;
 
         if (!isUpdate) {
             venueName = document.getElementById('venue_name').value.trim();
@@ -396,57 +522,57 @@ document.addEventListener('DOMContentLoaded', () => {
             womenFriendly = document.getElementById('women_friendly').value === 'true';
             googleMapsLink = document.getElementById('google_maps_link').value.trim();
             address = document.getElementById('address').value.trim();
-            photoFile = document.getElementById('photo_file').files[0];
         }
 
-        let photoUrl = null;
+        const suggestionId = generateUUID();
+        let mainPhotoUrl = null;
+        const uploadedPhotosMetadata = [];
 
         try {
-            // A. If file is attached, upload it to Supabase Storage
-            if (photoFile) {
-                const fileExt = photoFile.name.split('.').pop();
-                const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-                const filePath = `suggestions/${fileName}`;
+            // A. Upload All Selected Photos
+            if (!isUpdate && selectedSuggestionPhotos.length > 0) {
+                console.log(`Uploading ${selectedSuggestionPhotos.length} photos...`);
 
-                console.log("Uploading photo:", filePath);
+                for (let i = 0; i < selectedSuggestionPhotos.length; i++) {
+                    const photo = selectedSuggestionPhotos[i];
+                    const fileExt = photo.file.name.split('.').pop() || 'jpg';
+                    const uniqueFileName = `${generateUUID()}.${fileExt}`;
+                    const storagePath = `suggestions/${suggestionId}/${uniqueFileName}`;
 
-                // We try bucket "suggestion-photos" first, fallback to "suggestions"
-                let uploadResult = null;
-                try {
-                    uploadResult = await supabaseClient.storage
+                    const { data: uploadData, error: uploadError } = await supabaseClient.storage
                         .from('suggestion-photos')
-                        .upload(filePath, photoFile);
-                    
-                    if (uploadResult.error) {
-                        // Retry with bucket suggestions
-                        console.log("Failed in suggestion-photos bucket, trying 'suggestions' bucket.");
-                        uploadResult = await supabaseClient.storage
-                            .from('suggestions')
-                            .upload(filePath, photoFile);
-                    }
-                } catch (uploadErr) {
-                    console.warn("Storage upload error:", uploadErr);
-                }
+                        .upload(storagePath, photo.file);
 
-                if (uploadResult && !uploadResult.error) {
-                    // Try to resolve public URL
-                    try {
-                        const { data: publicUrlData } = supabaseClient.storage
-                            .from(uploadResult.data.fullPath.split('/')[0] || 'suggestion-photos')
-                            .getPublicUrl(filePath);
-                        photoUrl = publicUrlData.publicUrl;
-                        console.log("Resolved public photo URL:", photoUrl);
-                    } catch (urlErr) {
-                        console.warn("Could not get public URL:", urlErr);
+                    if (uploadError) {
+                        console.error(`Upload error for photo ${i}:`, uploadError);
+                        continue; // Skip this photo if upload fails
                     }
-                } else {
-                    console.warn("Photo upload skipped or failed:", uploadResult ? uploadResult.error : "No upload result");
+
+                    const { data: publicUrlData } = supabaseClient.storage
+                        .from('suggestion-photos')
+                        .getPublicUrl(storagePath);
+
+                    const publicUrl = publicUrlData.publicUrl;
+
+                    if (photo.isCover) {
+                        mainPhotoUrl = publicUrl;
+                    }
+
+                    uploadedPhotosMetadata.push({
+                        suggestion_id: suggestionId,
+                        program_id: null,
+                        bucket_name: "suggestion-photos",
+                        storage_path: storagePath,
+                        photo_url: publicUrl,
+                        sort_order: i,
+                        is_cover: photo.isCover
+                    });
                 }
             }
 
             // B. Construct insert payload
             const suggestionPayload = {
-                id: crypto.randomUUID(),
+                id: suggestionId,
                 program_name: programName,
                 venue_name: venueName,
                 district: district,
@@ -460,7 +586,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 description: isUpdate ? `[Düzeltme Talebi - Nedeni: ${document.getElementById('correction_reason').value}]\n\nAçıklama:\n${description}` : description,
                 contact_name: contactName || (isUpdate ? "Web Kullanıcısı" : "Belirtilmedi"),
                 contact_phone: contactPhone || "Belirtilmedi",
-                photo_url: photoUrl || null,
+                photo_url: mainPhotoUrl, // Store cover photo for backward compatibility
                 status: 'pending', // Required for admin review
                 source: isUpdate ? 'web_correction' : 'web_form',
                 request_type: isUpdate ? 'update_request' : 'new_program'
@@ -473,15 +599,25 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log("Inserting suggestion data...");
 
             // C. Insert into Supabase 'suggestions' table
-            const { error } = await supabaseClient
+            const { error: suggestionError } = await supabaseClient
                 .from('suggestions')
                 .insert([suggestionPayload]);
 
-            if (error) {
-                throw error;
+            if (suggestionError) throw suggestionError;
+
+            // D. Insert Metadata into 'program_photos' if any photos were uploaded
+            if (uploadedPhotosMetadata.length > 0) {
+                const { error: metadataError } = await supabaseClient
+                    .from('program_photos')
+                    .insert(uploadedPhotosMetadata);
+
+                if (metadataError) {
+                    console.error("Metadata insertion failed, but main suggestion was saved:", metadataError);
+                    // We don't block the success flow if only metadata fails
+                }
             }
 
-            console.log("Successfully inserted suggestion.");
+            console.log("Successfully inserted suggestion and metadata.");
 
             // D. Trigger notifications safely (e.g. notify.js)
             const notificationData = {
@@ -518,6 +654,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // 3. Reset Form and Go Back to initial screen
     newSuggestionBtn.addEventListener('click', () => {
+        // Clear Photos State
+        selectedSuggestionPhotos.forEach(p => URL.revokeObjectURL(p.previewUrl));
+        selectedSuggestionPhotos = [];
+        renderPhotoPreviews();
+
         // Reset form inputs
         suggestionForm.reset();
 
