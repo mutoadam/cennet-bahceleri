@@ -856,7 +856,7 @@ document.addEventListener('DOMContentLoaded', () => {
             galleryGrid.classList.remove('hidden');
             if (photoFrame) photoFrame.classList.add('hidden');
 
-            photos.forEach(photo => {
+            photos.forEach((photo, index) => {
                 const itemDiv = document.createElement('div');
                 itemDiv.className = 'gallery-item';
 
@@ -870,6 +870,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 itemDiv.appendChild(img);
 
+                // Kapak Rozeti
                 if (photo.is_cover) {
                     const badge = document.createElement('span');
                     badge.className = 'cover-badge';
@@ -879,6 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     // B12.2A3.2A - Kapak Yap Butonu
                     const makeCoverBtn = document.createElement('button');
                     makeCoverBtn.className = 'btn-make-cover';
+                    makeCoverBtn.title = "Bu fotoğrafı kapak yap";
                     makeCoverBtn.innerHTML = '<i class="fa-solid fa-star"></i> Kapak Yap';
 
                     makeCoverBtn.addEventListener('click', (e) => {
@@ -889,7 +891,41 @@ document.addEventListener('DOMContentLoaded', () => {
                     itemDiv.appendChild(makeCoverBtn);
                 }
 
-                // Tıklandığında büyük önizlemeye bas (Opsiyonel ama UX için iyi)
+                // B12.2A3.2B - Sıralama Kontrolleri
+                if (photos.length > 1) {
+                    const controlsDiv = document.createElement('div');
+                    controlsDiv.className = 'gallery-order-controls';
+
+                    // Sola Taşı (Eğer ilk değilse)
+                    if (index > 0) {
+                        const moveLeftBtn = document.createElement('button');
+                        moveLeftBtn.className = 'btn-move-photo';
+                        moveLeftBtn.title = "Sola Taşı";
+                        moveLeftBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                        moveLeftBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            moveSuggestionPhoto(photo, -1, moveLeftBtn);
+                        });
+                        controlsDiv.appendChild(moveLeftBtn);
+                    }
+
+                    // Sağa Taşı (Eğer son değilse)
+                    if (index < photos.length - 1) {
+                        const moveRightBtn = document.createElement('button');
+                        moveRightBtn.className = 'btn-move-photo';
+                        moveRightBtn.title = "Sağa Taşı";
+                        moveRightBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                        moveRightBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            moveSuggestionPhoto(photo, 1, moveRightBtn);
+                        });
+                        controlsDiv.appendChild(moveRightBtn);
+                    }
+
+                    itemDiv.appendChild(controlsDiv);
+                }
+
+                // Tıklandığında büyük önizlemeye bas
                 itemDiv.addEventListener('click', () => {
                     if (photoImg && photoFrame) {
                         photoImg.src = photo.photo_url;
@@ -939,11 +975,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (btn.classList.contains('disabled')) return;
 
         const originalHTML = btn.innerHTML;
-        const allCoverBtns = document.querySelectorAll('.btn-make-cover');
+        // B12.2A3.2B: Ortak işlem kilidi için tüm galeri butonlarını seç
+        const allGalleryBtns = document.querySelectorAll('.btn-make-cover, .btn-move-photo');
 
         // UI Kilitleme
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...';
-        allCoverBtns.forEach(b => b.classList.add('disabled'));
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        allGalleryBtns.forEach(b => b.classList.add('disabled'));
 
         try {
             console.log(`Setting new cover for suggestion ${currentSuggestion.id}: Photo ${photo.id}`);
@@ -956,12 +993,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             );
 
-            // Race Condition Kontrolü
-            if (!currentSuggestion || currentSuggestion.id !== photo.suggestion_id && !error) {
-                // Not: photo nesnesinde suggestion_id olmayabilir eğer select'te çekmediysek.
-                // Önceki select'te çekmedik ama currentSuggestion.id ile p_suggestion_id aynı.
-            }
-
             if (error) throw error;
 
             // 1. Local State Güncelleme
@@ -973,16 +1004,73 @@ document.addEventListener('DOMContentLoaded', () => {
 
             showToast("Kapak fotoğrafı güncellendi.", "success");
 
-            // 3. Galeriyi Yenile (Böylece rozetler güncellenir)
+            // 3. Galeriyi Yenile
             await loadSuggestionGallery(currentSuggestion.id, photo.photo_url);
 
         } catch (err) {
             console.error("Kapak değiştirme hatası:", err);
             showToast("Kapak fotoğrafı güncellenemedi.", "error");
 
-            // UI kilidini aç (Hata durumunda kullanıcı tekrar deneyebilsin)
+            // UI kilidini aç
             btn.innerHTML = originalHTML;
-            allCoverBtns.forEach(b => b.classList.remove('disabled'));
+            allGalleryBtns.forEach(b => b.classList.remove('disabled'));
+        }
+    }
+
+    /**
+     * B12.2A3.2B - Fotoğraf Sırasını Değiştir (RPC Çağrısı)
+     */
+    async function moveSuggestionPhoto(photo, direction, btn) {
+        if (!currentSuggestion || !photo || !supabaseClient) return;
+        if (![-1, 1].includes(direction)) return;
+
+        // Çift tıklama koruması
+        if (btn.classList.contains('disabled')) return;
+
+        const originalHTML = btn.innerHTML;
+        const allGalleryBtns = document.querySelectorAll('.btn-make-cover, .btn-move-photo');
+
+        // UI Kilitleme
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        allGalleryBtns.forEach(b => b.classList.add('disabled'));
+
+        try {
+            console.log(`Moving photo ${photo.id} direction ${direction} for suggestion ${currentSuggestion.id}`);
+
+            const { data: moved, error } = await supabaseClient.rpc(
+                'admin_move_suggestion_photo',
+                {
+                    p_suggestion_id: currentSuggestion.id,
+                    p_photo_id: photo.id,
+                    p_direction: direction
+                }
+            );
+
+            // Race Condition Kontrolü
+            if (!currentSuggestion || currentSuggestion.id !== photo.suggestion_id && !error) {
+                // Not: photo nesnesinde suggestion_id select'te yoksa control atlanır
+            }
+
+            if (error) throw error;
+
+            if (moved === true) {
+                showToast("Fotoğraf sırası güncellendi.", "success");
+                // Galeriyi Yenile
+                await loadSuggestionGallery(currentSuggestion.id, currentSuggestion.photo_url);
+            } else {
+                // Sınırda işlem yapılamadı (moved = false)
+                console.log("Move operation returned false (likely at boundary).");
+                btn.innerHTML = originalHTML;
+                allGalleryBtns.forEach(b => b.classList.remove('disabled'));
+            }
+
+        } catch (err) {
+            console.error("Fotoğraf sıralama hatası:", err);
+            showToast("Fotoğraf sırası güncellenemedi.", "error");
+
+            // UI kilidini aç
+            btn.innerHTML = originalHTML;
+            allGalleryBtns.forEach(b => b.classList.remove('disabled'));
         }
     }
 

@@ -1080,6 +1080,45 @@ body {
     color: #999;
 }
 
+/* Photo Move Controls (B12.2A3.2B) */
+.gallery-order-controls {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    display: flex;
+    gap: 4px;
+    z-index: 3;
+}
+
+.btn-move-photo {
+    background-color: rgba(255, 255, 255, 0.9);
+    color: var(--md-primary);
+    border: 1px solid var(--md-outline);
+    border-radius: 4px;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.btn-move-photo:hover:not(.disabled) {
+    background-color: var(--md-primary);
+    color: white;
+    border-color: var(--md-primary);
+}
+
+.btn-move-photo.disabled {
+    opacity: 0.7;
+    cursor: not-allowed;
+    background-color: #f0f0f0;
+    color: #999;
+}
+
 .btn-edit {
     background-color: var(--md-secondary-container);
     color: var(--md-secondary);
