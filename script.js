@@ -260,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Helper: Safe Notification triggers for Telegram
     async function triggerNotification(data) {
-        console.log("Triggering notification helpers with data:", data);
+        console.log("Triggering notification helpers.");
         const notifyFunctions = [
             'sendTelegramNotification',
             'notifyNewSuggestion',
@@ -463,14 +463,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 photo_url: photoUrl || null,
                 status: 'pending', // Required for admin review
                 source: isUpdate ? 'web_correction' : 'web_form',
-                type: isUpdate ? 'update_request' : 'new_program'
+                request_type: isUpdate ? 'update_request' : 'new_program'
             };
 
             if (suggestionsHasOrgId && organizationId) {
                 suggestionPayload.organization_id = organizationId;
             }
 
-            console.log("Inserting suggestion data:", suggestionPayload);
+            console.log("Inserting suggestion data...");
 
             // C. Insert into Supabase 'suggestions' table
             const { error } = await supabaseClient

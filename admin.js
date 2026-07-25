@@ -279,9 +279,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const filterVal = document.getElementById('filter-type')?.value || 'all';
         let filtered = allLoadedSuggestions;
         if (filterVal === 'new_program') {
-            filtered = allLoadedSuggestions.filter(item => item.type !== 'update_request');
+            filtered = allLoadedSuggestions.filter(item => (item.request_type || item.type) !== 'update_request');
         } else if (filterVal === 'update_request') {
-            filtered = allLoadedSuggestions.filter(item => item.type === 'update_request');
+            filtered = allLoadedSuggestions.filter(item => (item.request_type || item.type) === 'update_request');
         }
         renderSuggestions(filtered);
     }
@@ -333,7 +333,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 statusClass = "status-badge status-rejected";
             }
 
-            const isCorrection = item.type === 'update_request';
+            const isCorrection = (item.request_type || item.type) === 'update_request';
             const correctionBadgeMarkup = isCorrection ? `
                 <span class="status-badge" style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; font-size: 11px; padding: 2px 8px; display: inline-flex; align-items: center;"><i class="fa-solid fa-triangle-exclamation" style="margin-right: 4px;"></i> Düzeltme Talebi</span>
             ` : '';
@@ -467,7 +467,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sync Approved/Added Suggestion to Programs Table (Paket F2)
     async function syncSuggestionToProgram(suggestion, sourceType, logoUrlOverride = null, organizationIdOverride = null) {
         if (!supabaseClient) return;
-        console.log("syncSuggestionToProgram başlatıldı - suggestion:", suggestion, "sourceType:", sourceType);
+        console.log("syncSuggestionToProgram başlatıldı - sourceType:", sourceType);
 
         // 1. Duplicate check: programs tablosunda aynı suggestion_id varsa tekrar insert yapılmasın
         const { data: existingPrograms, error: checkError } = await supabaseClient
@@ -552,7 +552,7 @@ document.addEventListener('DOMContentLoaded', () => {
             source: sourceType
         };
 
-        console.log("Programs tablosuna aktarılan veri:", programPayload);
+        console.log("Programs tablosuna veri aktarılıyor...");
 
         // 6. Insert to programs (robust fallback in case columns don't exist)
         const { error: insertError } = await supabaseClient
@@ -606,7 +606,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modal functions (Paket A — Admin İncele Modalı)
     function openInspectModal(item) {
         currentSuggestion = item;
-        console.log("İncele tıklandı", item);
+        console.log("İncele tıklandı");
         try {
             // Resolve field values (fallback to 'Belirtilmemiş' for missing strings, handle potential variant keys)
             const programName = item.program_name || 'Belirtilmemiş';
@@ -673,7 +673,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const description = item.description || item.notes || 'Açıklama belirtilmemiş.';
 
             // Populate elements
-            if (item.type === 'update_request') {
+            if ((item.request_type || item.type) === 'update_request') {
                 document.getElementById('modal-program-name').innerHTML = `<span style="background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; font-size: 11px; padding: 2px 8px; border-radius: 4px; margin-bottom: 8px; display: inline-block;"><i class="fa-solid fa-triangle-exclamation"></i> Bilgi Düzeltme Talebi</span><br>` + escapeHtml(programName);
             } else {
                 document.getElementById('modal-program-name').textContent = programName;
@@ -1051,7 +1051,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             console.log("Updating suggestion ID:", id);
-            console.log("Initial payload:", updatePayload);
+            console.log("Updating suggestion...");
 
             let attempt = 0;
             let success = false;
@@ -1059,7 +1059,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let responseError = null;
 
             while (attempt < 5) {
-                console.log(`Update attempt #${attempt + 1}, Payload:`, updatePayload);
+                console.log(`Update attempt #${attempt + 1}...`);
                 const { data, error } = await supabaseClient
                     .from('suggestions')
                     .update(updatePayload)
@@ -1213,7 +1213,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 error = retryRes.error;
             }
 
-            console.log("Update sonucu:", data);
+            console.log("Update işlemi tamamlandı.");
             if (error) {
                 console.error(error);
             }
@@ -1585,7 +1585,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            console.log("Inserting program, initial payload:", insertPayload);
+            console.log("Inserting program...");
 
             let attempt = 0;
             let success = false;
@@ -1593,7 +1593,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let responseError = null;
 
             while (attempt < 5) {
-                console.log(`Insert attempt #${attempt + 1}, Payload:`, insertPayload);
+                console.log(`Insert attempt #${attempt + 1}...`);
                 const { data, error } = await supabaseClient
                     .from('suggestions')
                     .insert(insertPayload)
@@ -3259,7 +3259,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updated_at: new Date().toISOString()
             };
 
-            console.log("Updating program payload:", updatePayload);
+            console.log("Updating program...");
 
             let attempt = 0;
             let success = false;
@@ -3267,7 +3267,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let responseError = null;
 
             while (attempt < 5) {
-                console.log(`Program update attempt #${attempt + 1}, Payload:`, updatePayload);
+                console.log(`Program update attempt #${attempt + 1}...`);
                 const { data, error } = await supabaseClient
                     .from('programs')
                     .update(updatePayload)
@@ -4810,7 +4810,7 @@ document.addEventListener('DOMContentLoaded', () => {
             let attempt = 0;
 
             while (attempt < 5) {
-                console.log(`Org save attempt #${attempt + 1}, Payload:`, orgPayload);
+                console.log(`Org save attempt #${attempt + 1}...`);
                 
                 let res;
                 if (id) {
@@ -7980,7 +7980,7 @@ out center tags;`;
         };
 
         try {
-            console.log("Converting PDF card to child content. Payload:", payload);
+            console.log("Converting PDF card to child content...");
             const { data, error: insertError } = await supabaseClient
                 .from('discover_articles')
                 .insert([payload]);
