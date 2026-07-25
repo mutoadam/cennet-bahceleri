@@ -3577,7 +3577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             grid.classList.remove('hidden');
             if (container) container.classList.remove('hidden');
 
-            photos.forEach(photo => {
+            photos.forEach((photo, index) => {
                 const photoUrl = typeof photo.photo_url === 'string' ? photo.photo_url.trim() : '';
                 if (!photoUrl) return;
 
@@ -3610,6 +3610,40 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
 
                     itemDiv.appendChild(makeCoverBtn);
+                }
+
+                // B12.2A3.3B2 - Sıralama Kontrolleri
+                if (photos.length > 1) {
+                    const controlsDiv = document.createElement('div');
+                    controlsDiv.className = 'gallery-order-controls';
+
+                    // Sola Taşı
+                    if (index > 0) {
+                        const moveLeftBtn = document.createElement('button');
+                        moveLeftBtn.className = 'btn-move-photo';
+                        moveLeftBtn.title = "Sola Taşı";
+                        moveLeftBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                        moveLeftBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            moveProgramPhoto(photo, -1, moveLeftBtn);
+                        });
+                        controlsDiv.appendChild(moveLeftBtn);
+                    }
+
+                    // Sağa Taşı
+                    if (index < photos.length - 1) {
+                        const moveRightBtn = document.createElement('button');
+                        moveRightBtn.className = 'btn-move-photo';
+                        moveRightBtn.title = "Sağa Taşı";
+                        moveRightBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                        moveRightBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            moveProgramPhoto(photo, 1, moveRightBtn);
+                        });
+                        controlsDiv.appendChild(moveRightBtn);
+                    }
+
+                    itemDiv.appendChild(controlsDiv);
                 }
 
                 grid.appendChild(itemDiv);
@@ -3656,7 +3690,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const programId = currentEditProgram.id;
         const originalHTML = btn.innerHTML;
-        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover');
+        // B12.2A3.3B2: Ortak işlem kilidi için tüm galeri butonlarını seç
+        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo');
 
         // UI Kilitleme
         isProgramGalleryMutating = true;
@@ -3701,6 +3736,66 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error("Program kapak değiştirme hatası:", err.code || err);
             showToast("Program kapak fotoğrafı güncellenemedi.", "error");
+
+            // UI kilidini aç
+            btn.innerHTML = originalHTML;
+            allGalleryBtns.forEach(b => b.classList.remove('disabled'));
+        } finally {
+            isProgramGalleryMutating = false;
+        }
+    }
+
+    /**
+     * B12.2A3.3B2 - Program Galerisinde Fotoğraf Sıralama
+     */
+    async function moveProgramPhoto(photo, direction, btn) {
+        if (!currentEditProgram || !photo || !supabaseClient) return;
+        if (direction !== -1 && direction !== 1) return;
+
+        // Çift tıklama ve işlem kilidi koruması
+        if (btn.classList.contains('disabled') || isProgramGalleryMutating) return;
+
+        const programId = currentEditProgram.id;
+        const originalHTML = btn.innerHTML;
+        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo');
+
+        // UI Kilitleme
+        isProgramGalleryMutating = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        allGalleryBtns.forEach(b => b.classList.add('disabled'));
+
+        try {
+            console.log(`Moving photo ${photo.id} in program ${programId}, direction: ${direction}`);
+
+            const { data: moveSuccess, error } = await supabaseClient.rpc(
+                'admin_move_program_photo',
+                {
+                    p_program_id: programId,
+                    p_photo_id: photo.id,
+                    p_direction: direction
+                }
+            );
+
+            if (error) throw error;
+
+            if (moveSuccess === false) {
+                console.log("Photo move limit reached or target not found.");
+            } else {
+                showToast("Program fotoğraf sırası güncellendi.", "success");
+            }
+
+            // Race Condition: Hala aynı program mı açık?
+            if (!currentEditProgram || currentEditProgram.id !== programId) {
+                console.log("Program move successful but modal context changed.");
+                return;
+            }
+
+            // Galeriyi Yenile (photo_url değişmez, kapak korunur)
+            await loadProgramGallery(programId, currentEditProgram.photo_url);
+
+        } catch (err) {
+            console.error("Program fotoğraf taşıma hatası:", err.code || err);
+            showToast("Program fotoğraf sırası güncellenemedi.", "error");
 
             // UI kilidini aç
             btn.innerHTML = originalHTML;
