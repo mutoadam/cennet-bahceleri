@@ -35,6 +35,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let activeOrganizations = [];
     let activeProgramTypes = [];
 
+    // Program Düzenleme Modalı - Çoklu Fotoğraf State (B12.2A3.3B3A)
+    let selectedProgramEditPhotos = [];
+    let isProgramGalleryUploading = false;
+
     // Keşfet İçerikleri CMS Altyapısı v2 State Değişkenleri
     let loadedDiscoverArticles = [];
     let loadedDiscoverModules = [];
@@ -2170,6 +2174,41 @@ document.addEventListener('DOMContentLoaded', () => {
         return { label, badgeClass };
     }
 
+    /**
+     * B12.2A3.3B3A - Supabase Public URL'inden Bucket ve Path Bilgilerini Ayrıştırır.
+     * @param {string} url Tam public URL
+     * @returns {{bucket_name: string, storage_path: string, photo_url: string}|null}
+     */
+    function parseSupabaseUrl(url) {
+        if (!url || typeof url !== 'string') return null;
+        try {
+            const parsed = new URL(url);
+            // Beklenen format: .../storage/v1/object/public/{bucket}/{path}
+            const pathParts = parsed.pathname.split('/');
+            const publicIdx = pathParts.indexOf('public');
+
+            if (publicIdx === -1 || pathParts.length <= publicIdx + 2) return null;
+
+            const bucketName = decodeURIComponent(pathParts[publicIdx + 1]);
+            const storagePath = pathParts.slice(publicIdx + 2).map(p => decodeURIComponent(p)).join('/');
+
+            // Sadece izin verilen bucket'lar (Güvenlik Sertleştirmesi)
+            const allowedBuckets = ['program-photos', 'suggestion-photos', 'suggestions'];
+            if (!allowedBuckets.includes(bucketName)) return null;
+
+            if (!storagePath) return null;
+
+            return {
+                bucket_name: bucketName,
+                storage_path: storagePath,
+                photo_url: url
+            };
+        } catch (e) {
+            console.error("URL ayrıştırma hatası:", e);
+            return null;
+        }
+    }
+
     // ==========================================================
     // Program Status Change Toggle Logic (Paket H5)
     // ==========================================================
@@ -3189,8 +3228,207 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    // ==========================================================
-    // Program Düzenleme Paneli İşlevleri (Paket H4)
+    /**
+     * B12.2A3.3B3A - Seçilen Fotoğrafları Storage'a Yükler ve RPC ile Metadata Kaydını Yapar
+     */
+    async function handleProgramGalleryUpload() {
+        if (!supabaseClient || !currentEditProgram || selectedProgramEditPhotos.length === 0) return;
+        if (isProgramGalleryUploading || isProgramGalleryMutating) return;
+
+        const programId = currentEditProgram.id;
+        const targetProgramId = programId; // Race condition kontrolü için
+
+        const uploadBtn = document.getElementById('edit-program-btn-upload-gallery');
+        const statusEl = document.getElementById('edit-program-new-photos-status');
+        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo');
+
+        // UI Kilitleme
+        isProgramGalleryUploading = true;
+        if (uploadBtn) {
+            uploadBtn.disabled = true;
+            uploadBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Yükleniyor...';
+        }
+        allGalleryBtns.forEach(b => b.classList.add('disabled'));
+
+        const uploadedMetadata = [];
+        let rollbackNeeded = false;
+
+        try {
+            // 1. Güncel verileri tekrar sorgula (Kapasite Invariant)
+            if (statusEl) statusEl.textContent = "Kapasite doğrulanıyor...";
+
+            const { count: metadataCount } = await supabaseClient
+                .from('program_photos')
+                .select('*', { count: 'exact', head: true })
+                .eq('program_id', programId);
+
+            const { data: programData } = await supabaseClient
+                .from('programs')
+                .select('photo_url')
+                .eq('id', programId)
+                .single();
+
+            const hasLegacy = metadataCount === 0 && programData?.photo_url && programData.photo_url.trim() !== '';
+            const effectiveExistingCount = (metadataCount || 0) + (hasLegacy ? 1 : 0);
+
+            if (effectiveExistingCount + selectedProgramEditPhotos.length > 6) {
+                throw { code: 'ERR_PROGRAM_PHOTO_LIMIT' };
+            }
+
+            // 2. Legacy URL Ayrıştırma (Eğer gerekliyse)
+            let legacyMetadata = null;
+            if (hasLegacy) {
+                legacyMetadata = parseSupabaseUrl(programData.photo_url);
+                if (!legacyMetadata) {
+                    throw { code: 'ERR_LEGACY_MIGRATION_REQUIRED' };
+                }
+            }
+
+            // 3. Seri Storage Upload Döngüsü
+            for (let i = 0; i < selectedProgramEditPhotos.length; i++) {
+                if (!currentEditProgram || currentEditProgram.id !== targetProgramId) break;
+
+                const item = selectedProgramEditPhotos[i];
+                if (statusEl) statusEl.textContent = `Yükleniyor (${i + 1}/${selectedProgramEditPhotos.length})...`;
+
+                const fileExt = item.file.type.split('/')[1] || 'jpg';
+                const fileName = `${crypto.randomUUID ? crypto.randomUUID() : Date.now() + Math.random().toString(36).substring(2)}.${fileExt}`;
+                const storagePath = `programs/${programId}/${fileName}`;
+
+                const { data: uploadData, error: uploadError } = await supabaseClient.storage
+                    .from('program-photos')
+                    .upload(storagePath, item.file, { contentType: item.file.type });
+
+                if (uploadError) {
+                    console.error("Storage upload hatası:", uploadError);
+                    rollbackNeeded = true;
+                    throw uploadError;
+                }
+
+                const { data: publicUrlData } = supabaseClient.storage
+                    .from('program-photos')
+                    .getPublicUrl(storagePath);
+
+                uploadedMetadata.push({
+                    bucket_name: 'program-photos',
+                    storage_path: storagePath,
+                    photo_url: publicUrlData.publicUrl
+                });
+            }
+
+            // Race Condition Kontrolü
+            if (!currentEditProgram || currentEditProgram.id !== targetProgramId) {
+                rollbackNeeded = true;
+                throw new Error("Program bağlamı değişti.");
+            }
+
+            // 4. RPC Çağrısı (Atomic Metadata Insert)
+            if (statusEl) statusEl.textContent = "Kaydediliyor...";
+            const { data: rpcResult, error: rpcError } = await supabaseClient.rpc(
+                'admin_add_program_photos',
+                {
+                    p_program_id: programId,
+                    p_photos: uploadedMetadata,
+                    p_legacy_photo: legacyMetadata
+                }
+            );
+
+            // 5. RPC Hata ve Ağ Belirsizliği Yönetimi
+            if (rpcError) {
+                console.error("RPC Hatası:", rpcError);
+
+                // Ağ Belirsizliği (Timeout vb.) kontrolü yapalım
+                // Eğer hata tipi 'network' veya belirsiz ise metadata'yı sorgula
+                const isUncertain = rpcError.message?.toLowerCase().includes('fetch') ||
+                                   rpcError.code === 'PGRST100' ||
+                                   rpcError.status === 0;
+
+                if (isUncertain) {
+                    if (statusEl) statusEl.textContent = "Doğrulanıyor...";
+                    // Yüklenen dosyalardan en az birinin metadata'da olup olmadığını kontrol et
+                    const checkPath = uploadedMetadata[0].storage_path;
+                    const { count: existsInDb } = await supabaseClient
+                        .from('program_photos')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('program_id', programId)
+                        .eq('storage_path', checkPath);
+
+                    if (existsInDb > 0) {
+                        // Başarılı say
+                        handleUploadSuccess({
+                            cover_photo_url: uploadedMetadata[0].photo_url // Kabaca tahmin, reload doğrulayacak
+                        });
+                        return;
+                    } else {
+                        // Hiçbiri yoksa rollback yap
+                        rollbackNeeded = true;
+                        throw rpcError;
+                    }
+                } else {
+                    // Kesin DB hatası
+                    rollbackNeeded = true;
+                    throw rpcError;
+                }
+            }
+
+            // Başarı Durumu
+            handleUploadSuccess(rpcResult);
+
+        } catch (err) {
+            console.error("Galeri ekleme süreci hatası:", err);
+
+            const errorCodes = {
+                'ERR_PROGRAM_PHOTO_LIMIT': "Bu programda en fazla 6 fotoğraf bulunabilir.",
+                'ERR_LEGACY_MIGRATION_REQUIRED': "Mevcut fotoğraf güvenli biçimde galeriye aktarılamadı.",
+                'ERR_PROGRAM_PHOTO_ORDER_INCONSISTENT': "Galeri sıralamasında teknik bir tutarsızlık var.",
+                'ERR_INVALID_PHOTO_PAYLOAD': "Gönderilen fotoğraf verisi geçersiz."
+            };
+
+            const userMsg = errorCodes[err.code] || errorCodes[err.message] || "Fotoğraflar galeriye eklenemedi. Lütfen tekrar deneyin.";
+            showToast(userMsg, "error");
+
+            if (rollbackNeeded && uploadedMetadata.length > 0) {
+                if (statusEl) statusEl.textContent = "Geri alınıyor...";
+                const pathsToDelete = uploadedMetadata.map(m => m.storage_path);
+                await supabaseClient.storage
+                    .from('program-photos')
+                    .remove(pathsToDelete);
+            }
+        } finally {
+            isProgramGalleryUploading = false;
+            if (uploadBtn) {
+                uploadBtn.disabled = false;
+                uploadBtn.innerHTML = '<i class="fa-solid fa-check-double"></i> Seçilen Fotoğrafları Galeriye Ekle';
+            }
+            allGalleryBtns.forEach(b => b.classList.remove('disabled'));
+            if (statusEl) statusEl.textContent = "";
+        }
+
+        // Başarı Yardımcı Fonksiyonu
+        async function handleUploadSuccess(result) {
+            showToast("Fotoğraflar galeriye eklendi.", "success");
+
+            // State ve UI Temizliği
+            clearProgramEditPhotosSelection();
+
+            // Modal/State Senkronizasyonu
+            if (currentEditProgram && currentEditProgram.id === targetProgramId) {
+                if (result.cover_photo_url) {
+                    currentEditProgram.photo_url = result.cover_photo_url;
+                    if (initialProgramState) initialProgramState.photo_url = result.cover_photo_url;
+
+                    const photoUrlInput = document.getElementById('edit-program-photo-url');
+                    if (photoUrlInput) photoUrlInput.value = result.cover_photo_url;
+
+                    const previewImg = document.getElementById('edit-program-photo-preview-img');
+                    if (previewImg) previewImg.src = result.cover_photo_url;
+                }
+
+                // Galeriyi Yenile
+                await loadProgramGallery(programId, currentEditProgram.photo_url);
+            }
+        }
+    }
     // ==========================================================
     let currentEditProgram = null;
     let initialProgramState = null;
@@ -3496,6 +3734,9 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.overflow = "";
         }
 
+        // B12.2A3.3B3A - Çoklu Fotoğraf State Temizle
+        clearProgramEditPhotosSelection();
+
         // B12.2A3.3A - Galeri State Temizle
         const galleryGrid = document.getElementById('edit-program-gallery-grid');
         if (galleryGrid) galleryGrid.innerHTML = '';
@@ -3503,6 +3744,32 @@ document.addEventListener('DOMContentLoaded', () => {
 
         currentEditProgram = null;
         initialProgramState = null;
+    }
+
+    /**
+     * B12.2A3.3B3A - Program Galerisi Fotoğraf Seçimlerini Temizler
+     */
+    function clearProgramEditPhotosSelection() {
+        if (selectedProgramEditPhotos.length > 0) {
+            selectedProgramEditPhotos.forEach(p => {
+                if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+            });
+            selectedProgramEditPhotos = [];
+        }
+
+        const grid = document.getElementById('edit-program-new-photos-grid');
+        if (grid) grid.innerHTML = '';
+
+        document.getElementById('edit-program-new-photos-container')?.classList.add('hidden');
+        document.getElementById('edit-program-new-photos-status').textContent = '';
+
+        const fileInput = document.getElementById('edit-program-photo-file');
+        if (fileInput) fileInput.value = '';
+
+        const fileNameDisp = document.getElementById('edit-program-photo-file-name');
+        if (fileNameDisp) fileNameDisp.textContent = 'Seçilen dosya yok';
+
+        isProgramGalleryUploading = false;
     }
 
     /**
@@ -3691,7 +3958,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const programId = currentEditProgram.id;
         const originalHTML = btn.innerHTML;
         // B12.2A3.3B2: Ortak işlem kilidi için tüm galeri butonlarını seç
-        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo');
+        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo, #edit-program-btn-upload-gallery');
 
         // UI Kilitleme
         isProgramGalleryMutating = true;
@@ -3719,6 +3986,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // 1. Local State ve UI Senkronizasyonu
             currentEditProgram.photo_url = photo.photo_url;
+            if (initialProgramState) initialProgramState.photo_url = photo.photo_url;
 
             // #edit-program-photo-url alanını güncelle
             const photoUrlInput = document.getElementById('edit-program-photo-url');
@@ -4416,7 +4684,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (addUrlInput) addUrlInput.value = '';
         });
 
-        // --- Edit Modal ---
+        // --- Edit Modal (B12.2A3.3B3A - Çoklu Fotoğraf Seçimi) ---
         const editUploadTrigger = document.getElementById('edit-program-photo-upload-trigger');
         const editPhotoFile = document.getElementById('edit-program-photo-file');
         const editRemoveBtn = document.getElementById('edit-program-photo-remove-btn');
@@ -4427,29 +4695,156 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         editPhotoFile?.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                await uploadProgramPhoto(
-                    file,
-                    'edit-upload-progress',
-                    'edit-program-photo-file-name',
-                    'edit-program-photo-preview-img',
-                    'edit-program-photo-preview-container',
-                    'edit-program-photo-url'
-                );
+            if (isProgramGalleryUploading) return;
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            // Güncel kapasiteyi kontrol et
+            const programId = currentEditProgram?.id;
+            if (!programId) return;
+
+            try {
+                // 1. Mevcut metadata sayısını al
+                const { count: metadataCount } = await supabaseClient
+                    .from('program_photos')
+                    .select('*', { count: 'exact', head: true })
+                    .eq('program_id', programId);
+
+                // 2. Legacy durumunu kontrol et
+                const { data: programData } = await supabaseClient
+                    .from('programs')
+                    .select('photo_url')
+                    .eq('id', programId)
+                    .single();
+
+                const hasLegacy = metadataCount === 0 && programData?.photo_url && programData.photo_url.trim() !== '';
+                const effectiveExistingCount = (metadataCount || 0) + (hasLegacy ? 1 : 0);
+                const currentSelectedCount = selectedProgramEditPhotos.length;
+                const totalAllowed = 6;
+                const availableSlots = totalAllowed - (effectiveExistingCount + currentSelectedCount);
+
+                if (availableSlots <= 0) {
+                    showToast("Bu programda en fazla 6 fotoğraf bulunabilir.", "error");
+                    editPhotoFile.value = '';
+                    return;
+                }
+
+                let addedCount = 0;
+                let skippedCount = 0;
+
+                for (const file of files) {
+                    if (addedCount >= availableSlots) {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    // Validasyonlar
+                    if (file.size > 8 * 1024 * 1024) {
+                        showToast(`"${file.name}" dosyası 8MB'dan büyük olduğu için atlandı.`, "error");
+                        continue;
+                    }
+
+                    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                    if (!allowedTypes.includes(file.type)) {
+                        showToast(`"${file.name}" geçersiz formatta olduğu için atlandı.`, "error");
+                        continue;
+                    }
+
+                    const key = `${file.name}-${file.size}-${file.lastModified}`;
+                    if (selectedProgramEditPhotos.some(p => p.key === key)) {
+                        continue; // Zaten seçilmiş
+                    }
+
+                    selectedProgramEditPhotos.push({
+                        key: key,
+                        file: file,
+                        previewUrl: URL.createObjectURL(file)
+                    });
+                    addedCount++;
+                }
+
+                if (skippedCount > 0) {
+                    showToast(`Galeride yalnız ${availableSlots} boş yer kaldığı için ${skippedCount} dosya atlandı.`, "warning");
+                }
+
+                renderProgramEditPhotosPreview();
+                editPhotoFile.value = ''; // Aynı dosyayı tekrar seçebilsin
+
+            } catch (err) {
+                console.error("Fotoğraf seçim hatası:", err);
+                showToast("Fotoğraflar işlenirken bir hata oluştu.", "error");
             }
         });
 
         editRemoveBtn?.addEventListener('click', () => {
-            if (editPhotoFile) editPhotoFile.value = '';
+            // Mevcut tekil fotoğraf/url'yi temizle (Legacy alan)
+            const photoUrlInput = document.getElementById('edit-program-photo-url');
+            if (photoUrlInput) photoUrlInput.value = '';
+
             const editFileName = document.getElementById('edit-program-photo-file-name');
             if (editFileName) editFileName.textContent = 'Seçilen dosya yok';
+
             const editPreviewContainer = document.getElementById('edit-program-photo-preview-container');
             if (editPreviewContainer) editPreviewContainer.classList.add('hidden');
+
             const editPreviewImg = document.getElementById('edit-program-photo-preview-img');
             if (editPreviewImg) editPreviewImg.src = '';
-            if (editUrlInput) editUrlInput.value = '';
         });
+
+        // "Galeriye Ekle" Buton Listenerı
+        document.getElementById('edit-program-btn-upload-gallery')?.addEventListener('click', handleProgramGalleryUpload);
+    }
+
+    /**
+     * B12.2A3.3B3A - Yeni Seçilen Fotoğrafları Render Eder
+     */
+    function renderProgramEditPhotosPreview() {
+        const grid = document.getElementById('edit-program-new-photos-grid');
+        const container = document.getElementById('edit-program-new-photos-container');
+        if (!grid || !container) return;
+
+        grid.innerHTML = '';
+
+        if (selectedProgramEditPhotos.length > 0) {
+            container.classList.remove('hidden');
+            selectedProgramEditPhotos.forEach(photo => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'new-photo-item';
+
+                const img = document.createElement('img');
+                img.src = photo.previewUrl;
+                img.alt = "Yeni Fotoğraf";
+
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn-remove-new-photo';
+                removeBtn.title = "Seçimden Kaldır";
+                removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeProgramEditPhotoFromSelection(photo.key);
+                });
+
+                itemDiv.appendChild(img);
+                itemDiv.appendChild(removeBtn);
+                grid.appendChild(itemDiv);
+            });
+        } else {
+            container.classList.add('hidden');
+        }
+    }
+
+    /**
+     * B12.2A3.3B3A - Seçilen Fotoğrafı Yerel Listeden Kaldırır
+     */
+    function removeProgramEditPhotoFromSelection(key) {
+        const index = selectedProgramEditPhotos.findIndex(p => p.key === key);
+        if (index !== -1) {
+            const photo = selectedProgramEditPhotos[index];
+            if (photo.previewUrl) URL.revokeObjectURL(photo.previewUrl);
+            selectedProgramEditPhotos.splice(index, 1);
+            renderProgramEditPhotosPreview();
+        }
     }
 
     async function uploadProgramLogo(logoFile, progressElementId, fileNameElementId, previewImgElementId, previewTextElementId, previewContainerId, urlInputElementId) {

@@ -1185,9 +1185,9 @@
                     <div class="form-group full-width photo-upload-group" style="grid-column: span 2;">
                         <label><i class="fa-solid fa-camera"></i> Program Fotoğrafı Yükle</label>
                         <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
-                            <input type="file" id="edit-program-photo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;">
+                            <input type="file" id="edit-program-photo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;" multiple>
                             <button type="button" id="edit-program-photo-upload-trigger" class="btn btn-secondary btn-sm upload-trigger-btn" style="min-height: 38px; padding: 8px 16px;">
-                                <i class="fa-solid fa-upload"></i> Fotoğraf Seç...
+                                <i class="fa-solid fa-plus"></i> Fotoğraf Seç...
                             </button>
                             <span id="edit-program-photo-file-name" class="file-name-display" style="font-size: 14px; color: var(--md-on-surface-variant);">Seçilen dosya yok</span>
                             <div class="upload-progress-container hidden" id="edit-upload-progress" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--md-primary);">
@@ -1195,6 +1195,28 @@
                                 <span class="progress-text">Yükleniyor...</span>
                             </div>
                         </div>
+
+                        <!-- New Photos Preview Selection Grid (B12.2A3.3B3A) -->
+                        <div id="edit-program-new-photos-container" class="form-group full-width hidden" style="margin-top: 16px; padding: 16px; background-color: var(--md-primary-container); border: 1px dashed var(--md-primary); border-radius: var(--radius-sm);">
+                            <label style="margin-bottom: 8px; display: block; font-weight: 700; color: var(--md-primary);">
+                                <i class="fa-solid fa-cloud-arrow-up"></i> Yüklenecek Yeni Fotoğraflar
+                            </label>
+                            <p style="font-size: 12px; color: var(--md-on-surface-variant); margin-bottom: 12px;">
+                                Mevcut fotoğraflarınız korunur. Galeri toplamı en fazla 6 fotoğraf olabilir.
+                            </p>
+
+                            <div id="edit-program-new-photos-grid" class="program-new-photos-grid">
+                                <!-- Temporary previews will be injected here -->
+                            </div>
+
+                            <div style="margin-top: 16px; display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
+                                <span id="edit-program-new-photos-status" style="font-size: 13px; font-weight: 600; color: var(--md-primary);"></span>
+                                <button type="button" id="edit-program-btn-upload-gallery" class="btn btn-primary btn-sm" style="min-height: 40px; padding: 8px 20px; width: auto; background-color: var(--md-primary);">
+                                    <i class="fa-solid fa-check-double"></i> Seçilen Fotoğrafları Galeriye Ekle
+                                </button>
+                            </div>
+                        </div>
+
                         <div id="edit-program-photo-preview-container" class="photo-preview-container hidden" style="position: relative; max-width: 200px; margin-top: 12px; border: 1px solid var(--md-outline); border-radius: var(--radius-sm); overflow: hidden;">
                             <img id="edit-program-photo-preview-img" src="" alt="Önizleme" style="width: 100%; height: auto; display: block; max-height: 150px; object-fit: cover;">
                             <button type="button" id="edit-program-photo-remove-btn" class="btn-remove-photo" title="Fotoğrafı Kaldır" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: background 0.2s;">

@@ -1000,7 +1000,7 @@ body {
 }
 
 /* Suggestion Gallery Grid (B12.2A3.1) */
-.suggestion-gallery-grid, .program-gallery-grid {
+.suggestion-gallery-grid, .program-gallery-grid, .program-new-photos-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 12px;
@@ -1008,7 +1008,7 @@ body {
     padding: 4px;
 }
 
-.gallery-item {
+.gallery-item, .new-photo-item {
     position: relative;
     border-radius: var(--radius-sm);
     overflow: hidden;
@@ -1019,16 +1019,42 @@ body {
     transition: transform 0.2s ease, border-color 0.2s ease;
 }
 
-.gallery-item:hover {
+.gallery-item:hover, .new-photo-item:hover {
     transform: scale(1.02);
     border-color: var(--md-secondary);
 }
 
-.gallery-item img {
+.gallery-item img, .new-photo-item img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+}
+
+/* Remove Selection Button (B12.2A3.3B3A) */
+.btn-remove-new-photo {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    background-color: rgba(186, 26, 26, 0.85);
+    color: white;
+    border: none;
+    border-radius: 4px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    cursor: pointer;
+    z-index: 5;
+    transition: all 0.2s ease;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.btn-remove-new-photo:hover {
+    background-color: #ba1a1a;
+    transform: scale(1.1);
 }
 
 .cover-badge {
