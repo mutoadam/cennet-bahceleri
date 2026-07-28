@@ -3968,6 +3968,22 @@ document.addEventListener('DOMContentLoaded', () => {
                     itemDiv.appendChild(makeCoverBtn);
                 }
 
+                // B12.2A3.3B3B - Fotoğrafı Galeriden Kaldır
+                // Legacy fallback'lerde id bulunmaz, sadece metadata olanlara ekle.
+                if (photo.id) {
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'btn-delete-program-photo';
+                    deleteBtn.title = "Fotoğrafı galeriden kaldır";
+                    deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
+
+                    deleteBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        deleteProgramPhoto(photo, deleteBtn);
+                    });
+
+                    itemDiv.appendChild(deleteBtn);
+                }
+
                 // B12.2A3.3B2 - Sıralama Kontrolleri
                 if (photos.length > 1) {
                     const controlsDiv = document.createElement('div');
@@ -4047,7 +4063,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const programId = currentEditProgram.id;
         const originalHTML = btn.innerHTML;
         // B12.2A3.3B2: Ortak işlem kilidi için tüm galeri butonlarını seç
-        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo, #edit-program-btn-upload-gallery');
+        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo, #edit-program-gallery-grid .btn-delete-program-photo, #edit-program-btn-upload-gallery');
 
         // UI Kilitleme
         isProgramGalleryMutating = true;
@@ -4114,7 +4130,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const programId = currentEditProgram.id;
         const originalHTML = btn.innerHTML;
-        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo');
+        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo, #edit-program-gallery-grid .btn-delete-program-photo');
 
         // UI Kilitleme
         isProgramGalleryMutating = true;
@@ -4159,6 +4175,161 @@ document.addEventListener('DOMContentLoaded', () => {
             allGalleryBtns.forEach(b => b.classList.remove('disabled'));
         } finally {
             isProgramGalleryMutating = false;
+        }
+    }
+
+    /**
+     * B12.2A3.3B3B - Program Galerisinden Fotoğraf Silme (RPC + Storage)
+     */
+    async function deleteProgramPhoto(photo, btn) {
+        if (!currentEditProgram || !photo || !supabaseClient) return;
+
+        // Metadata ID kontrolü
+        if (!photo.id || !photo.program_id) return;
+
+        // Onay iste
+        const confirmDelete = confirm("Bu fotoğraf program galerisinden kalıcı olarak kaldırılsın mı?");
+        if (!confirmDelete) return;
+
+        // İşlem kilidi koruması
+        if (btn.classList.contains('disabled') || isProgramGalleryMutating) return;
+
+        const targetProgramId = currentEditProgram.id;
+        const targetPhotoId = photo.id;
+        const originalHTML = btn.innerHTML;
+
+        // Ortak işlem kilidi için tüm galeri butonlarını seç
+        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo, #edit-program-gallery-grid .btn-delete-program-photo, #edit-program-btn-upload-gallery');
+
+        // UI Kilitleme
+        isProgramGalleryMutating = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
+        allGalleryBtns.forEach(b => b.classList.add('disabled'));
+
+        try {
+            console.log(`Deleting photo ${targetPhotoId} for program ${targetProgramId}`);
+
+            // 1. RPC Çağrısı (Database Silme ve Sıra Sıkıştırma)
+            const { data, error: rpcError } = await supabaseClient.rpc(
+                'admin_delete_program_photo',
+                {
+                    p_program_id: targetProgramId,
+                    p_photo_id: targetPhotoId
+                }
+            );
+
+            // 2. Hata ve Ağ Belirsizliği Yönetimi
+            if (rpcError) {
+                console.error("RPC Hatası:", rpcError);
+
+                const isUncertain = rpcError.message?.toLowerCase().includes('fetch') ||
+                                   rpcError.status === 0;
+
+                if (isUncertain) {
+                    // Doğrulama sorgusu
+                    const { data: exists, error: checkError } = await supabaseClient
+                        .from('program_photos')
+                        .select('id')
+                        .eq('id', targetPhotoId)
+                        .eq('program_id', targetProgramId)
+                        .maybeSingle();
+
+                    if (!checkError && !exists) {
+                        // DB'den silinmiş, başarı varsay ama storage silme
+                        showToast("Fotoğraf galeriden kaldırıldı; depolama temizliği daha sonra kontrol edilecek.", "warning");
+                        await syncProgramGalleryAfterDeletion(targetProgramId, null); // null -> storage silme yapma
+                        return;
+                    }
+                }
+                throw rpcError;
+            }
+
+            const result = Array.isArray(data) ? data[0] : data;
+            if (!result || result.deleted_photo_id !== targetPhotoId) {
+                throw new Error("RPC sonucu doğrulanamadı.");
+            }
+
+            // 3. Senkronizasyon ve Storage Temizliği
+            await syncProgramGalleryAfterDeletion(targetProgramId, result);
+
+        } catch (err) {
+            console.error("Program fotoğraf silme hatası:", err);
+            showToast("Fotoğraf galeriden kaldırılamadı.", "error");
+
+            // UI kilidini aç
+            btn.innerHTML = originalHTML;
+            allGalleryBtns.forEach(b => b.classList.remove('disabled'));
+        } finally {
+            isProgramGalleryMutating = false;
+        }
+    }
+
+    /**
+     * B12.2A3.3B3B - Silme Sonrası UI ve Storage Senkronizasyonu
+     */
+    async function syncProgramGalleryAfterDeletion(programId, rpcResult) {
+        // Race Condition: Hala aynı program mı açık?
+        if (!currentEditProgram || currentEditProgram.id !== programId) {
+            console.log("Sync ignored: Modal context changed.");
+            return;
+        }
+
+        let newCoverUrl = '';
+        let storageCanDelete = false;
+
+        if (rpcResult) {
+            newCoverUrl = rpcResult.new_cover_photo_url || '';
+            storageCanDelete = rpcResult.storage_can_delete === true;
+        } else {
+            // Uncertain durumda RPC result yoksa DB'den güncel kapağı çek
+            const { data: programData } = await supabaseClient
+                .from('programs')
+                .select('photo_url')
+                .eq('id', programId)
+                .single();
+            newCoverUrl = programData?.photo_url || '';
+        }
+
+        // 1. Local State ve UI Güncelleme
+        currentEditProgram.photo_url = newCoverUrl || null;
+        if (initialProgramState) initialProgramState.photo_url = newCoverUrl || null;
+
+        const photoUrlInput = document.getElementById('edit-program-photo-url');
+        if (photoUrlInput) photoUrlInput.value = newCoverUrl;
+
+        const previewImg = document.getElementById('edit-program-photo-preview-img');
+        const previewContainer = document.getElementById('edit-program-photo-preview-container');
+
+        if (newCoverUrl) {
+            if (previewImg) previewImg.src = newCoverUrl;
+            if (previewContainer) previewContainer.classList.remove('hidden');
+        } else {
+            if (previewImg) previewImg.src = '';
+            if (previewContainer) previewContainer.classList.add('hidden');
+        }
+
+        // 2. Galeriyi Yenile
+        await loadProgramGallery(programId, newCoverUrl);
+
+        // 3. Program Listesi Thumbnail Senkronizasyonu
+        if (typeof loadPrograms === 'function') {
+            // Modal açıkken listeyi sessizce yenilemek için loadPrograms kullanılabilir.
+            // Büyük state refactor'ı yapmadan en güvenli yol budur.
+            loadPrograms();
+        }
+
+        if (rpcResult) showToast("Fotoğraf program galerisinden kaldırıldı.", "success");
+
+        // 4. Storage Temizliği (Yalnızca güvenliyse)
+        if (storageCanDelete && rpcResult.deleted_bucket_name && rpcResult.deleted_storage_path) {
+            const { error: storageError } = await supabaseClient.storage
+                .from(rpcResult.deleted_bucket_name)
+                .remove([rpcResult.deleted_storage_path]);
+
+            if (storageError) {
+                console.warn("Storage cleanup failed:", storageError.message);
+                showToast("Fotoğraf galeriden kaldırıldı ancak depolama temizliği tamamlanamadı.", "warning");
+            }
         }
     }
 
