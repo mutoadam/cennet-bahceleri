@@ -2016,7 +2016,7 @@ body {
     font-size: 14px;
 }
 
-/* Compact View Customizations */
+/* Compact View Customizations (B12.2A3.3B3A) */
 .compact-view-table {
     min-width: 850px !important;
     width: 100% !important;
@@ -2029,22 +2029,159 @@ body {
     font-size: 12px;
     padding: 8px 10px;
     text-transform: uppercase;
+    text-align: left;
 }
 
 .compact-view-table td {
     padding: 6px 10px;
     font-size: 13px;
-    border-right: 1px dashed rgba(210, 203, 190, 0.6); /* vertical separator like "|" */
+    border-right: 1px dashed rgba(210, 203, 190, 0.6);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    max-width: 130px; /* Limit compact cell widths */
+    vertical-align: middle;
 }
 
 .compact-view-table td:last-child {
     border-right: none;
-    overflow: visible; /* Prevent cutting off actions dropdown/buttons */
+    overflow: visible;
     max-width: none;
+}
+
+/* Specific Column Sizing and Alignment */
+.program-col-photo {
+    width: 60px !important;
+    max-width: 60px !important;
+    padding-right: 4px !important;
+}
+
+.program-col-main {
+    max-width: 250px !important;
+    white-space: normal !important; /* Allow program name to wrap if needed or handled by sub-elements */
+}
+
+.program-col-organization {
+    max-width: 150px !important;
+}
+
+.program-col-district {
+    max-width: 110px !important;
+}
+
+.program-col-schedule {
+    width: 100px !important;
+    max-width: 100px !important;
+}
+
+.program-col-teacher {
+    max-width: 130px !important;
+}
+
+.program-col-actions {
+    width: 160px !important;
+    min-width: 160px !important;
+}
+
+/* Thumbnail Styling */
+.compact-photo-wrapper {
+    width: 46px;
+    height: 46px;
+    border-radius: 6px;
+    overflow: hidden;
+    border: 1px solid var(--md-outline-variant, #e0e0e0);
+    background-color: #f8f8f8;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.compact-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.compact-placeholder {
+    width: 46px;
+    height: 46px;
+    background-color: #f0f0f0;
+    color: #bdbdbd;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    border-radius: 6px;
+    border: 1px dashed #ccc;
+}
+
+/* Status Indicator Dot */
+.status-dot {
+    display: inline-block;
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.status-dot.active {
+    background-color: #2e7d32; /* Richer green */
+    box-shadow: 0 0 4px rgba(46, 125, 50, 0.4);
+}
+
+.compact-program-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 2px;
+}
+
+.compact-status-badge {
+    padding: 1px 6px !important;
+    font-size: 10px !important;
+    font-weight: 700 !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+}
+
+/* Schedule Cell Styling */
+.compact-schedule {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    line-height: 1.3;
+}
+
+.compact-day {
+    font-weight: 700;
+    color: var(--md-on-surface);
+}
+
+.compact-time {
+    font-size: 11px;
+    color: var(--md-on-surface-variant);
+    font-weight: 500;
+}
+
+/* Responsive Rules for Compact Table Columns */
+@media (max-width: 1200px) {
+    .program-col-teacher {
+        display: none !important;
+    }
+}
+
+@media (max-width: 1024px) {
+    .program-col-district {
+        display: none !important;
+    }
+}
+
+@media (max-width: 850px) {
+    .compact-view-table {
+        min-width: 600px !important;
+    }
+    .program-col-organization {
+        display: none !important;
+    }
 }
 
 .compact-view-table tr:hover {

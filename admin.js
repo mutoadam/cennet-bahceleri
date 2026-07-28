@@ -2867,6 +2867,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 programsList.appendChild(card);
             });
         } else {
+            const isCompact = currentViewMode === 'compact';
             // Render List View or Compact View using semantic table representation
             const tableResponsive = document.createElement('div');
             tableResponsive.className = 'programs-table-responsive';
@@ -2876,24 +2877,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 ? 'programs-admin-table list-view-table' 
                 : 'programs-admin-table compact-view-table';
 
-            // Unified 9-column layout according to: Durum | Kaynak | Çatı Kurum | Program | İlçe | Gün | Saat | Hoca | İşlemler
-            table.innerHTML = `
-                <thead>
-                    <tr>
-                        <th>Durum</th>
-                        <th>Kaynak</th>
-                        <th>Çatı Kurum</th>
-                        <th>Program</th>
-                        <th>İlçe</th>
-                        <th>Gün</th>
-                        <th>Saat</th>
-                        <th>Hoca</th>
-                        <th>İşlemler</th>
-                    </tr>
-                </thead>
-                <tbody>
-                </tbody>
-            `;
+            if (isCompact) {
+                // Header structure for Compact View (B12.2A3.3B3A)
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th class="program-col-photo">Foto</th>
+                            <th class="program-col-main">Program / Mekân</th>
+                            <th class="program-col-organization">Çatı Kurum</th>
+                            <th class="program-col-district">İlçe</th>
+                            <th class="program-col-schedule">Gün / Saat</th>
+                            <th class="program-col-teacher">Hoca</th>
+                            <th class="program-col-actions">İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                `;
+            } else {
+                // Unified 9-column layout according to: Durum | Kaynak | Çatı Kurum | Program | İlçe | Gün | Saat | Hoca | İşlemler
+                table.innerHTML = `
+                    <thead>
+                        <tr>
+                            <th>Durum</th>
+                            <th>Kaynak</th>
+                            <th>Çatı Kurum</th>
+                            <th>Program</th>
+                            <th>İlçe</th>
+                            <th>Gün</th>
+                            <th>Saat</th>
+                            <th>Hoca</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    </tbody>
+                `;
+            }
 
             const tbody = table.querySelector('tbody');
 
@@ -2995,33 +3015,102 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 }
 
-                tr.innerHTML = `
-                    <td title="${escapeHtml(statusBadge.label)}">
-                        <span class="${statusBadge.badgeClass}">${escapeHtml(statusBadge.label)}</span>
-                    </td>
-                    <td title="${escapeHtml(sourceBadge.label)}">
-                        <span class="${sourceBadge.badgeClass}">${escapeHtml(sourceBadge.label)}</span>
-                    </td>
-                    <td class="organization-cell" title="${escapeHtml(orgName)}">
-                        ${orgCellContentHtml}
-                    </td>
-                    <td title="${escapeHtml(item.program_name || 'İsimsiz Program')}">
-                        <span class="table-program-name" style="display: block; font-weight: 600;">${escapeHtml(item.program_name || 'İsimsiz Program')}</span>
-                        <span class="table-venue-name" style="display: block; font-size: 12px; color: var(--md-on-surface-variant); margin-top: 2px;">
-                            <i class="fa-solid fa-mosque" style="font-size: 10px; margin-right: 4px; color: var(--md-secondary);"></i>${escapeHtml(item.venue_name || '-')}
-                        </span>
-                        ${mobileBadgeHtml}
-                    </td>
-                    <td title="${escapeHtml(item.district || '-')}">${escapeHtml(item.district || '-')}</td>
-                    <td title="${escapeHtml(item.day || '-')}">${escapeHtml(item.day || '-')}</td>
-                    <td title="${escapeHtml(item.time || '-')}"><strong>${escapeHtml(item.time || '-')}</strong></td>
-                    <td title="${escapeHtml(item.teacher || '-')}">${escapeHtml(item.teacher || '-')}</td>
-                    <td>
-                        <div class="table-actions">
-                            ${actionsHtml}
+                if (isCompact) {
+                    // Render Row for Compact View (B12.2A3.3B3A)
+                    const photoUrl = item.photo_url || '';
+                    let photoCellHtml = '';
+                    if (photoUrl) {
+                        photoCellHtml = `
+                            <div class="compact-photo-wrapper">
+                                <img src="${escapeHtml(photoUrl)}"
+                                     alt="${escapeHtml(item.program_name || 'Program')} kapak fotoğrafı"
+                                     class="compact-thumbnail"
+                                     loading="lazy"
+                                     decoding="async"
+                                     onerror="this.style.display='none'; this.parentElement.innerHTML='<div class=\'compact-placeholder\' aria-label=\'Kapak fotoğrafı yok\'><i class=\'fa-solid fa-image\'></i></div>'">
+                            </div>
+                        `;
+                    } else {
+                        photoCellHtml = `
+                            <div class="compact-placeholder" aria-label="Kapak fotoğrafı yok">
+                                <i class="fa-solid fa-image"></i>
+                            </div>
+                        `;
+                    }
+
+                    let statusIndicator = '';
+                    if (statusVal === 'active') {
+                        statusIndicator = '<span class="status-dot active" title="Devam Ediyor"></span>';
+                    } else {
+                        // For exceptional statuses, show small badge
+                        statusIndicator = `<span class="${statusBadge.badgeClass} compact-status-badge">${escapeHtml(statusBadge.label)}</span>`;
+                    }
+
+                    const day = item.day || '-';
+                    const time = item.time || '-';
+                    const scheduleHtml = `
+                        <div class="compact-schedule">
+                            <div class="compact-day">${escapeHtml(day)}</div>
+                            <div class="compact-time">${escapeHtml(time)}</div>
                         </div>
-                    </td>
-                `;
+                    `;
+
+                    tr.innerHTML = `
+                        <td class="program-col-photo">${photoCellHtml}</td>
+                        <td class="program-col-main" title="${escapeHtml(item.program_name || 'İsimsiz Program')}">
+                            <div class="compact-program-header">
+                                ${statusIndicator}
+                                <span class="table-program-name">${escapeHtml(item.program_name || 'İsimsiz Program')}</span>
+                            </div>
+                            <span class="table-venue-name" style="display: block; font-size: 12px; color: var(--md-on-surface-variant); margin-top: 2px;">
+                                <i class="fa-solid fa-mosque" style="font-size: 10px; margin-right: 4px; color: var(--md-secondary);"></i>${escapeHtml(item.venue_name || '-')}
+                            </span>
+                            ${mobileBadgeHtml}
+                        </td>
+                        <td class="program-col-organization organization-cell" title="${escapeHtml(orgName)}">
+                            ${orgCellContentHtml}
+                        </td>
+                        <td class="program-col-district" title="${escapeHtml(item.district || '-')}">${escapeHtml(item.district || '-')}</td>
+                        <td class="program-col-schedule" title="${escapeHtml(day)} - ${escapeHtml(time)}">
+                            ${scheduleHtml}
+                        </td>
+                        <td class="program-col-teacher" title="${escapeHtml(item.teacher || '-')}">${escapeHtml(item.teacher || '-')}</td>
+                        <td class="program-col-actions">
+                            <div class="table-actions">
+                                ${actionsHtml}
+                            </div>
+                        </td>
+                    `;
+                } else {
+                    // Render Row for Standard List View
+                    tr.innerHTML = `
+                        <td title="${escapeHtml(statusBadge.label)}">
+                            <span class="${statusBadge.badgeClass}">${escapeHtml(statusBadge.label)}</span>
+                        </td>
+                        <td title="${escapeHtml(sourceBadge.label)}">
+                            <span class="${sourceBadge.badgeClass}">${escapeHtml(sourceBadge.label)}</span>
+                        </td>
+                        <td class="organization-cell" title="${escapeHtml(orgName)}">
+                            ${orgCellContentHtml}
+                        </td>
+                        <td title="${escapeHtml(item.program_name || 'İsimsiz Program')}">
+                            <span class="table-program-name" style="display: block; font-weight: 600;">${escapeHtml(item.program_name || 'İsimsiz Program')}</span>
+                            <span class="table-venue-name" style="display: block; font-size: 12px; color: var(--md-on-surface-variant); margin-top: 2px;">
+                                <i class="fa-solid fa-mosque" style="font-size: 10px; margin-right: 4px; color: var(--md-secondary);"></i>${escapeHtml(item.venue_name || '-')}
+                            </span>
+                            ${mobileBadgeHtml}
+                        </td>
+                        <td title="${escapeHtml(item.district || '-')}">${escapeHtml(item.district || '-')}</td>
+                        <td title="${escapeHtml(item.day || '-')}">${escapeHtml(item.day || '-')}</td>
+                        <td title="${escapeHtml(item.time || '-')}"><strong>${escapeHtml(item.time || '-')}</strong></td>
+                        <td title="${escapeHtml(item.teacher || '-')}">${escapeHtml(item.teacher || '-')}</td>
+                        <td>
+                            <div class="table-actions">
+                                ${actionsHtml}
+                            </div>
+                        </td>
+                    `;
+                }
 
                 // Bind click event to table edit button
                 const tableEditBtn = tr.querySelector('.btn-table-edit');
