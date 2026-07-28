@@ -39,6 +39,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let selectedProgramEditPhotos = [];
     let isProgramGalleryUploading = false;
 
+    // Yeni Program Ekle Modalı - Çoklu Fotoğraf State (B12.2A3.3C)
+    let selectedProgramAddPhotos = [];
+    let pendingManualProgramCreation = null; // { suggestionId, programId, photosCompleted: boolean, metadataPaths: string[] }
+
     // Keşfet İçerikleri CMS Altyapısı v2 State Değişkenleri
     let loadedDiscoverArticles = [];
     let loadedDiscoverModules = [];
@@ -1764,14 +1768,28 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     // Add Modal functions and listeners
-    function closeAddModal() {
+    function closeAddModal(force = false) {
+        if (!force && pendingManualProgramCreation && !pendingManualProgramCreation.photosCompleted) {
+            const confirmExit = confirm("Program oluşturma işlemi tamamlanmadı. Kapatırsanız fotoğraf ekleme işlemini bu ekrandan sürdüremeyebilirsiniz. Çıkmak istiyor musunuz?");
+            if (!confirmExit) return;
+        }
+
         if (addModal) {
             addModal.classList.add('hidden');
             document.body.style.overflow = "";
         }
+
+        // Reset local multi-photo state if NOT pending or if forced
+        if (force || !pendingManualProgramCreation) {
+            clearProgramAddPhotosSelection();
+            pendingManualProgramCreation = null;
+        }
     }
 
     addProgramBtn?.addEventListener('click', () => {
+        // Reset the pending context completely when opening a new form
+        pendingManualProgramCreation = null;
+
         if (addForm) {
             addForm.reset();
             const cityInput = document.getElementById('add-city');
@@ -1796,8 +1814,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         // Reset photo upload elements
-        const addPhotoFile = document.getElementById('add-photo-file');
-        if (addPhotoFile) addPhotoFile.value = '';
+        clearProgramAddPhotosSelection();
+
         const addFileName = document.getElementById('add-photo-file-name');
         if (addFileName) addFileName.textContent = 'Seçilen dosya yok';
         const addPreviewContainer = document.getElementById('add-photo-preview-container');
@@ -1854,8 +1872,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const saveBtn = document.getElementById('add-btn-save');
         const cancelBtn = document.getElementById('add-btn-cancel');
+        const errorEl = document.getElementById('add-program-photos-error');
 
-        // Get edited form values
+        // Form validasyonları
         const nameSelectVal = document.getElementById('add-program-name').value.trim();
         let program_name = nameSelectVal;
         if (nameSelectVal === "Diğer") {
@@ -1879,14 +1898,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const address = document.getElementById('add-address').value.trim();
         let description = document.getElementById('add-description').value.trim();
         const isLadiesSuitable = document.getElementById('add-ladies').value === 'yes';
-        const photo_url = document.getElementById('add-photo-url').value.trim();
 
-        if (!program_name) {
-            showToast("Lütfen program adını yazın.", "error");
-            return;
-        }
+        // Fotoğraf kaynağı kararı
+        const hasFiles = selectedProgramAddPhotos.length > 0;
+        const photo_url = hasFiles ? "" : document.getElementById('add-photo-url').value.trim();
 
-        if (!venue_name || !city || !district || !day || !time) {
+        if (!program_name || !venue_name || !city || !district || !day || !time) {
             showToast("Lütfen zorunlu alanları doldurun.", "error");
             return;
         }
@@ -1896,7 +1913,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Disable save/cancel buttons and show loading spinner
+        // UI Kilitleme
         if (saveBtn) {
             saveBtn.disabled = true;
             saveBtn.classList.add('disabled');
@@ -1905,191 +1922,147 @@ document.addEventListener('DOMContentLoaded', () => {
             cancelBtn.disabled = true;
             cancelBtn.classList.add('disabled');
         }
+        if (errorEl) errorEl.classList.add('hidden');
 
         const originalSaveHTML = saveBtn ? saveBtn.innerHTML : '';
         if (saveBtn) {
-            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kaydediliyor...';
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...';
         }
 
         try {
-            // Build initial payload with status 'pending' (to satisfy any RLS insert policy, will be updated to 'approved' immediately after)
-            const insertPayload = {
-                program_name,
-                venue_name,
-                city: city || 'Sakarya',
-                district,
-                day,
-                time,
-                contact_name,
-                contact_phone,
-                description,
-                status: 'pending'
-            };
+            let suggestionId = pendingManualProgramCreation ? pendingManualProgramCreation.suggestionId : null;
+            let programId = pendingManualProgramCreation ? pendingManualProgramCreation.programId : null;
 
-            // Helper to check and add valid columns
-            function addIfValid(dbKeys, value) {
-                if (!knownColumns) {
-                    insertPayload[dbKeys[0]] = value;
-                    return;
-                }
-                for (const key of dbKeys) {
-                    if (knownColumns.includes(key)) {
-                        insertPayload[key] = value;
-                        return;
-                    }
-                }
-            }
+            // ADIM 1: Program ve Suggestion Oluşturma (Eğer yoksa)
+            if (!pendingManualProgramCreation) {
+                if (saveBtn) saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kayıt oluşturuluyor...';
 
-            // Hoca
-            if (teacher) {
-                addIfValid(['teacher', 'speaker', 'hoca', 'lecturer'], teacher);
-            }
-            
-            // Organization
-            if (organization) {
-                addIfValid(['organization', 'association', 'community', 'dernek', 'kurum'], organization);
-            }
-            
-            // Address
-            if (address) {
-                addIfValid(['address', 'location'], address);
-            }
-            
-            // Google Maps Link
-            if (google_maps_link) {
-                addIfValid(['google_maps_link', 'googleMapsLink', 'maps_link', 'mapsLink'], google_maps_link);
-            }
-            
-            // Photo URL
-            if (photo_url) {
-                addIfValid(['photo_url', 'photoUrl', 'image_url', 'imageUrl'], photo_url);
-            }
+                const insertPayload = {
+                    program_name,
+                    venue_name,
+                    city: city || 'Sakarya',
+                    district,
+                    day,
+                    time,
+                    contact_name,
+                    contact_phone,
+                    description,
+                    status: 'pending'
+                };
 
-            // Ladies Suitable
-            if (isLadiesSuitable) {
-                let ladiesKeyAdded = false;
-                const ladiesKeys = ['ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
-                if (knownColumns) {
-                    for (const key of ladiesKeys) {
-                        if (knownColumns.includes(key)) {
-                            insertPayload[key] = true;
-                            ladiesKeyAdded = true;
-                            break;
-                        }
-                    }
-                }
-                if (!ladiesKeyAdded) {
-                    // Prepend/append to description if column doesn't exist
-                    insertPayload.description += "\n\n(Not: Hanımlara uygundur.)";
-                }
-            }
-
-            console.log("Inserting program...");
-
-            let attempt = 0;
-            let success = false;
-            let responseData = null;
-            let responseError = null;
-
-            while (attempt < 5) {
-                console.log(`Insert attempt #${attempt + 1}...`);
-                const { data, error } = await supabaseClient
-                    .from('suggestions')
-                    .insert(insertPayload)
-                    .select();
-
-                if (!error) {
-                    responseData = data;
-                    success = true;
-                    break;
+                // Kolon uyumluluğu kontrolü ve payload temizliği
+                function addIfValid(dbKeys, value) {
+                    if (!knownColumns) { insertPayload[dbKeys[0]] = value; return; }
+                    for (const key of dbKeys) { if (knownColumns.includes(key)) { insertPayload[key] = value; return; } }
                 }
 
-                responseError = error;
-                console.warn(`Attempt #${attempt + 1} failed:`, error);
-
-                // Analyze error message to detect and remove missing columns automatically
-                const errMsg = (error.message || '').toLowerCase();
-                let columnRemoved = false;
-
-                // Look for column names enclosed in quotes or in plaintext
-                const quoteMatches = errMsg.match(/['"`]([a-z0-9_]+)['"`]/g) || [];
-                const extractedWords = quoteMatches.map(m => m.replace(/['"`]/g, ''));
-                const allWords = errMsg.split(/[^a-z0-9_]/);
-
-                const candidates = new Set([...extractedWords, ...allWords]);
-
-                for (const key of Object.keys(insertPayload)) {
-                    if (candidates.has(key.toLowerCase()) || errMsg.includes(key.toLowerCase())) {
-                        console.log(`Detected offending column '${key}' in error message, removing from insert payload.`);
-                        if (key === 'ladies_suitable' || key === 'is_ladies_suitable' || key === 'isLadiesSuitable') {
-                            if (isLadiesSuitable && !insertPayload.description.includes("Hanımlara uygundur")) {
-                                insertPayload.description += "\n\n(Not: Hanımlara uygundur.)";
-                            }
-                        }
-                        delete insertPayload[key];
-                        columnRemoved = true;
-                    }
+                if (teacher) addIfValid(['teacher', 'speaker', 'hoca', 'lecturer'], teacher);
+                if (organization) addIfValid(['organization', 'association', 'community', 'dernek', 'kurum'], organization);
+                if (address) addIfValid(['address', 'location'], address);
+                if (google_maps_link) addIfValid(['google_maps_link', 'googleMapsLink', 'maps_link', 'mapsLink'], google_maps_link);
+                if (photo_url) addIfValid(['photo_url', 'photoUrl', 'image_url', 'imageUrl'], photo_url);
+                if (isLadiesSuitable) {
+                    const ladiesKeys = ['ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
+                    let added = false;
+                    for (const k of ladiesKeys) { if (knownColumns?.includes(k)) { insertPayload[k] = true; added = true; break; } }
+                    if (!added) insertPayload.description += "\n\n(Not: Hanımlara uygundur.)";
                 }
 
-                // Fallback: If no column could be detected, remove optional columns
-                if (!columnRemoved) {
-                    const optionalKeys = ['teacher', 'organization', 'address', 'google_maps_link', 'photo_url', 'source', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
-                    for (const optKey of optionalKeys) {
-                        if (optKey in insertPayload) {
-                            console.log(`No direct match. Removing optional column '${optKey}' as a safe fallback.`);
-                            if ((optKey === 'ladies_suitable' || optKey === 'is_ladies_suitable' || optKey === 'isLadiesSuitable') && isLadiesSuitable) {
-                                if (!insertPayload.description.includes("Hanımlara uygundur")) {
-                                    insertPayload.description += "\n\n(Not: Hanımlara uygundur.)";
-                                }
-                            }
-                            delete insertPayload[optKey];
-                            columnRemoved = true;
-                            break;
-                        }
-                    }
-                }
+                // Suggestion Insert
+                const { data: sData, error: sErr } = await supabaseClient.from('suggestions').insert(insertPayload).select().single();
+                if (sErr) throw sErr;
+                suggestionId = sData.id;
 
-                if (!columnRemoved) {
-                    break;
-                }
-
-                attempt++;
-            }
-
-            if (!success) {
-                throw responseError;
-            }
-
-            // B12.2A4 - GÜVENLİ MANUEL EKLEME SIRALAMASI
-            // Önce senkronizasyonu (program oluşturma + fotoğraf aktarımı) yapıyoruz.
-            if (responseData && responseData.length > 0) {
-                const suggestion = responseData[0];
+                // Program Sync
                 const logo_url = document.getElementById('add-program-logo-url')?.value.trim() || '';
                 const organization_id = document.getElementById('add-org-select')?.value || null;
+                const syncRes = await syncSuggestionToProgram(sData, 'admin_manual', logo_url, organization_id);
+                if (!syncRes || !syncRes.success) throw new Error(syncRes?.error || "Programa aktarım hatası");
+                programId = syncRes.programId;
 
-                console.log("Manuel program ekleme: Önce programa aktarım yapılıyor...");
-                const syncRes = await syncSuggestionToProgram(suggestion, 'admin_manual', logo_url, organization_id);
-
-                if (syncRes && syncRes.success) {
-                    console.log("Programa aktarım başarılı. Şimdi öneri durumu onaylanıyor...");
-                    const { error: updateError } = await supabaseClient
-                        .from('suggestions')
-                        .update({ status: 'approved' })
-                        .eq('id', suggestion.id);
-
-                    if (updateError) {
-                        console.warn("Program oluşturuldu fakat öneri durumu onaylanamadı:", updateError.message);
-                    }
-                    showToast("Program başarıyla eklendi ve yayına hazırlandı.", "success");
-                } else {
-                    console.error("Programa aktarım başarısız:", syncRes?.error);
-                    showToast("Program kaydı oluşturuldu fakat yayına aktarılamadı.", "error");
-                }
+                pendingManualProgramCreation = { suggestionId, programId, photosCompleted: false, metadataPaths: [] };
             }
 
-            closeAddModal();
+            // ADIM 2: Fotoğraf Yükleme (Varsa)
+            if (hasFiles && !pendingManualProgramCreation.photosCompleted) {
+                const uploadedMetadata = [];
+                const successfulPaths = [];
+                let uploadError = null;
 
-            // Set current tab to approved
+                for (let i = 0; i < selectedProgramAddPhotos.length; i++) {
+                    const item = selectedProgramAddPhotos[i];
+                    if (saveBtn) saveBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Fotoğraf yükleniyor (${i + 1}/${selectedProgramAddPhotos.length})...`;
+
+                    const fileExt = item.file.type.split('/')[1] || 'jpg';
+                    const uuid = crypto.randomUUID ? crypto.randomUUID() : (Date.now() + Math.random().toString(36).substring(2));
+                    const storagePath = `programs/${programId}/${uuid}.${fileExt}`;
+
+                    const { data: uData, error: uErr } = await supabaseClient.storage
+                        .from('program-photos')
+                        .upload(storagePath, item.file, { contentType: item.file.type });
+
+                    if (uErr) {
+                        uploadError = uErr;
+                        break;
+                    }
+
+                    successfulPaths.push(storagePath);
+                    const { data: pubData } = supabaseClient.storage.from('program-photos').getPublicUrl(storagePath);
+                    uploadedMetadata.push({
+                        bucket_name: 'program-photos',
+                        storage_path: storagePath,
+                        photo_url: pubData.publicUrl
+                    });
+                }
+
+                if (uploadError) {
+                    // Rollback current attempt uploads
+                    if (successfulPaths.length > 0) {
+                        await supabaseClient.storage.from('program-photos').remove(successfulPaths);
+                    }
+                    throw uploadError;
+                }
+
+                // ADIM 3: Metadata Kaydı (RPC)
+                if (saveBtn) saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Galeri kaydediliyor...';
+                const { data: rpcRes, error: rpcErr } = await supabaseClient.rpc('admin_add_program_photos', {
+                    p_program_id: programId,
+                    p_photos: uploadedMetadata,
+                    p_legacy_photo: null
+                });
+
+                if (rpcErr) {
+                    // Ağ belirsizliği kontrolü
+                    const isUncertain = rpcErr.message?.toLowerCase().includes('fetch') || rpcErr.status === 0;
+                    if (isUncertain) {
+                        if (saveBtn) saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Doğrulanıyor...';
+                        const checkPath = uploadedMetadata[0].storage_path;
+                        const { count: exists } = await supabaseClient.from('program_photos').select('*', { count: 'exact', head: true })
+                            .eq('program_id', programId).eq('storage_path', checkPath);
+
+                        if (!exists) {
+                            await supabaseClient.storage.from('program-photos').remove(successfulPaths);
+                            throw rpcErr;
+                        }
+                        // If exists, continue to success
+                    } else {
+                        await supabaseClient.storage.from('program-photos').remove(successfulPaths);
+                        throw rpcErr;
+                    }
+                }
+                pendingManualProgramCreation.photosCompleted = true;
+            }
+
+            // ADIM 4: Suggestion Onaylama (Final)
+            if (saveBtn) saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Tamamlanıyor...';
+            const { error: finalErr } = await supabaseClient.from('suggestions').update({ status: 'approved' }).eq('id', suggestionId);
+            if (finalErr) throw finalErr;
+
+            // BAŞARI
+            showToast("Program başarıyla eklendi.", "success");
+            closeAddModal(true); // Force close to clean up everything
+
+            // Reload list
             const approvedTabBtn = document.querySelector('.tab-btn[data-status="approved"]');
             if (approvedTabBtn) {
                 const tabBtns = document.querySelectorAll('.tab-btn');
@@ -2097,13 +2070,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 approvedTabBtn.classList.add('active');
             }
             currentTabStatus = 'approved';
-
-            // Reload data
             await loadData();
 
         } catch (error) {
-            console.error('Program eklenirken hata oluştu:', error);
-            showToast("Program eklenirken hata oluştu.", "error");
+            console.error('Program ekleme hatası:', error);
+            showToast("İşlem sırasında bir hata oluştu. Lütfen tekrar deneyin.", "error");
+            if (errorEl) {
+                errorEl.classList.remove('hidden');
+                errorEl.querySelector('span').textContent = error.message || "Bilinmeyen bir hata oluştu.";
+            }
         } finally {
             if (saveBtn) {
                 saveBtn.disabled = false;
@@ -4777,6 +4752,163 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    /**
+     * B12.2A3.3C - Yeni Program Ekle Modalında Seçilen Fotoğrafları Render Eder
+     */
+    function renderProgramAddPhotosPreview() {
+        const grid = document.getElementById('add-program-new-photos-grid');
+        const container = document.getElementById('add-program-new-photos-container');
+        const infoEl = document.getElementById('add-program-photos-info');
+        const urlInput = document.getElementById('add-photo-url');
+
+        if (!grid || !container) return;
+
+        grid.innerHTML = '';
+
+        if (selectedProgramAddPhotos.length > 0) {
+            container.classList.remove('hidden');
+
+            // Normalize isCover: index 0 is always cover
+            selectedProgramAddPhotos.forEach((p, idx) => {
+                p.isCover = (idx === 0);
+            });
+
+            selectedProgramAddPhotos.forEach((photo, index) => {
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'new-photo-item';
+
+                const img = document.createElement('img');
+                img.src = photo.previewUrl;
+                img.alt = "Yeni Fotoğraf";
+
+                // Kapak Rozeti
+                if (photo.isCover) {
+                    const badge = document.createElement('span');
+                    badge.className = 'cover-badge';
+                    badge.textContent = 'Kapak';
+                    itemDiv.appendChild(badge);
+                } else {
+                    // Kapak Yap Butonu
+                    const makeCoverBtn = document.createElement('button');
+                    makeCoverBtn.type = 'button';
+                    makeCoverBtn.className = 'btn-make-cover';
+                    makeCoverBtn.title = "Kapak Yap";
+                    makeCoverBtn.innerHTML = '<i class="fa-solid fa-star"></i>';
+                    makeCoverBtn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        makeProgramAddPhotoCover(index);
+                    });
+                    itemDiv.appendChild(makeCoverBtn);
+                }
+
+                // Sıralama Kontrolleri
+                if (selectedProgramAddPhotos.length > 1) {
+                    const controlsDiv = document.createElement('div');
+                    controlsDiv.className = 'gallery-order-controls';
+
+                    if (index > 0) {
+                        const moveLeftBtn = document.createElement('button');
+                        moveLeftBtn.type = 'button';
+                        moveLeftBtn.className = 'btn-move-photo';
+                        moveLeftBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
+                        moveLeftBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            moveProgramAddPhoto(index, -1);
+                        });
+                        controlsDiv.appendChild(moveLeftBtn);
+                    }
+
+                    if (index < selectedProgramAddPhotos.length - 1) {
+                        const moveRightBtn = document.createElement('button');
+                        moveRightBtn.type = 'button';
+                        moveRightBtn.className = 'btn-move-photo';
+                        moveRightBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
+                        moveRightBtn.addEventListener('click', (e) => {
+                            e.stopPropagation();
+                            moveProgramAddPhoto(index, 1);
+                        });
+                        controlsDiv.appendChild(moveRightBtn);
+                    }
+                    itemDiv.appendChild(controlsDiv);
+                }
+
+                // Kaldır Butonu
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.className = 'btn-remove-new-photo';
+                removeBtn.title = "Seçimden Kaldır";
+                removeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
+                removeBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    removeProgramAddPhotoFromSelection(photo.key);
+                });
+
+                itemDiv.appendChild(img);
+                itemDiv.appendChild(removeBtn);
+                grid.appendChild(itemDiv);
+            });
+
+            if (infoEl) infoEl.innerHTML = `<strong>${selectedProgramAddPhotos.length} / 6</strong> fotoğraf seçildi. Dosya modu aktif olduğunda manuel URL alanı devre dışı kalır.`;
+            if (urlInput) {
+                urlInput.disabled = true;
+                urlInput.title = "Fotoğraf seçildiğinde manuel URL kullanılamaz.";
+            }
+        } else {
+            container.classList.add('hidden');
+            if (urlInput) {
+                urlInput.disabled = false;
+                urlInput.title = "";
+            }
+        }
+    }
+
+    function makeProgramAddPhotoCover(index) {
+        if (index <= 0 || index >= selectedProgramAddPhotos.length) return;
+        const item = selectedProgramAddPhotos.splice(index, 1)[0];
+        selectedProgramAddPhotos.unshift(item);
+        renderProgramAddPhotosPreview();
+    }
+
+    function moveProgramAddPhoto(index, direction) {
+        const targetIndex = index + direction;
+        if (targetIndex < 0 || targetIndex >= selectedProgramAddPhotos.length) return;
+        const temp = selectedProgramAddPhotos[index];
+        selectedProgramAddPhotos[index] = selectedProgramAddPhotos[targetIndex];
+        selectedProgramAddPhotos[targetIndex] = temp;
+        renderProgramAddPhotosPreview();
+    }
+
+    function removeProgramAddPhotoFromSelection(key) {
+        const index = selectedProgramAddPhotos.findIndex(p => p.key === key);
+        if (index !== -1) {
+            const photo = selectedProgramAddPhotos[index];
+            if (photo.previewUrl) URL.revokeObjectURL(photo.previewUrl);
+            selectedProgramAddPhotos.splice(index, 1);
+            renderProgramAddPhotosPreview();
+        }
+    }
+
+    function clearProgramAddPhotosSelection() {
+        if (selectedProgramAddPhotos.length > 0) {
+            selectedProgramAddPhotos.forEach(p => {
+                if (p.previewUrl) URL.revokeObjectURL(p.previewUrl);
+            });
+            selectedProgramAddPhotos = [];
+        }
+        document.getElementById('add-program-new-photos-container')?.classList.add('hidden');
+        document.getElementById('add-program-photos-error')?.classList.add('hidden');
+        const fileInput = document.getElementById('add-photo-file');
+        if (fileInput) fileInput.value = '';
+        const fileNameDisp = document.getElementById('add-photo-file-name');
+        if (fileNameDisp) fileNameDisp.textContent = 'Seçilen dosya yok';
+
+        const urlInput = document.getElementById('add-photo-url');
+        if (urlInput) {
+            urlInput.disabled = false;
+            urlInput.title = "";
+        }
+    }
+
     async function uploadProgramPhoto(photoFile, progressElementId, fileNameElementId, previewImgElementId, previewContainerId, urlInputElementId) {
         if (!supabaseClient) {
             if (!initSupabase()) return;
@@ -4920,28 +5052,73 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         addPhotoFile?.addEventListener('change', async (e) => {
-            const file = e.target.files[0];
-            if (file) {
-                await uploadProgramPhoto(
-                    file,
-                    'add-upload-progress',
-                    'add-photo-file-name',
-                    'add-photo-preview-img',
-                    'add-photo-preview-container',
-                    'add-photo-url'
-                );
+            const files = Array.from(e.target.files);
+            if (files.length === 0) return;
+
+            const errorEl = document.getElementById('add-program-photos-error');
+            if (errorEl) errorEl.classList.add('hidden');
+
+            const currentCount = selectedProgramAddPhotos.length;
+            const totalAllowed = 6;
+            const availableSlots = totalAllowed - currentCount;
+
+            if (availableSlots <= 0) {
+                showToast("En fazla 6 fotoğraf seçebilirsiniz.", "error");
+                addPhotoFile.value = '';
+                return;
             }
+
+            let addedCount = 0;
+            let skippedCount = 0;
+
+            for (const file of files) {
+                if (addedCount >= availableSlots) {
+                    skippedCount++;
+                    continue;
+                }
+
+                // Validasyonlar
+                if (file.size > 8 * 1024 * 1024) {
+                    showToast(`"${file.name}" dosyası 8MB'dan büyük olduğu için atlandı.`, "error");
+                    continue;
+                }
+
+                const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+                if (!allowedTypes.includes(file.type)) {
+                    showToast(`"${file.name}" geçersiz formatta olduğu için atlandı.`, "error");
+                    continue;
+                }
+
+                const key = `${file.name}-${file.size}-${file.lastModified}`;
+                if (selectedProgramAddPhotos.some(p => p.key === key)) {
+                    continue; // Zaten seçilmiş
+                }
+
+                selectedProgramAddPhotos.push({
+                    key: key,
+                    file: file,
+                    previewUrl: URL.createObjectURL(file),
+                    isCover: (selectedProgramAddPhotos.length === 0)
+                });
+                addedCount++;
+            }
+
+            if (skippedCount > 0) {
+                showToast(`En fazla 6 fotoğraf yüklenebilir. ${skippedCount} dosya atlandı.`, "warning");
+            }
+
+            renderProgramAddPhotosPreview();
+            addPhotoFile.value = ''; // Aynı dosyayı tekrar seçebilsin
         });
 
         addRemoveBtn?.addEventListener('click', () => {
-            if (addPhotoFile) addPhotoFile.value = '';
-            const addFileName = document.getElementById('add-photo-file-name');
-            if (addFileName) addFileName.textContent = 'Seçilen dosya yok';
+            clearProgramAddPhotosSelection();
+            // Mevcut tekil fotoğraf/url'yi temizle (Legacy alan)
+            if (addUrlInput) addUrlInput.value = '';
             const addPreviewContainer = document.getElementById('add-photo-preview-container');
             if (addPreviewContainer) addPreviewContainer.classList.add('hidden');
             const addPreviewImg = document.getElementById('add-photo-preview-img');
             if (addPreviewImg) addPreviewImg.src = '';
-            if (addUrlInput) addUrlInput.value = '';
         });
 
         // --- Edit Modal (B12.2A3.3B3A - Çoklu Fotoğraf Seçimi) ---
