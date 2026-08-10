@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let allLoadedSuggestions = [];
     let loadedPrograms = [];
     let isTrashBinView = false;
-    let knownColumns = ['id', 'program_name', 'venue_name', 'city', 'district', 'day', 'time', 'teacher', 'organization', 'women_friendly', 'address', 'google_maps_link', 'description', 'contact_name', 'contact_phone', 'photo_url', 'status', 'created_at', 'updated_at', 'ladies_suitable', 'is_ladies_suitable', 'isLadiesSuitable'];
+    let knownColumns = null; // B16.1C Hotfix: Set to null to force real schema detection
     let activeOrganizations = [];
     let activeProgramTypes = [];
 
@@ -140,6 +140,75 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     /**
+     * B16.1C - Ortak İl/İlçe dropdown hazırlayıcı (Setup)
+     */
+    function setupLocationDropdowns(citySelectId, districtSelectId, defaultCity = '', selectedDistrict = '') {
+        const citySelect = document.getElementById(citySelectId);
+        const districtSelect = document.getElementById(districtSelectId);
+
+        if (!citySelect || !districtSelect) return;
+
+        // İlleri doldur
+        citySelect.innerHTML = '<option value="" disabled selected>İl Seçiniz</option>';
+        if (typeof TURKEY_LOCATION_DATA !== 'undefined') {
+            const cities = Object.keys(TURKEY_LOCATION_DATA).sort((a, b) => a.localeCompare(b, 'tr'));
+            cities.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                citySelect.appendChild(option);
+            });
+        }
+
+        // İl değiştiğinde ilçeleri güncelle
+        citySelect.addEventListener('change', () => {
+            updateDistrictDropdown(citySelectId, districtSelectId);
+        });
+
+        // Başlangıç değerlerini set et
+        if (defaultCity) {
+            citySelect.value = defaultCity;
+            updateDistrictDropdown(citySelectId, districtSelectId, selectedDistrict);
+        }
+    }
+
+    /**
+     * B16.1C - İlçe dropdown'ını seçili ile göre günceller
+     */
+    function updateDistrictDropdown(citySelectId, districtSelectId, selectedDistrict = '') {
+        const citySelect = document.getElementById(citySelectId);
+        const districtSelect = document.getElementById(districtSelectId);
+
+        if (!citySelect || !districtSelect) return;
+
+        const city = citySelect.value;
+        districtSelect.innerHTML = '<option value="" disabled selected>İlçe Seçiniz</option>';
+
+        if (city && typeof TURKEY_LOCATION_DATA !== 'undefined' && TURKEY_LOCATION_DATA[city]) {
+            const districts = [...TURKEY_LOCATION_DATA[city]].sort((a, b) => a.localeCompare(b, 'tr'));
+            districts.forEach(d => {
+                const option = document.createElement('option');
+                option.value = d;
+                option.textContent = d;
+                districtSelect.appendChild(option);
+            });
+
+            if (selectedDistrict && districts.includes(selectedDistrict)) {
+                districtSelect.value = selectedDistrict;
+            }
+        }
+    }
+
+    /**
+     * B16.1C - Lokasyon doğrulama (Validation)
+     */
+    function validateLocation(city, district) {
+        if (typeof TURKEY_LOCATION_DATA === 'undefined') return true;
+        if (!city || !district) return false;
+        return TURKEY_LOCATION_DATA[city] && TURKEY_LOCATION_DATA[city].includes(district);
+    }
+
+    /**
      * Merkezi Auth Durum Yönetimi
      * @param {object} session Supabase Session nesnesi
      */
@@ -212,9 +281,13 @@ document.addEventListener('DOMContentLoaded', () => {
     async function detectColumns() {
         try {
             const { data, error } = await supabaseClient.from('suggestions').select('*').limit(1);
-            if (!error && data && data.length > 0) {
-                knownColumns = Object.keys(data[0]);
-                console.log("Successfully detected suggestions table columns:", knownColumns);
+            if (!error && data) {
+                if (data.length > 0) {
+                    knownColumns = Object.keys(data[0]);
+                    console.log("Successfully detected suggestions table columns:", knownColumns);
+                } else {
+                    knownColumns = []; // B16.1C Hotfix: Table empty, mark as attempted
+                }
             }
         } catch (e) {
             console.warn("Failed to detect columns on init:", e);
@@ -1293,20 +1366,17 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         document.getElementById('edit-venue-name').value = currentSuggestion.venue_name || '';
-        document.getElementById('edit-city').value = currentSuggestion.city || 'Sakarya';
-        
-        const currentDistrict = currentSuggestion.district ? currentSuggestion.district.trim() : '';
-        const editDistrictSelect = document.getElementById('edit-district');
+
+        const cityVal = (currentSuggestion.city || '').trim() || 'Sakarya';
+        const districtVal = (currentSuggestion.district || '').trim();
+        setupLocationDropdowns('edit-city', 'edit-district', cityVal, districtVal);
+
         const editDistrictWarning = document.getElementById('edit-district-warning');
-        if (editDistrictSelect) {
-            const foundDistrict = SAKARYA_DISTRICTS.find(d => d.toLocaleLowerCase('tr-TR') === currentDistrict.toLocaleLowerCase('tr-TR'));
-            if (foundDistrict) {
-                editDistrictSelect.value = foundDistrict;
-                if (editDistrictWarning) editDistrictWarning.classList.add('hidden');
-            } else {
-                editDistrictSelect.value = ''; // Reset to "İlçe Seçiniz"
-                if (editDistrictWarning) editDistrictWarning.classList.remove('hidden');
-            }
+        const editDistrictSelect = document.getElementById('edit-district');
+        if (districtVal && editDistrictSelect && editDistrictSelect.value !== districtVal) {
+            if (editDistrictWarning) editDistrictWarning.classList.remove('hidden');
+        } else if (editDistrictWarning) {
+            editDistrictWarning.classList.add('hidden');
         }
 
         document.getElementById('edit-day').value = currentSuggestion.day || '';
@@ -1409,15 +1479,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error("Gerekli alanlar boş bırakılamaz.");
             }
 
-            if (!SAKARYA_DISTRICTS.includes(district)) {
-                showToast("Lütfen geçerli bir ilçe seçiniz.", "error");
-                throw new Error("Geçersiz veya boş ilçe seçimi.");
+            if (!validateLocation(city, district)) {
+                showToast("Lütfen geçerli bir il ve ilçe seçiniz.", "error");
+                throw new Error("Geçersiz veya boş il/ilçe seçimi.");
             }
 
-            // Build safe payload with columns we are certain exist (city is excluded completely from database payload)
+            // Build safe payload with columns we are certain exist
             const updatePayload = {
                 program_name,
                 venue_name,
+                city,
                 district,
                 day,
                 time,
@@ -1792,8 +1863,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (addForm) {
             addForm.reset();
-            const cityInput = document.getElementById('add-city');
-            if (cityInput) cityInput.value = 'Sakarya';
+            setupLocationDropdowns('add-city', 'add-district', 'Sakarya');
             const addOrgSelect = document.getElementById('add-org-select');
             if (addOrgSelect) addOrgSelect.value = '';
             
@@ -1908,8 +1978,8 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!SAKARYA_DISTRICTS.includes(district)) {
-            showToast("Lütfen geçerli bir ilçe seçiniz.", "error");
+        if (!validateLocation(city, district)) {
+            showToast("Lütfen geçerli bir il ve ilçe seçiniz.", "error");
             return;
         }
 
@@ -1937,6 +2007,11 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!pendingManualProgramCreation) {
                 if (saveBtn) saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kayıt oluşturuluyor...';
 
+                // B16.1C Hotfix: Ensure columns are detected before insert
+                if (!knownColumns) {
+                    await detectColumns();
+                }
+
                 const insertPayload = {
                     program_name,
                     venue_name,
@@ -1950,9 +2025,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     status: 'pending'
                 };
 
-                // Kolon uyumluluğu kontrolü ve payload temizliği
+                // Kolon uyumluluğu kontrolü ve payload temizliği (B16.1C Hotfix: Don't guess if schema unknown)
                 function addIfValid(dbKeys, value) {
-                    if (!knownColumns) { insertPayload[dbKeys[0]] = value; return; }
+                    if (!knownColumns || knownColumns.length === 0) return;
                     for (const key of dbKeys) { if (knownColumns.includes(key)) { insertPayload[key] = value; return; } }
                 }
 
@@ -2482,30 +2557,19 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function populateFilterOptions(programs) {
-        const districtSelect = document.getElementById('filter-district');
-        const daySelect = document.getElementById('filter-day');
-
-        if (districtSelect) {
-            const currentSelected = districtSelect.value;
-            districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
-            
-            // Unique trimmed districts sorted Turkish-safely
-            const districts = [...new Set(programs.map(p => (p.district || '').trim()).filter(Boolean))];
-            districts.sort((a, b) => a.localeCompare(b, 'tr'));
-            
-            districts.forEach(d => {
+        // City filter population (New B16.1A)
+        const citySelect = document.getElementById('filter-city');
+        if (citySelect && citySelect.options.length <= 1 && typeof TURKEY_LOCATION_DATA !== 'undefined') {
+            const cities = Object.keys(TURKEY_LOCATION_DATA).sort((a, b) => a.localeCompare(b, 'tr'));
+            cities.forEach(city => {
                 const option = document.createElement('option');
-                option.value = d;
-                option.textContent = d;
-                districtSelect.appendChild(option);
+                option.value = city;
+                option.textContent = city;
+                citySelect.appendChild(option);
             });
-            
-            if (districts.includes(currentSelected)) {
-                districtSelect.value = currentSelected;
-            } else {
-                districtSelect.value = '';
-            }
         }
+
+        const daySelect = document.getElementById('filter-day');
 
         if (daySelect) {
             const currentSelected = daySelect.value;
@@ -2541,8 +2605,30 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Dynamic district filter update based on selected city (B16.1A)
+    function updateDistrictFilterOptions() {
+        const citySelect = document.getElementById('filter-city');
+        const districtSelect = document.getElementById('filter-district');
+        if (!citySelect || !districtSelect) return;
+
+        const selectedCity = citySelect.value;
+        districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
+
+        if (selectedCity && typeof TURKEY_LOCATION_DATA !== 'undefined' && TURKEY_LOCATION_DATA[selectedCity]) {
+            const districts = [...TURKEY_LOCATION_DATA[selectedCity]].sort((a, b) => a.localeCompare(b, 'tr'));
+            districts.forEach(d => {
+                const option = document.createElement('option');
+                option.value = d;
+                option.textContent = d;
+                districtSelect.appendChild(option);
+            });
+        }
+        applyFilters();
+    }
+
     function applyFilters() {
         const searchQuery = document.getElementById('filter-search')?.value.trim().toLowerCase() || '';
+        const selectedCity = isTrashBinView ? '' : (document.getElementById('filter-city')?.value || '');
         const selectedDistrict = isTrashBinView ? '' : (document.getElementById('filter-district')?.value || '');
         const selectedDay = isTrashBinView ? '' : (document.getElementById('filter-day')?.value || '');
         const selectedStatus = isTrashBinView ? '' : (document.getElementById('filter-status')?.value || '');
@@ -2550,6 +2636,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedOrg = isTrashBinView ? '' : (document.getElementById('filter-org')?.value || '');
 
         const filtered = loadedPrograms.filter(item => {
+            // 0. City filter (Empty city treated as Sakarya for legacy support)
+            if (selectedCity) {
+                const itemCity = (item.city || '').trim() || 'Sakarya';
+                if (itemCity !== selectedCity) return false;
+            }
+
             // 1. Search filter
             if (searchQuery) {
                 const name = (item.program_name || '').toLowerCase();
@@ -3182,6 +3274,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function initFilterListeners() {
         document.getElementById('filter-search')?.addEventListener('input', applyFilters);
+        document.getElementById('filter-city')?.addEventListener('change', updateDistrictFilterOptions);
         document.getElementById('filter-district')?.addEventListener('change', applyFilters);
         document.getElementById('filter-day')?.addEventListener('change', applyFilters);
         document.getElementById('filter-status')?.addEventListener('change', applyFilters);
@@ -3192,8 +3285,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const searchInput = document.getElementById('filter-search');
             if (searchInput) searchInput.value = '';
 
+            const citySelect = document.getElementById('filter-city');
+            if (citySelect) citySelect.value = '';
+
             const districtSelect = document.getElementById('filter-district');
-            if (districtSelect) districtSelect.value = '';
+            if (districtSelect) districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
 
             const daySelect = document.getElementById('filter-day');
             if (daySelect) daySelect.value = '';
@@ -3649,21 +3745,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const venueInput = document.getElementById('edit-program-venue-name');
         if (venueInput) venueInput.value = item.venue_name || '';
 
-        const cityInput = document.getElementById('edit-program-city');
-        if (cityInput) cityInput.value = item.city || 'Sakarya';
+        const cityVal = (item.city || '').trim() || 'Sakarya';
+        const districtVal = (item.district || '').trim();
+        setupLocationDropdowns('edit-program-city', 'edit-program-district', cityVal, districtVal);
 
-        const districtInput = document.getElementById('edit-program-district');
         const editProgramDistrictWarning = document.getElementById('edit-program-district-warning');
-        if (districtInput) {
-            const currentDistrict = item.district ? item.district.trim() : '';
-            const foundDistrict = SAKARYA_DISTRICTS.find(d => d.toLocaleLowerCase('tr-TR') === currentDistrict.toLocaleLowerCase('tr-TR'));
-            if (foundDistrict) {
-                districtInput.value = foundDistrict;
-                if (editProgramDistrictWarning) editProgramDistrictWarning.classList.add('hidden');
-            } else {
-                districtInput.value = ''; // Reset to "İlçe Seçiniz"
-                if (editProgramDistrictWarning) editProgramDistrictWarning.classList.remove('hidden');
-            }
+        const districtInput = document.getElementById('edit-program-district');
+        if (districtVal && districtInput && districtInput.value !== districtVal) {
+            if (editProgramDistrictWarning) editProgramDistrictWarning.classList.remove('hidden');
+        } else if (editProgramDistrictWarning) {
+            editProgramDistrictWarning.classList.add('hidden');
         }
 
         const dayInput = document.getElementById('edit-program-day');
@@ -4382,7 +4473,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast("İl alanı zorunludur.", "error");
             return;
         }
-        if (!district || !SAKARYA_DISTRICTS.includes(district)) {
+        if (!district || !validateLocation(city, district)) {
             showToast("Lütfen geçerli bir ilçe seçiniz.", "error");
             return;
         }
@@ -6607,6 +6698,18 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!initSupabase()) return;
         }
 
+        // Populate city filter if empty (New B16.1B)
+        const citySelect = document.getElementById('mosques-filter-city');
+        if (citySelect && citySelect.options.length <= 1 && typeof TURKEY_LOCATION_DATA !== 'undefined') {
+            const cities = Object.keys(TURKEY_LOCATION_DATA).sort((a, b) => a.localeCompare(b, 'tr'));
+            cities.forEach(city => {
+                const option = document.createElement('option');
+                option.value = city;
+                option.textContent = city;
+                citySelect.appendChild(option);
+            });
+        }
+
         showMosquesLoader();
 
         try {
@@ -6691,8 +6794,30 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         return isMosqueUnnamed(m) ? 'unverified' : 'verified';
     }
 
+    // Dynamic district filter update based on selected city (B16.1B)
+    function updateMosqueDistrictFilterOptions() {
+        const citySelect = document.getElementById('mosques-filter-city');
+        const districtSelect = document.getElementById('mosques-filter-district');
+        if (!citySelect || !districtSelect) return;
+
+        const selectedCity = citySelect.value;
+        districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
+
+        if (selectedCity && typeof TURKEY_LOCATION_DATA !== 'undefined' && TURKEY_LOCATION_DATA[selectedCity]) {
+            const districts = [...TURKEY_LOCATION_DATA[selectedCity]].sort((a, b) => a.localeCompare(b, 'tr'));
+            districts.forEach(d => {
+                const option = document.createElement('option');
+                option.value = d;
+                option.textContent = d;
+                districtSelect.appendChild(option);
+            });
+        }
+        applyMosqueFilters();
+    }
+
     function applyMosqueFilters() {
         const searchVal = (document.getElementById('mosques-filter-search')?.value || '').trim().toLocaleLowerCase('tr-TR');
+        const cityVal = document.getElementById('mosques-filter-city')?.value || '';
         const districtVal = document.getElementById('mosques-filter-district')?.value || '';
         const statusVal = document.getElementById('mosques-filter-status')?.value || '';
         const verificationVal = document.getElementById('mosques-filter-verification')?.value || '';
@@ -6700,6 +6825,14 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         const sortVal = document.getElementById('mosques-filter-sort')?.value || 'az';
 
         let filtered = [...mosquesListCache];
+
+        // 0. City filter (Empty city treated as Sakarya for legacy support)
+        if (cityVal) {
+            filtered = filtered.filter(m => {
+                const itemCity = (m.city || '').trim() || 'Sakarya';
+                return itemCity === cityVal;
+            });
+        }
 
         // 1. District filter
         if (districtVal) {
@@ -7830,6 +7963,7 @@ out center tags;`;
 
         // Filters
         document.getElementById('mosques-filter-search')?.addEventListener('input', applyMosqueFilters);
+        document.getElementById('mosques-filter-city')?.addEventListener('change', updateMosqueDistrictFilterOptions);
         document.getElementById('mosques-filter-district')?.addEventListener('change', applyMosqueFilters);
         document.getElementById('mosques-filter-status')?.addEventListener('change', applyMosqueFilters);
         document.getElementById('mosques-filter-verification')?.addEventListener('change', applyMosqueFilters);
@@ -7839,6 +7973,7 @@ out center tags;`;
         // Clear Filters Button
         document.getElementById('mosques-clear-filters-btn')?.addEventListener('click', () => {
             const searchField = document.getElementById('mosques-filter-search');
+            const cityField = document.getElementById('mosques-filter-city');
             const districtField = document.getElementById('mosques-filter-district');
             const statusField = document.getElementById('mosques-filter-status');
             const verificationField = document.getElementById('mosques-filter-verification');
@@ -7846,7 +7981,8 @@ out center tags;`;
             const sortField = document.getElementById('mosques-filter-sort');
 
             if (searchField) searchField.value = '';
-            if (districtField) districtField.value = '';
+            if (cityField) cityField.value = '';
+            if (districtField) districtField.innerHTML = '<option value="">Tüm İlçeler</option>';
             if (statusField) statusField.value = '';
             if (verificationField) verificationField.value = '';
             if (unnamedField) unnamedField.value = 'hide';

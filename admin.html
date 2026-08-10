@@ -274,6 +274,12 @@
                             <input type="text" id="filter-search" class="form-control" placeholder="Program, mekan, hoca, kurum, ilçe, açıklama...">
                         </div>
                         <div class="filter-group">
+                            <label for="filter-city"><i class="fa-solid fa-city"></i> İl</label>
+                            <select id="filter-city" class="form-control">
+                                <option value="">Tüm İller</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
                             <label for="filter-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
                             <select id="filter-district" class="form-control">
                                 <option value="">Tüm İlçeler</option>
@@ -466,25 +472,15 @@
                         <input type="text" id="mosques-filter-search" class="form-control" placeholder="Cami adı, mahalle, adres...">
                     </div>
                     <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="mosques-filter-city"><i class="fa-solid fa-city"></i> İl</label>
+                        <select id="mosques-filter-city" class="form-control">
+                            <option value="">Tüm İller</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
                         <label for="mosques-filter-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
                         <select id="mosques-filter-district" class="form-control">
                             <option value="">Tüm İlçeler</option>
-                            <option value="Adapazarı">Adapazarı</option>
-                            <option value="Akyazı">Akyazı</option>
-                            <option value="Arifiye">Arifiye</option>
-                            <option value="Erenler">Erenler</option>
-                            <option value="Ferizli">Ferizli</option>
-                            <option value="Geyve">Geyve</option>
-                            <option value="Hendek">Hendek</option>
-                            <option value="Karapürçek">Karapürçek</option>
-                            <option value="Karasu">Karasu</option>
-                            <option value="Kaynarca">Kaynarca</option>
-                            <option value="Kocaali">Kocaali</option>
-                            <option value="Pamukova">Pamukova</option>
-                            <option value="Sapanca">Sapanca</option>
-                            <option value="Serdivan">Serdivan</option>
-                            <option value="Söğütlü">Söğütlü</option>
-                            <option value="Taraklı">Taraklı</option>
                         </select>
                     </div>
                     <div class="filter-group" style="flex: 1; min-width: 150px;">
@@ -964,29 +960,15 @@
                             <input type="text" id="edit-venue-name" class="form-control" required>
                         </div>
                         <div class="form-group">
-                            <label for="edit-city"><i class="fa-solid fa-city"></i> İl</label>
-                            <input type="text" id="edit-city" class="form-control" required>
+                            <label for="edit-city"><i class="fa-solid fa-city"></i> İl *</label>
+                            <select id="edit-city" class="form-control" required>
+                                <option value="" disabled selected>İl Seçiniz</option>
+                            </select>
                         </div>
                         <div class="form-group">
                             <label for="edit-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
                             <select id="edit-district" class="form-control" required>
                                 <option value="" disabled selected>İlçe Seçiniz</option>
-                                <option value="Adapazarı">Adapazarı</option>
-                                <option value="Akyazı">Akyazı</option>
-                                <option value="Arifiye">Arifiye</option>
-                                <option value="Erenler">Erenler</option>
-                                <option value="Ferizli">Ferizli</option>
-                                <option value="Geyve">Geyve</option>
-                                <option value="Hendek">Hendek</option>
-                                <option value="Karapürçek">Karapürçek</option>
-                                <option value="Karasu">Karasu</option>
-                                <option value="Kaynarca">Kaynarca</option>
-                                <option value="Kocaali">Kocaali</option>
-                                <option value="Pamukova">Pamukova</option>
-                                <option value="Sapanca">Sapanca</option>
-                                <option value="Serdivan">Serdivan</option>
-                                <option value="Söğütlü">Söğütlü</option>
-                                <option value="Taraklı">Taraklı</option>
                             </select>
                             <div id="edit-district-warning" class="district-warning hidden" style="color: var(--md-error); font-size: 13px; margin-top: 4px; font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Bu kayıt eski mahalle/semt değeri içeriyor. Lütfen doğru ilçeyi seçiniz.</div>
                         </div>
@@ -1121,28 +1103,14 @@
                     </div>
                     <div class="form-group">
                         <label for="edit-program-city"><i class="fa-solid fa-city"></i> İl *</label>
-                        <input type="text" id="edit-program-city" class="form-control" value="Sakarya" required>
+                        <select id="edit-program-city" class="form-control" required>
+                            <option value="" disabled selected>İl Seçiniz</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="edit-program-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
                         <select id="edit-program-district" class="form-control" required>
                             <option value="" disabled selected>İlçe Seçiniz</option>
-                            <option value="Adapazarı">Adapazarı</option>
-                            <option value="Akyazı">Akyazı</option>
-                            <option value="Arifiye">Arifiye</option>
-                            <option value="Erenler">Erenler</option>
-                            <option value="Ferizli">Ferizli</option>
-                            <option value="Geyve">Geyve</option>
-                            <option value="Hendek">Hendek</option>
-                            <option value="Karapürçek">Karapürçek</option>
-                            <option value="Karasu">Karasu</option>
-                            <option value="Kaynarca">Kaynarca</option>
-                            <option value="Kocaali">Kocaali</option>
-                            <option value="Pamukova">Pamukova</option>
-                            <option value="Sapanca">Sapanca</option>
-                            <option value="Serdivan">Serdivan</option>
-                            <option value="Söğütlü">Söğütlü</option>
-                            <option value="Taraklı">Taraklı</option>
                         </select>
                         <div id="edit-program-district-warning" class="district-warning hidden" style="color: var(--md-error); font-size: 13px; margin-top: 4px; font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Bu kayıt eski mahalle/semt değeri içeriyor. Lütfen doğru ilçeyi seçiniz.</div>
                     </div>
@@ -1356,28 +1324,14 @@
                     </div>
                     <div class="form-group">
                         <label for="add-city"><i class="fa-solid fa-city"></i> İl *</label>
-                        <input type="text" id="add-city" class="form-control" value="Sakarya" required>
+                        <select id="add-city" class="form-control" required>
+                            <option value="" disabled selected>İl Seçiniz</option>
+                        </select>
                     </div>
                     <div class="form-group">
                         <label for="add-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
                         <select id="add-district" class="form-control" required>
                             <option value="" disabled selected>İlçe Seçiniz</option>
-                            <option value="Adapazarı">Adapazarı</option>
-                            <option value="Akyazı">Akyazı</option>
-                            <option value="Arifiye">Arifiye</option>
-                            <option value="Erenler">Erenler</option>
-                            <option value="Ferizli">Ferizli</option>
-                            <option value="Geyve">Geyve</option>
-                            <option value="Hendek">Hendek</option>
-                            <option value="Karapürçek">Karapürçek</option>
-                            <option value="Karasu">Karasu</option>
-                            <option value="Kaynarca">Kaynarca</option>
-                            <option value="Kocaali">Kocaali</option>
-                            <option value="Pamukova">Pamukova</option>
-                            <option value="Sapanca">Sapanca</option>
-                            <option value="Serdivan">Serdivan</option>
-                            <option value="Söğütlü">Söğütlü</option>
-                            <option value="Taraklı">Taraklı</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -2077,6 +2031,8 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Config File (contains keys and setup) -->
     <script src="config.js"></script>
+    <!-- Location Data -->
+    <script src="assets/locations.js"></script>
     <!-- Admin Logic -->
     <script src="admin.js?v=2.0"></script>
 </body>
