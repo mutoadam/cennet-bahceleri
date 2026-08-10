@@ -1794,6 +1794,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Programs Event Listeners
     document.getElementById('programs-refresh-btn')?.addEventListener('click', loadPrograms);
     document.getElementById('programs-retry-btn')?.addEventListener('click', loadPrograms);
+    document.getElementById('programs-complete-coords-btn')?.addEventListener('click', handleCompleteMissingCoordinates);
 
     // Modal Action Buttons (Paket B)
     document.getElementById('modal-btn-approve')?.addEventListener('click', async () => {
@@ -2504,6 +2505,106 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (error) {
             console.error('Program geri alma hatası:', error);
             showToast("Program geri alınamadı.", "error");
+        }
+    }
+
+    /**
+     * B16.1H - Eski programların koordinatlarını toplu tamamlar
+     */
+    async function handleCompleteMissingCoordinates() {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        const btn = document.getElementById('programs-complete-coords-btn');
+        if (!btn) return;
+
+        const confirmMsg = "Koordinatı eksik olan programlar (latitude veya longitude NULL olanlar) mosque_locations tablosundaki camilerle eşleştirilerek veya Google Maps linklerinden çözümlenerek tamamlanacaktır.\n\nMevcut koordinatlı kayıtlara dokunulmayacaktır. Devam etmek istiyor musunuz?";
+        if (!confirm(confirmMsg)) return;
+
+        // UI Kilitleme
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.classList.add('disabled');
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...';
+
+        try {
+            console.log("B16.1H - Koordinatı eksik programlar taranıyor...");
+
+            // 1. Eksik koordinatlı programları çek (latitude IS NULL OR longitude IS NULL)
+            const { data: candidates, error: fetchError } = await supabaseClient
+                .from('programs')
+                .select('id, city, district, venue_name, google_maps_link, latitude, longitude')
+                .or('latitude.is.null,longitude.is.null');
+
+            if (fetchError) throw fetchError;
+
+            if (!candidates || candidates.length === 0) {
+                showToast("Koordinatı eksik program bulunamadı.", "success");
+                return;
+            }
+
+            // 2. Mosque locations önbelleğini sağla
+            if (!mosquesListCache || mosquesListCache.length === 0) {
+                await loadMosques();
+            }
+
+            let totalMissing = candidates.length;
+            let matched = 0;
+            let updated = 0;
+            let unmatched = 0;
+
+            console.log(`B16.1H - ${totalMissing} aday program işleniyor...`);
+
+            // 3. Her aday için koordinat çözümle ve güncelle
+            for (const prog of candidates) {
+                // A) Mosque Match
+                let resolved = await findMosqueCoordinates(prog.city || 'Sakarya', prog.district, prog.venue_name);
+
+                // B) Fallback: Google Maps Link parsing
+                if (!resolved && prog.google_maps_link) {
+                    const parsed = extractLatLngFromGoogleMapsLink(prog.google_maps_link);
+                    if (parsed && parsed.latitude && parsed.longitude) {
+                        resolved = { latitude: parsed.latitude, longitude: parsed.longitude };
+                    }
+                }
+
+                if (resolved && resolved.latitude && resolved.longitude) {
+                    matched++;
+                    // Sadece latitude ve longitude alanlarını güncelle
+                    const { error: updateError } = await supabaseClient
+                        .from('programs')
+                        .update({
+                            latitude: resolved.latitude,
+                            longitude: resolved.longitude
+                        })
+                        .eq('id', prog.id);
+
+                    if (!updateError) {
+                        updated++;
+                    } else {
+                        console.error(`Program ID ${prog.id} güncellenirken hata:`, updateError.message);
+                    }
+                } else {
+                    unmatched++;
+                }
+            }
+
+            // 4. Sonuç göster
+            const resultMsg = `${totalMissing} eksik koordinatlı programdan ${matched} tanesi eşleştirildi. ${updated} kayıt başarıyla güncellendi. ${unmatched} kayıt eşleştirilemedi.`;
+            alert(resultMsg);
+            showToast(resultMsg, "success");
+
+            // 5. Listeyi yenile
+            await loadPrograms();
+
+        } catch (err) {
+            console.error("B16.1H - Toplu koordinat tamamlama hatası:", err);
+            showToast("İşlem sırasında bir hata oluştu.", "error");
+        } finally {
+            btn.disabled = false;
+            btn.classList.remove('disabled');
+            btn.innerHTML = originalHTML;
         }
     }
 
