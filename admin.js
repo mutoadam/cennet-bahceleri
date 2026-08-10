@@ -611,6 +611,13 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // 5. Construct programs payload
+            const coordinates = await resolveProgramCoordinates(
+                suggestion.city || 'Sakarya',
+                suggestion.district || '',
+                suggestion.venue_name || '',
+                suggestion.google_maps_link || suggestion.googleMapsLink || suggestion.maps_link || suggestion.mapsLink || suggestion.map_link || suggestion.mapLink || ''
+            );
+
             const programPayload = {
                 suggestion_id: suggestion.id,
                 program_name: suggestion.program_name || '',
@@ -625,6 +632,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 women_friendly: women_friendly,
                 address: suggestion.address || suggestion.location || '',
                 google_maps_link: suggestion.google_maps_link || suggestion.googleMapsLink || suggestion.maps_link || suggestion.mapsLink || suggestion.map_link || suggestion.mapLink || '',
+                latitude: coordinates ? coordinates.latitude : null,
+                longitude: coordinates ? coordinates.longitude : null,
                 description: suggestion.description || '',
                 contact_name: suggestion.contact_name || suggestion.contact_person || suggestion.contactPerson || suggestion.sender_name || suggestion.sender || '',
                 contact_phone: suggestion.contact_phone || suggestion.contactPhone || suggestion.phone || suggestion.whatsapp || suggestion.telefon || '',
@@ -671,6 +680,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 programId = insertedData.id;
+                // B16.1G - Koordinat bulunamadıysa uyarı ver
+                if (!coordinates) {
+                    showToast("Program kaydedildi ancak konum koordinatı bulunamadı. Yakındaki programlar listesinde görünmeyebilir.", "warning");
+                }
             }
         }
 
@@ -4516,6 +4529,28 @@ document.addEventListener('DOMContentLoaded', () => {
         const address = document.getElementById('edit-program-address').value.trim();
         const description = document.getElementById('edit-program-description').value.trim();
 
+        // B16.1G - Koordinat Çözümleme Mantığı
+        let latitude = currentEditProgram.latitude;
+        let longitude = currentEditProgram.longitude;
+
+        const isLocationChanged =
+            venue_name !== (currentEditProgram.venue_name || '') ||
+            city !== (currentEditProgram.city || 'Sakarya') ||
+            district !== (currentEditProgram.district || '') ||
+            google_maps_link !== (currentEditProgram.google_maps_link || '');
+
+        if (isLocationChanged || latitude === undefined || latitude === null) {
+            const coords = await resolveProgramCoordinates(city, district, venue_name, google_maps_link);
+            if (coords) {
+                latitude = coords.latitude;
+                longitude = coords.longitude;
+            } else if (isLocationChanged) {
+                // Konum değiştiyse ve yeni koordinat bulunamadıysa null yap
+                latitude = null;
+                longitude = null;
+            }
+        }
+
         const saveBtn = document.getElementById('edit-program-btn-save');
         const cancelBtn = document.getElementById('edit-program-btn-cancel');
 
@@ -4549,6 +4584,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 status,
                 photo_url,
                 logo_url,
+                latitude,
+                longitude,
                 contact_name,
                 contact_phone,
                 google_maps_link,
@@ -4600,7 +4637,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (!columnRemoved) {
                     // Hiçbir kolon doğrudan eşleşmiyorsa sırayla opsiyonel alanları kaldır
-                    const optionalKeys = ['logo_url', 'updated_at', 'photo_url', 'contact_name', 'contact_phone', 'google_maps_link', 'address', 'description', 'teacher', 'organization'];
+                    const optionalKeys = ['latitude', 'longitude', 'logo_url', 'updated_at', 'photo_url', 'contact_name', 'contact_phone', 'google_maps_link', 'address', 'description', 'teacher', 'organization'];
                     for (const optKey of optionalKeys) {
                         if (optKey in updatePayload) {
                             console.log(`Removing optional column '${optKey}' from programs update as fallback.`);
@@ -6689,7 +6726,66 @@ document.addEventListener('DOMContentLoaded', () => {
                 longitude: parseFloat(matchQuery[2])
             };
         }
-        
+
+        return null;
+    }
+
+    /**
+     * B16.1G - Mekân adını (Cami/Camii vb.) normalize eder
+     */
+    function normalizeVenueName(str) {
+        if (!str) return '';
+        let normalized = trNormalize(str);
+        // 'camii' -> 'cami' (trNormalize boşlukları sildiği için 'orhancamii' -> 'orhancami' yaparız)
+        if (normalized.endsWith('camii')) {
+            normalized = normalized.slice(0, -1);
+        }
+        return normalized;
+    }
+
+    /**
+     * B16.1G - mosque_locations tablosunda koordinat arar
+     */
+    async function findMosqueCoordinates(city, district, venueName) {
+        if (!venueName || !city || !district) return null;
+
+        // Önbellek boşsa yüklemeyi dene
+        if (!mosquesListCache || mosquesListCache.length === 0) {
+            console.log("mosquesListCache boş, yükleniyor...");
+            await loadMosques();
+        }
+
+        const normalizedVenue = normalizeVenueName(venueName);
+        const normalizedCity = trNormalize(city);
+        const normalizedDistrict = trNormalize(district);
+
+        // Şehir/İlçe ve normalize edilmiş isimle eşleşme ara
+        const match = mosquesListCache.find(m => {
+            return trNormalize(m.city) === normalizedCity &&
+                   trNormalize(m.district) === normalizedDistrict &&
+                   normalizeVenueName(m.mosque_name) === normalizedVenue;
+        });
+
+        if (match && match.latitude && match.longitude) {
+            return { latitude: match.latitude, longitude: match.longitude };
+        }
+        return null;
+    }
+
+    /**
+     * B16.1G - Program için koordinatları çözer (Önce veritabanı, sonra Maps URL)
+     */
+    async function resolveProgramCoordinates(city, district, venueName, googleMapsLink) {
+        // 1. Veritabanı (mosque_locations) eşleşmesi
+        const mosqueCoords = await findMosqueCoordinates(city, district, venueName);
+        if (mosqueCoords) return mosqueCoords;
+
+        // 2. Google Maps Linki parse
+        const parsedCoords = extractLatLngFromGoogleMapsLink(googleMapsLink);
+        if (parsedCoords && parsedCoords.latitude && parsedCoords.longitude) {
+            return { latitude: parsedCoords.latitude, longitude: parsedCoords.longitude };
+        }
+
         return null;
     }
 
@@ -7046,7 +7142,10 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         document.getElementById('mosque-modal-title').textContent = "Yeni Camii Konumu Ekle";
         document.getElementById('mosque-modal-id').value = '';
         document.getElementById('mosque-modal-name-input').value = '';
-        document.getElementById('mosque-modal-district-input').value = '';
+
+        // B16.1D - İl/İlçe dropdownlarını ayarla
+        setupLocationDropdowns('mosque-modal-city-input', 'mosque-modal-district-input', 'Sakarya');
+
         document.getElementById('mosque-modal-neighborhood-input').value = '';
         document.getElementById('mosque-modal-google-maps-input').value = '';
         document.getElementById('mosque-modal-latitude-input').value = '';
@@ -7063,7 +7162,12 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         document.getElementById('mosque-modal-title').textContent = "Camii Konumunu Düzenle";
         document.getElementById('mosque-modal-id').value = m.id;
         document.getElementById('mosque-modal-name-input').value = m.mosque_name || '';
-        document.getElementById('mosque-modal-district-input').value = m.district || '';
+
+        // B16.1D - İl/İlçe dropdownlarını ayarla (Mevcut değerlerle)
+        const cityVal = (m.city || '').trim() || 'Sakarya';
+        const districtVal = (m.district || '').trim();
+        setupLocationDropdowns('mosque-modal-city-input', 'mosque-modal-district-input', cityVal, districtVal);
+
         document.getElementById('mosque-modal-neighborhood-input').value = m.neighborhood || '';
         document.getElementById('mosque-modal-google-maps-input').value = m.google_maps_link || '';
         document.getElementById('mosque-modal-latitude-input').value = m.latitude || '';
@@ -7098,7 +7202,7 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         const address = document.getElementById('mosque-modal-address-input').value.trim();
         const status = document.getElementById('mosque-modal-status-input').value;
 
-        if (!mosque_name || !district || !latitudeStr || !longitudeStr) {
+        if (!mosque_name || !city || !district || !latitudeStr || !longitudeStr) {
             showToast("Lütfen zorunlu alanları (*) doldurun.", "error");
             return;
         }
