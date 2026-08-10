@@ -12,18 +12,13 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Admin styles -->
     <link rel="stylesheet" href="admin.css?v=2.0">
+    <script src="assets/locations.js"></script>
 </head>
 <body class="logged-out">
 
-    <!-- S-1: Admin Giriş Ekranı -->
+    <!-- S-1: Admin Basit Giriş Ekranı -->
     <div id="admin-login-screen" class="login-screen-overlay hidden">
         <div class="login-box">
-            <!-- Yetki Kontrolü Loader -->
-            <div id="auth-loading-overlay" class="auth-loading-overlay hidden">
-                <div class="spinner"></div>
-                <p>Yetki doğrulanıyor...</p>
-            </div>
-
             <div class="logo-area" style="margin-bottom: 24px;">
                 <div class="logo-icon"><i class="fa-solid fa-mosque"></i></div>
                 <div>
@@ -36,8 +31,8 @@
             
             <form id="login-form-el" class="login-form">
                 <div class="form-group">
-                    <label for="login-username"><i class="fa-solid fa-envelope"></i> E-posta</label>
-                    <input type="email" id="login-username" class="form-control" required placeholder="admin@example.com" autocomplete="email">
+                    <label for="login-username"><i class="fa-solid fa-user"></i> Kullanıcı Adı</label>
+                    <input type="text" id="login-username" class="form-control" required placeholder="admin" autocomplete="username">
                 </div>
                 
                 <div class="form-group" style="margin-top: 16px;">
@@ -274,6 +269,12 @@
                             <input type="text" id="filter-search" class="form-control" placeholder="Program, mekan, hoca, kurum, ilçe, açıklama...">
                         </div>
                         <div class="filter-group">
+                            <label for="filter-city"><i class="fa-solid fa-city"></i> İl</label>
+                            <select id="filter-city" class="form-control">
+                                <option value="">Tüm İller</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
                             <label for="filter-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
                             <select id="filter-district" class="form-control">
                                 <option value="">Tüm İlçeler</option>
@@ -466,25 +467,15 @@
                         <input type="text" id="mosques-filter-search" class="form-control" placeholder="Cami adı, mahalle, adres...">
                     </div>
                     <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="mosques-filter-city"><i class="fa-solid fa-city"></i> İl</label>
+                        <select id="mosques-filter-city" class="form-control">
+                            <option value="">Tüm İller</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
                         <label for="mosques-filter-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
                         <select id="mosques-filter-district" class="form-control">
                             <option value="">Tüm İlçeler</option>
-                            <option value="Adapazarı">Adapazarı</option>
-                            <option value="Akyazı">Akyazı</option>
-                            <option value="Arifiye">Arifiye</option>
-                            <option value="Erenler">Erenler</option>
-                            <option value="Ferizli">Ferizli</option>
-                            <option value="Geyve">Geyve</option>
-                            <option value="Hendek">Hendek</option>
-                            <option value="Karapürçek">Karapürçek</option>
-                            <option value="Karasu">Karasu</option>
-                            <option value="Kaynarca">Kaynarca</option>
-                            <option value="Kocaali">Kocaali</option>
-                            <option value="Pamukova">Pamukova</option>
-                            <option value="Sapanca">Sapanca</option>
-                            <option value="Serdivan">Serdivan</option>
-                            <option value="Söğütlü">Söğütlü</option>
-                            <option value="Taraklı">Taraklı</option>
                         </select>
                     </div>
                     <div class="filter-group" style="flex: 1; min-width: 150px;">
@@ -932,14 +923,7 @@
                     <!-- Photo Preview -->
                     <div id="modal-photo-container" class="modal-photo-container hidden">
                         <h4><i class="fa-solid fa-image"></i> Fotoğraf Önizleme</h4>
-
-                        <!-- Gallery Grid (B12.2A3.1) -->
-                        <div id="modal-gallery-loading" class="hidden" style="text-align: center; padding: 16px; color: var(--md-on-surface-variant); font-size: 14px;">
-                            <i class="fa-solid fa-spinner fa-spin"></i> Galeri yükleniyor...
-                        </div>
-                        <div id="modal-gallery-grid" class="suggestion-gallery-grid hidden"></div>
-
-                        <div id="modal-photo-frame" class="modal-photo-frame">
+                        <div class="modal-photo-frame">
                             <img id="modal-photo-img" src="" alt="Öneri Fotoğrafı">
                         </div>
                     </div>
@@ -964,29 +948,13 @@
                             <input type="text" id="edit-venue-name" class="form-control" required>
                         </div>
                         <div class="form-group">
-                            <label for="edit-city"><i class="fa-solid fa-city"></i> İl</label>
-                            <input type="text" id="edit-city" class="form-control" required>
+                            <label for="edit-city"><i class="fa-solid fa-city"></i> İl *</label>
+                            <select id="edit-city" class="form-control" required></select>
                         </div>
                         <div class="form-group">
                             <label for="edit-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
                             <select id="edit-district" class="form-control" required>
                                 <option value="" disabled selected>İlçe Seçiniz</option>
-                                <option value="Adapazarı">Adapazarı</option>
-                                <option value="Akyazı">Akyazı</option>
-                                <option value="Arifiye">Arifiye</option>
-                                <option value="Erenler">Erenler</option>
-                                <option value="Ferizli">Ferizli</option>
-                                <option value="Geyve">Geyve</option>
-                                <option value="Hendek">Hendek</option>
-                                <option value="Karapürçek">Karapürçek</option>
-                                <option value="Karasu">Karasu</option>
-                                <option value="Kaynarca">Kaynarca</option>
-                                <option value="Kocaali">Kocaali</option>
-                                <option value="Pamukova">Pamukova</option>
-                                <option value="Sapanca">Sapanca</option>
-                                <option value="Serdivan">Serdivan</option>
-                                <option value="Söğütlü">Söğütlü</option>
-                                <option value="Taraklı">Taraklı</option>
                             </select>
                             <div id="edit-district-warning" class="district-warning hidden" style="color: var(--md-error); font-size: 13px; margin-top: 4px; font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Bu kayıt eski mahalle/semt değeri içeriyor. Lütfen doğru ilçeyi seçiniz.</div>
                         </div>
@@ -1121,28 +1089,12 @@
                     </div>
                     <div class="form-group">
                         <label for="edit-program-city"><i class="fa-solid fa-city"></i> İl *</label>
-                        <input type="text" id="edit-program-city" class="form-control" value="Sakarya" required>
+                        <select id="edit-program-city" class="form-control" required></select>
                     </div>
                     <div class="form-group">
                         <label for="edit-program-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
                         <select id="edit-program-district" class="form-control" required>
                             <option value="" disabled selected>İlçe Seçiniz</option>
-                            <option value="Adapazarı">Adapazarı</option>
-                            <option value="Akyazı">Akyazı</option>
-                            <option value="Arifiye">Arifiye</option>
-                            <option value="Erenler">Erenler</option>
-                            <option value="Ferizli">Ferizli</option>
-                            <option value="Geyve">Geyve</option>
-                            <option value="Hendek">Hendek</option>
-                            <option value="Karapürçek">Karapürçek</option>
-                            <option value="Karasu">Karasu</option>
-                            <option value="Kaynarca">Kaynarca</option>
-                            <option value="Kocaali">Kocaali</option>
-                            <option value="Pamukova">Pamukova</option>
-                            <option value="Sapanca">Sapanca</option>
-                            <option value="Serdivan">Serdivan</option>
-                            <option value="Söğütlü">Söğütlü</option>
-                            <option value="Taraklı">Taraklı</option>
                         </select>
                         <div id="edit-program-district-warning" class="district-warning hidden" style="color: var(--md-error); font-size: 13px; margin-top: 4px; font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Bu kayıt eski mahalle/semt değeri içeriyor. Lütfen doğru ilçeyi seçiniz.</div>
                     </div>
@@ -1185,9 +1137,9 @@
                     <div class="form-group full-width photo-upload-group" style="grid-column: span 2;">
                         <label><i class="fa-solid fa-camera"></i> Program Fotoğrafı Yükle</label>
                         <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
-                            <input type="file" id="edit-program-photo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;" multiple>
+                            <input type="file" id="edit-program-photo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;">
                             <button type="button" id="edit-program-photo-upload-trigger" class="btn btn-secondary btn-sm upload-trigger-btn" style="min-height: 38px; padding: 8px 16px;">
-                                <i class="fa-solid fa-plus"></i> Fotoğraf Seç...
+                                <i class="fa-solid fa-upload"></i> Fotoğraf Seç...
                             </button>
                             <span id="edit-program-photo-file-name" class="file-name-display" style="font-size: 14px; color: var(--md-on-surface-variant);">Seçilen dosya yok</span>
                             <div class="upload-progress-container hidden" id="edit-upload-progress" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--md-primary);">
@@ -1195,28 +1147,6 @@
                                 <span class="progress-text">Yükleniyor...</span>
                             </div>
                         </div>
-
-                        <!-- New Photos Preview Selection Grid (B12.2A3.3B3A) -->
-                        <div id="edit-program-new-photos-container" class="form-group full-width hidden" style="margin-top: 16px; padding: 16px; background-color: var(--md-primary-container); border: 1px dashed var(--md-primary); border-radius: var(--radius-sm);">
-                            <label style="margin-bottom: 8px; display: block; font-weight: 700; color: var(--md-primary);">
-                                <i class="fa-solid fa-cloud-arrow-up"></i> Yüklenecek Yeni Fotoğraflar
-                            </label>
-                            <p style="font-size: 12px; color: var(--md-on-surface-variant); margin-bottom: 12px;">
-                                Mevcut fotoğraflarınız korunur. Galeri toplamı en fazla 6 fotoğraf olabilir.
-                            </p>
-
-                            <div id="edit-program-new-photos-grid" class="program-new-photos-grid">
-                                <!-- Temporary previews will be injected here -->
-                            </div>
-
-                            <div style="margin-top: 16px; display: flex; justify-content: flex-end; align-items: center; gap: 12px;">
-                                <span id="edit-program-new-photos-status" style="font-size: 13px; font-weight: 600; color: var(--md-primary);"></span>
-                                <button type="button" id="edit-program-btn-upload-gallery" class="btn btn-primary btn-sm" style="min-height: 40px; padding: 8px 20px; width: auto; background-color: var(--md-primary);">
-                                    <i class="fa-solid fa-check-double"></i> Seçilen Fotoğrafları Galeriye Ekle
-                                </button>
-                            </div>
-                        </div>
-
                         <div id="edit-program-photo-preview-container" class="photo-preview-container hidden" style="position: relative; max-width: 200px; margin-top: 12px; border: 1px solid var(--md-outline); border-radius: var(--radius-sm); overflow: hidden;">
                             <img id="edit-program-photo-preview-img" src="" alt="Önizleme" style="width: 100%; height: auto; display: block; max-height: 150px; object-fit: cover;">
                             <button type="button" id="edit-program-photo-remove-btn" class="btn-remove-photo" title="Fotoğrafı Kaldır" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: background 0.2s;">
@@ -1229,23 +1159,6 @@
                                 <input type="url" id="edit-program-photo-url" class="form-control" placeholder="Örn: https://...">
                             </div>
                         </details>
-
-                        <!-- Registered Photos Gallery (B12.2A3.3A) -->
-                        <div id="edit-program-gallery-container" class="form-group full-width hidden" style="margin-top: 20px; padding: 16px; background-color: rgba(0,0,0,0.02); border: 1px solid var(--md-outline); border-radius: var(--radius-sm);">
-                            <label style="margin-bottom: 12px; display: block; font-weight: 700; color: var(--md-primary);"><i class="fa-solid fa-images"></i> Kayıtlı Fotoğraflar (Galeri)</label>
-
-                            <div id="edit-program-gallery-loading" class="hidden" style="text-align: center; padding: 12px; color: var(--md-on-surface-variant); font-size: 14px;">
-                                <i class="fa-solid fa-spinner fa-spin"></i> Galeri yükleniyor...
-                            </div>
-
-                            <div id="edit-program-gallery-grid" class="program-gallery-grid">
-                                <!-- JS will inject items here -->
-                            </div>
-
-                            <div id="edit-program-gallery-error" class="hidden" style="color: var(--md-error); font-size: 13px; margin-top: 8px;">
-                                <i class="fa-solid fa-circle-exclamation"></i> Galeri yüklenemedi, kapak fotoğrafı gösteriliyor.
-                            </div>
-                        </div>
                     </div>
                     <div class="form-group full-width logo-upload-group" style="grid-column: span 2;">
                         <label><i class="fa-solid fa-image-portrait"></i> Program/Kurum/Cemaat/Oluşum Logosu Yükle</label>
@@ -1356,28 +1269,12 @@
                     </div>
                     <div class="form-group">
                         <label for="add-city"><i class="fa-solid fa-city"></i> İl *</label>
-                        <input type="text" id="add-city" class="form-control" value="Sakarya" required>
+                        <select id="add-city" class="form-control" required></select>
                     </div>
                     <div class="form-group">
                         <label for="add-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
                         <select id="add-district" class="form-control" required>
                             <option value="" disabled selected>İlçe Seçiniz</option>
-                            <option value="Adapazarı">Adapazarı</option>
-                            <option value="Akyazı">Akyazı</option>
-                            <option value="Arifiye">Arifiye</option>
-                            <option value="Erenler">Erenler</option>
-                            <option value="Ferizli">Ferizli</option>
-                            <option value="Geyve">Geyve</option>
-                            <option value="Hendek">Hendek</option>
-                            <option value="Karapürçek">Karapürçek</option>
-                            <option value="Karasu">Karasu</option>
-                            <option value="Kaynarca">Kaynarca</option>
-                            <option value="Kocaali">Kocaali</option>
-                            <option value="Pamukova">Pamukova</option>
-                            <option value="Sapanca">Sapanca</option>
-                            <option value="Serdivan">Serdivan</option>
-                            <option value="Söğütlü">Söğütlü</option>
-                            <option value="Taraklı">Taraklı</option>
                         </select>
                     </div>
                     <div class="form-group">
@@ -1410,11 +1307,11 @@
                         </select>
                     </div>
                     <div class="form-group full-width photo-upload-group" style="grid-column: span 2;">
-                        <label><i class="fa-solid fa-camera"></i> Program Fotoğrafları Yükle</label>
+                        <label><i class="fa-solid fa-camera"></i> Program Fotoğrafı Yükle</label>
                         <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 4px;">
-                            <input type="file" id="add-photo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;" multiple>
+                            <input type="file" id="add-photo-file" accept="image/png, image/jpeg, image/jpg, image/webp" class="file-upload-input" style="display: none;">
                             <button type="button" id="add-photo-upload-trigger" class="btn btn-secondary btn-sm upload-trigger-btn" style="min-height: 38px; padding: 8px 16px;">
-                                <i class="fa-solid fa-plus"></i> Fotoğraf Seç...
+                                <i class="fa-solid fa-upload"></i> Fotoğraf Seç...
                             </button>
                             <span id="add-photo-file-name" class="file-name-display" style="font-size: 14px; color: var(--md-on-surface-variant);">Seçilen dosya yok</span>
                             <div class="upload-progress-container hidden" id="add-upload-progress" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--md-primary);">
@@ -1422,25 +1319,6 @@
                                 <span class="progress-text">Yükleniyor...</span>
                             </div>
                         </div>
-
-                        <!-- Multi-Photo Preview Selection Grid (B12.2A3.3C) -->
-                        <div id="add-program-new-photos-container" class="form-group full-width hidden" style="margin-top: 16px; padding: 16px; background-color: var(--md-primary-container); border: 1px dashed var(--md-primary); border-radius: var(--radius-sm);">
-                            <label style="margin-bottom: 8px; display: block; font-weight: 700; color: var(--md-primary);">
-                                <i class="fa-solid fa-images"></i> Yüklenecek Fotoğraflar
-                            </label>
-                            <p id="add-program-photos-info" style="font-size: 12px; color: var(--md-on-surface-variant); margin-bottom: 12px;">
-                                En fazla 6 fotoğraf seçebilirsiniz. İlk fotoğraf kapak olacaktır.
-                            </p>
-
-                            <div id="add-program-new-photos-grid" class="program-new-photos-grid">
-                                <!-- Temporary previews will be injected here -->
-                            </div>
-
-                            <div id="add-program-photos-error" class="hidden" style="margin-top: 12px; font-size: 13px; color: var(--md-error); font-weight: 600;">
-                                <i class="fa-solid fa-circle-exclamation"></i> <span>Hata mesajı</span>
-                            </div>
-                        </div>
-
                         <div id="add-photo-preview-container" class="photo-preview-container hidden" style="position: relative; max-width: 200px; margin-top: 12px; border: 1px solid var(--md-outline); border-radius: var(--radius-sm); overflow: hidden;">
                             <img id="add-photo-preview-img" src="" alt="Önizleme" style="width: 100%; height: auto; display: block; max-height: 150px; object-fit: cover;">
                             <button type="button" id="add-photo-remove-btn" class="btn-remove-photo" title="Fotoğrafı Kaldır" style="position: absolute; top: 4px; right: 4px; background: rgba(0,0,0,0.6); color: white; border: none; border-radius: 4px; width: 28px; height: 28px; cursor: pointer; display: flex; align-items: center; justify-content: center; font-size: 12px; transition: background 0.2s;">
@@ -1724,30 +1602,14 @@
                     </div>
                     
                     <div class="form-group">
-                        <label for="mosque-modal-city-input"><i class="fa-solid fa-city"></i> İl</label>
-                        <input type="text" id="mosque-modal-city-input" class="form-control" value="Sakarya" required readonly style="background-color: #f5f5f5; cursor: not-allowed;">
+                        <label for="mosque-modal-city-input"><i class="fa-solid fa-city"></i> İl *</label>
+                        <select id="mosque-modal-city-input" class="form-control" required></select>
                     </div>
 
                     <div class="form-group">
                         <label for="mosque-modal-district-input"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
                         <select id="mosque-modal-district-input" class="form-control" required>
                             <option value="" disabled selected>İlçe Seçiniz</option>
-                            <option value="Adapazarı">Adapazarı</option>
-                            <option value="Akyazı">Akyazı</option>
-                            <option value="Arifiye">Arifiye</option>
-                            <option value="Erenler">Erenler</option>
-                            <option value="Ferizli">Ferizli</option>
-                            <option value="Geyve">Geyve</option>
-                            <option value="Hendek">Hendek</option>
-                            <option value="Karapürçek">Karapürçek</option>
-                            <option value="Karasu">Karasu</option>
-                            <option value="Kaynarca">Kaynarca</option>
-                            <option value="Kocaali">Kocaali</option>
-                            <option value="Pamukova">Pamukova</option>
-                            <option value="Sapanca">Sapanca</option>
-                            <option value="Serdivan">Serdivan</option>
-                            <option value="Söğütlü">Söğütlü</option>
-                            <option value="Taraklı">Taraklı</option>
                         </select>
                     </div>
 
@@ -1815,28 +1677,13 @@
             <div class="modal-body">
                 <div class="edit-form-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px;">
                     <div class="form-group">
-                        <label for="osm-modal-city-input"><i class="fa-solid fa-city"></i> İl</label>
-                        <input type="text" id="osm-modal-city-input" class="form-control" value="Sakarya" readonly style="background-color: #f5f5f5; cursor: not-allowed;">
+                        <label for="osm-modal-city-input"><i class="fa-solid fa-city"></i> İl Seçiniz</label>
+                        <select id="osm-modal-city-input" class="form-control"></select>
                     </div>
                     <div class="form-group">
                         <label for="osm-modal-district-input"><i class="fa-solid fa-location-dot"></i> İlçe Seçiniz</label>
                         <select id="osm-modal-district-input" class="form-control">
-                            <option value="Adapazarı" selected>Adapazarı</option>
-                            <option value="Akyazı">Akyazı</option>
-                            <option value="Arifiye">Arifiye</option>
-                            <option value="Erenler">Erenler</option>
-                            <option value="Ferizli">Ferizli</option>
-                            <option value="Geyve">Geyve</option>
-                            <option value="Hendek">Hendek</option>
-                            <option value="Karapürçek">Karapürçek</option>
-                            <option value="Karasu">Karasu</option>
-                            <option value="Kaynarca">Kaynarca</option>
-                            <option value="Kocaali">Kocaali</option>
-                            <option value="Pamukova">Pamukova</option>
-                            <option value="Sapanca">Sapanca</option>
-                            <option value="Serdivan">Serdivan</option>
-                            <option value="Söğütlü">Söğütlü</option>
-                            <option value="Taraklı">Taraklı</option>
+                            <option value="" disabled selected>İlçe Seçiniz</option>
                         </select>
                     </div>
                     <div class="form-group" style="display: flex; align-items: flex-end; justify-content: flex-end;">
