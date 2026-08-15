@@ -976,12 +976,33 @@
                             <div id="edit-district-warning" class="district-warning hidden" style="color: var(--md-error); font-size: 13px; margin-top: 4px; font-weight: 500;"><i class="fa-solid fa-triangle-exclamation"></i> Bu kayıt eski mahalle/semt değeri içeriyor. Lütfen doğru ilçeyi seçiniz.</div>
                         </div>
                         <div class="form-group">
-                            <label for="edit-day"><i class="fa-regular fa-calendar-days"></i> Gün</label>
-                            <input type="text" id="edit-day" class="form-control" required>
+                            <label for="edit-day"><i class="fa-regular fa-calendar-days"></i> Gün *</label>
+                            <select id="edit-day" class="form-control" required>
+                                <!-- JS will populate options -->
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label for="edit-time"><i class="fa-regular fa-clock"></i> Saat</label>
-                            <input type="text" id="edit-time" class="form-control" required>
+                            <label for="edit-time-type"><i class="fa-regular fa-clock"></i> Vakit Türü *</label>
+                            <select id="edit-time-type" class="form-control" required>
+                                <option value="Sabit Saat">Sabit Saat</option>
+                                <option value="Sabah Öncesi">Sabah Öncesi</option>
+                                <option value="Sabah Sonrası">Sabah Sonrası</option>
+                                <option value="Öğle Öncesi">Öğle Öncesi</option>
+                                <option value="Öğle Sonrası">Öğle Sonrası</option>
+                                <option value="İkindi Öncesi">İkindi Öncesi</option>
+                                <option value="İkindi Sonrası">İkindi Sonrası</option>
+                                <option value="Akşam Öncesi">Akşam Öncesi</option>
+                                <option value="Akşam Sonrası">Akşam Sonrası</option>
+                                <option value="Yatsı Öncesi">Yatsı Öncesi</option>
+                                <option value="Yatsı Sonrası">Yatsı Sonrası</option>
+                                <option value="Cuma Öncesi">Cuma Öncesi</option>
+                                <option value="Cuma Sonrası">Cuma Sonrası</option>
+                                <option value="Diğer">Diğer</option>
+                            </select>
+                        </div>
+                        <div class="form-group full-width" id="edit-time-detail-group">
+                            <label for="edit-time-detail" id="edit-time-detail-label">Saat / Açıklama</label>
+                            <input type="text" id="edit-time-detail" class="form-control" placeholder="Örn: 19:30">
                         </div>
                         <div class="form-group">
                             <label for="edit-teacher"><i class="fa-solid fa-user-tie"></i> Hoca</label>
@@ -1119,11 +1140,32 @@
                     </div>
                     <div class="form-group">
                         <label for="edit-program-day"><i class="fa-regular fa-calendar-days"></i> Gün *</label>
-                        <input type="text" id="edit-program-day" class="form-control" placeholder="Örn: Her Pazar" required>
+                        <select id="edit-program-day" class="form-control" required>
+                            <!-- JS will populate options -->
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label for="edit-program-time"><i class="fa-regular fa-clock"></i> Saat *</label>
-                        <input type="text" id="edit-program-time" class="form-control" placeholder="Örn: 14:00" required>
+                        <label for="edit-program-time-type"><i class="fa-regular fa-clock"></i> Vakit Türü *</label>
+                        <select id="edit-program-time-type" class="form-control" required>
+                            <option value="Sabit Saat">Sabit Saat</option>
+                            <option value="Sabah Öncesi">Sabah Öncesi</option>
+                            <option value="Sabah Sonrası">Sabah Sonrası</option>
+                            <option value="Öğle Öncesi">Öğle Öncesi</option>
+                            <option value="Öğle Sonrası">Öğle Sonrası</option>
+                            <option value="İkindi Öncesi">İkindi Öncesi</option>
+                            <option value="İkindi Sonrası">İkindi Sonrası</option>
+                            <option value="Akşam Öncesi">Akşam Öncesi</option>
+                            <option value="Akşam Sonrası">Akşam Sonrası</option>
+                            <option value="Yatsı Öncesi">Yatsı Öncesi</option>
+                            <option value="Yatsı Sonrası">Yatsı Sonrası</option>
+                            <option value="Cuma Öncesi">Cuma Öncesi</option>
+                            <option value="Cuma Sonrası">Cuma Sonrası</option>
+                            <option value="Diğer">Diğer</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width" id="edit-program-time-detail-group">
+                        <label for="edit-program-time-detail" id="edit-program-time-detail-label">Saat / Açıklama</label>
+                        <input type="text" id="edit-program-time-detail" class="form-control" placeholder="Örn: 14:00">
                     </div>
                     <div class="form-group">
                         <label for="edit-program-teacher"><i class="fa-solid fa-user-tie"></i> Hoca</label>
@@ -1339,11 +1381,32 @@
                     </div>
                     <div class="form-group">
                         <label for="add-day"><i class="fa-regular fa-calendar-days"></i> Gün *</label>
-                        <input type="text" id="add-day" class="form-control" placeholder="Örn: Her Pazar" required>
+                        <select id="add-day" class="form-control" required>
+                            <!-- JS will populate options -->
+                        </select>
                     </div>
                     <div class="form-group">
-                        <label for="add-time"><i class="fa-regular fa-clock"></i> Saat *</label>
-                        <input type="text" id="add-time" class="form-control" placeholder="Örn: 14:00" required>
+                        <label for="add-time-type"><i class="fa-regular fa-clock"></i> Vakit Türü *</label>
+                        <select id="add-time-type" class="form-control" required>
+                            <option value="Sabit Saat">Sabit Saat</option>
+                            <option value="Sabah Öncesi">Sabah Öncesi</option>
+                            <option value="Sabah Sonrası">Sabah Sonrası</option>
+                            <option value="Öğle Öncesi">Öğle Öncesi</option>
+                            <option value="Öğle Sonrası">Öğle Sonrası</option>
+                            <option value="İkindi Öncesi">İkindi Öncesi</option>
+                            <option value="İkindi Sonrası">İkindi Sonrası</option>
+                            <option value="Akşam Öncesi">Akşam Öncesi</option>
+                            <option value="Akşam Sonrası">Akşam Sonrası</option>
+                            <option value="Yatsı Öncesi">Yatsı Öncesi</option>
+                            <option value="Yatsı Sonrası">Yatsı Sonrası</option>
+                            <option value="Cuma Öncesi">Cuma Öncesi</option>
+                            <option value="Cuma Sonrası">Cuma Sonrası</option>
+                            <option value="Diğer">Diğer</option>
+                        </select>
+                    </div>
+                    <div class="form-group full-width" id="add-time-detail-group">
+                        <label for="add-time-detail" id="add-time-detail-label">Saat / Açıklama</label>
+                        <input type="text" id="add-time-detail" class="form-control" placeholder="Örn: 14:00">
                     </div>
                     <div class="form-group">
                         <label for="add-teacher"><i class="fa-solid fa-user-tie"></i> Hoca</label>

@@ -56,6 +56,107 @@ document.addEventListener('DOMContentLoaded', () => {
     let isInitialAuthCheckDone = false;
     let isProgramGalleryMutating = false; // B12.2A3.3B1
 
+    const STANDARD_DAYS = ["Her Gün", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+
+    /**
+     * Gün dropdown'larını doldurur.
+     * @param {string} selectId Select elementinin ID'si
+     * @param {string} currentValue Mevcut kayıtlı değer (legacy support için)
+     */
+    function populateDaySelect(selectId, currentValue = "") {
+        const select = document.getElementById(selectId);
+        if (!select) return;
+
+        select.innerHTML = '';
+
+        // Boş seçenek (eğer gerekiyorsa)
+        const emptyOpt = document.createElement('option');
+        emptyOpt.value = "";
+        emptyOpt.textContent = "Gün Seçiniz";
+        emptyOpt.disabled = true;
+        if (!currentValue) emptyOpt.selected = true;
+        select.appendChild(emptyOpt);
+
+        // Standart günler
+        STANDARD_DAYS.forEach(day => {
+            const opt = document.createElement('option');
+            opt.value = day;
+            opt.textContent = day;
+            if (currentValue === day) opt.selected = true;
+            select.appendChild(opt);
+        });
+
+        // Legacy Support: Eğer mevcut değer standart listede yoksa, onu da ekle (silinmemesi için)
+        if (currentValue && !STANDARD_DAYS.includes(currentValue)) {
+            const legacyOpt = document.createElement('option');
+            legacyOpt.value = currentValue;
+            legacyOpt.textContent = currentValue + " (Eski Kayıt)";
+            legacyOpt.selected = true;
+            select.appendChild(legacyOpt);
+        }
+    }
+
+    /**
+     * Vakit Türü değişimini yönetir.
+     * @param {string} prefix Form elemanları ön eki (edit-, add-, edit-program-)
+     */
+    function handleTimeTypeChange(prefix) {
+        const typeSelect = document.getElementById(`${prefix}time-type`);
+        const detailGroup = document.getElementById(`${prefix}time-detail-group`);
+        const detailLabel = document.getElementById(`${prefix}time-detail-label`);
+        const detailInput = document.getElementById(`${prefix}time-detail`);
+
+        if (!typeSelect || !detailGroup) return;
+
+        const val = typeSelect.value;
+
+        if (val === "Sabit Saat") {
+            detailGroup.classList.remove('hidden');
+            if (detailLabel) detailLabel.textContent = "Saat";
+            if (detailInput) detailInput.placeholder = "Örn: 19:30";
+        } else if (val === "Diğer") {
+            detailGroup.classList.remove('hidden');
+            if (detailLabel) detailLabel.textContent = "Açıklama";
+            if (detailInput) detailInput.placeholder = "Örn: Teravih sonrası";
+        } else {
+            // Prayer-relative times
+            detailGroup.classList.add('hidden');
+            if (detailInput) detailInput.value = ""; // Clear if hidden
+        }
+    }
+
+    /**
+     * Mevcut 'time' string değerini Vakit Türü ve Detay olarak parçalar.
+     * @param {string} timeStr DB'den gelen time değeri
+     * @returns {{type: string, detail: string}}
+     */
+    function parseTimeToType(timeStr) {
+        if (!timeStr) return { type: "Sabit Saat", detail: "" };
+
+        // 1. Standart prayer-relative control
+        const prayerTimes = [
+            "Sabah Öncesi", "Sabah Sonrası",
+            "Öğle Öncesi", "Öğle Sonrası",
+            "İkindi Öncesi", "İkindi Sonrası",
+            "Akşam Öncesi", "Akşam Sonrası",
+            "Yatsı Öncesi", "Yatsı Sonrası",
+            "Cuma Öncesi", "Cuma Sonrası"
+        ];
+
+        if (prayerTimes.includes(timeStr)) {
+            return { type: timeStr, detail: "" };
+        }
+
+        // 2. Fixed time check (HH:mm format)
+        const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+        if (timeRegex.test(timeStr.trim())) {
+            return { type: "Sabit Saat", detail: timeStr.trim() };
+        }
+
+        // 3. Fallback to "Diğer"
+        return { type: "Diğer", detail: timeStr };
+    }
+
     const SAKARYA_DISTRICTS = [
         "Adapazarı",
         "Akyazı",
@@ -1392,8 +1493,20 @@ document.addEventListener('DOMContentLoaded', () => {
             editDistrictWarning.classList.add('hidden');
         }
 
-        document.getElementById('edit-day').value = currentSuggestion.day || '';
-        document.getElementById('edit-time').value = currentSuggestion.time || '';
+        // B16.2E Day & Time Standardization
+        populateDaySelect('edit-day', currentSuggestion.day || '');
+
+        const timeObj = parseTimeToType(currentSuggestion.time || '');
+        const timeTypeSelect = document.getElementById('edit-time-type');
+        const timeDetailInput = document.getElementById('edit-time-detail');
+
+        if (timeTypeSelect) timeTypeSelect.value = timeObj.type;
+        if (timeDetailInput) timeDetailInput.value = timeObj.detail;
+        handleTimeTypeChange('edit-');
+
+        // Legacy: These are hidden/removed but we keep for safety
+        // document.getElementById('edit-day').value = currentSuggestion.day || '';
+        // document.getElementById('edit-time').value = currentSuggestion.time || '';
         
         // Hoca / Speaker fallback
         const teacher = currentSuggestion.teacher || currentSuggestion.speaker || currentSuggestion.hoca || currentSuggestion.lecturer || '';
@@ -1472,8 +1585,16 @@ document.addEventListener('DOMContentLoaded', () => {
             const venue_name = document.getElementById('edit-venue-name').value.trim();
             const city = document.getElementById('edit-city').value.trim();
             const district = document.getElementById('edit-district').value.trim();
+
+            // B16.2E Day & Time Standardization
             const day = document.getElementById('edit-day').value.trim();
-            const time = document.getElementById('edit-time').value.trim();
+            const timeType = document.getElementById('edit-time-type').value;
+            const timeDetail = document.getElementById('edit-time-detail').value.trim();
+            let time = timeType;
+            if (timeType === "Sabit Saat" || timeType === "Diğer") {
+                time = timeDetail;
+            }
+
             const teacher = document.getElementById('edit-teacher').value.trim();
             const organization = document.getElementById('edit-organization').value.trim();
             const contact_name = document.getElementById('edit-contact-name').value.trim();
@@ -1791,6 +1912,14 @@ document.addEventListener('DOMContentLoaded', () => {
         applyTypeFilter();
     });
 
+    // B16.2E - Standardize Day & Time
+    document.getElementById('edit-time-type')?.addEventListener('change', () => handleTimeTypeChange('edit-'));
+    document.getElementById('edit-program-time-type')?.addEventListener('change', () => handleTimeTypeChange('edit-program-'));
+    document.getElementById('add-time-type')?.addEventListener('change', () => handleTimeTypeChange('add-'));
+
+    populateDaySelect('add-day');
+    handleTimeTypeChange('add-');
+
     // Programs Event Listeners
     document.getElementById('programs-refresh-btn')?.addEventListener('click', loadPrograms);
     document.getElementById('programs-retry-btn')?.addEventListener('click', loadPrograms);
@@ -1895,6 +2024,12 @@ document.addEventListener('DOMContentLoaded', () => {
             if (addCustomGroup) addCustomGroup.classList.add('hidden');
             const addCustomInput = document.getElementById('add-program-name-custom');
             if (addCustomInput) addCustomInput.value = '';
+
+            // B16.2E Day & Time Standardization
+            populateDaySelect('add-day', '');
+            const addTimeType = document.getElementById('add-time-type');
+            if (addTimeType) addTimeType.value = 'Sabit Saat';
+            handleTimeTypeChange('add-');
         }
         
         // Reset photo upload elements
@@ -1972,8 +2107,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const venue_name = document.getElementById('add-venue-name').value.trim();
         const city = document.getElementById('add-city').value.trim();
         const district = document.getElementById('add-district').value.trim();
+
+        // B16.2E Day & Time Standardization
         const day = document.getElementById('add-day').value.trim();
-        const time = document.getElementById('add-time').value.trim();
+        const timeType = document.getElementById('add-time-type').value;
+        const timeDetail = document.getElementById('add-time-detail').value.trim();
+        let time = timeType;
+        if (timeType === "Sabit Saat" || timeType === "Diğer") {
+            time = timeDetail;
+        }
+
         const teacher = document.getElementById('add-teacher').value.trim();
         const organization = document.getElementById('add-organization').value.trim();
         const contact_name = document.getElementById('add-contact-name').value.trim();
@@ -2692,7 +2835,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const uniqueDays = [...new Set(programs.map(p => (p.day || '').trim()).filter(Boolean))];
             
             // Standard days in Turkish
-            const standardDays = ["Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
+            const standardDays = ["Her Gün", "Pazartesi", "Salı", "Çarşamba", "Perşembe", "Cuma", "Cumartesi", "Pazar"];
             const foundDays = [];
             standardDays.forEach(sd => {
                 const match = uniqueDays.find(ud => ud.toLowerCase() === sd.toLowerCase());
@@ -3871,11 +4014,16 @@ document.addEventListener('DOMContentLoaded', () => {
             editProgramDistrictWarning.classList.add('hidden');
         }
 
-        const dayInput = document.getElementById('edit-program-day');
-        if (dayInput) dayInput.value = item.day || '';
+        // B16.2E Day & Time Standardization
+        populateDaySelect('edit-program-day', item.day || '');
 
-        const timeInput = document.getElementById('edit-program-time');
-        if (timeInput) timeInput.value = item.time || '';
+        const timeObj = parseTimeToType(item.time || '');
+        const timeTypeSelect = document.getElementById('edit-program-time-type');
+        const timeDetailInput = document.getElementById('edit-program-time-detail');
+
+        if (timeTypeSelect) timeTypeSelect.value = timeObj.type;
+        if (timeDetailInput) timeDetailInput.value = timeObj.detail;
+        handleTimeTypeChange('edit-program-');
 
         const teacherInput = document.getElementById('edit-program-teacher');
         if (teacherInput) teacherInput.value = item.teacher || '';
@@ -4520,8 +4668,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const venue_name = document.getElementById('edit-program-venue-name')?.value.trim() || '';
         const city = document.getElementById('edit-program-city')?.value.trim() || 'Sakarya';
         const district = document.getElementById('edit-program-district')?.value.trim() || '';
+
+        // B16.2E Day & Time Standardization
         const day = document.getElementById('edit-program-day')?.value.trim() || '';
-        const time = document.getElementById('edit-program-time')?.value.trim() || '';
+        const timeType = document.getElementById('edit-program-time-type')?.value || '';
+        const timeDetail = document.getElementById('edit-program-time-detail')?.value.trim() || '';
+        let time = timeType;
+        if (timeType === "Sabit Saat" || timeType === "Diğer") {
+            time = timeDetail;
+        }
+
         const teacher = document.getElementById('edit-program-teacher')?.value.trim() || '';
         const organization = document.getElementById('edit-program-organization')?.value.trim() || '';
         const women_friendly = document.getElementById('edit-program-ladies')?.value === 'true';
@@ -4571,8 +4727,15 @@ document.addEventListener('DOMContentLoaded', () => {
         const venue_name = document.getElementById('edit-program-venue-name').value.trim();
         const city = document.getElementById('edit-program-city').value.trim() || 'Sakarya';
         const district = document.getElementById('edit-program-district').value.trim();
+
+        // B16.2E Day & Time Standardization
         const day = document.getElementById('edit-program-day').value.trim();
-        const time = document.getElementById('edit-program-time').value.trim();
+        const timeType = document.getElementById('edit-program-time-type').value;
+        const timeDetail = document.getElementById('edit-program-time-detail').value.trim();
+        let time = timeType;
+        if (timeType === "Sabit Saat" || timeType === "Diğer") {
+            time = timeDetail;
+        }
 
         // Basit form validasyonu
         if (!program_name) {
