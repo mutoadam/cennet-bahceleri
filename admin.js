@@ -48,6 +48,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let loadedDiscoverModules = [];
     let currentSelectedModuleSlug = '';
     let currentEditingArticleId = null;
+
+    // Koordinat Backfill State (B16.2H1)
+    let pendingBackfillSuggestions = [];
     let expandedNodes = new Set();
     let currentSearchTerm = '';
 
@@ -1925,6 +1928,14 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('programs-retry-btn')?.addEventListener('click', loadPrograms);
     document.getElementById('programs-complete-coords-btn')?.addEventListener('click', handleCompleteMissingCoordinates);
 
+    // Backfill Modal Listeners (B16.2H1)
+    document.getElementById('backfill-modal-close-top')?.addEventListener('click', () => {
+        document.getElementById('backfill-review-modal')?.classList.add('hidden');
+    });
+    document.getElementById('backfill-modal-btn-close')?.addEventListener('click', () => {
+        document.getElementById('backfill-review-modal')?.classList.add('hidden');
+    });
+
     // Modal Action Buttons (Paket B)
     document.getElementById('modal-btn-approve')?.addEventListener('click', async () => {
         if (!currentSuggestion) return;
@@ -2662,23 +2673,21 @@ document.addEventListener('DOMContentLoaded', () => {
         const btn = document.getElementById('programs-complete-coords-btn');
         if (!btn) return;
 
-        const confirmMsg = "Koordinatı eksik olan programlar (latitude veya longitude NULL olanlar) mosque_locations tablosundaki camilerle eşleştirilerek veya Google Maps linklerinden çözümlenerek tamamlanacaktır.\n\nMevcut koordinatlı kayıtlara dokunulmayacaktır. Devam etmek istiyor musunuz?";
-        if (!confirm(confirmMsg)) return;
-
         // UI Kilitleme
         const originalHTML = btn.innerHTML;
         btn.disabled = true;
         btn.classList.add('disabled');
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> İşleniyor...';
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Taranıyor...';
 
         try {
-            console.log("B16.1H - Koordinatı eksik programlar taranıyor...");
+            console.log("B16.2H1 - Koordinatı eksik programlar taranıyor...");
 
-            // 1. Eksik koordinatlı programları çek (latitude IS NULL OR longitude IS NULL)
+            // 1. Eksik koordinatlı programları çek (Sadece silinmemiş ve reddedilmemiş olanlar)
             const { data: candidates, error: fetchError } = await supabaseClient
                 .from('programs')
-                .select('id, city, district, venue_name, google_maps_link, latitude, longitude')
-                .or('latitude.is.null,longitude.is.null');
+                .select('id, program_name, city, district, venue_name, google_maps_link, latitude, longitude, status')
+                .or('latitude.is.null,longitude.is.null')
+                .not('status', 'in', '(deleted,rejected)');
 
             if (fetchError) throw fetchError;
 
@@ -2692,63 +2701,214 @@ document.addEventListener('DOMContentLoaded', () => {
                 await loadMosques();
             }
 
-            let totalMissing = candidates.length;
-            let matched = 0;
-            let updated = 0;
-            let unmatched = 0;
+            // 3. Adayları oluştur
+            pendingBackfillSuggestions = [];
 
-            console.log(`B16.1H - ${totalMissing} aday program işleniyor...`);
-
-            // 3. Her aday için koordinat çözümle ve güncelle
             for (const prog of candidates) {
-                // A) Mosque Match
-                let resolved = await findMosqueCoordinates(prog.city || 'Sakarya', prog.district, prog.venue_name);
-
-                // B) Fallback: Google Maps Link parsing
-                if (!resolved && prog.google_maps_link) {
-                    const parsed = extractLatLngFromGoogleMapsLink(prog.google_maps_link);
-                    if (parsed && parsed.latitude && parsed.longitude) {
-                        resolved = { latitude: parsed.latitude, longitude: parsed.longitude };
-                    }
-                }
-
-                if (resolved && resolved.latitude && resolved.longitude) {
-                    matched++;
-                    // Sadece latitude ve longitude alanlarını güncelle
-                    const { error: updateError } = await supabaseClient
-                        .from('programs')
-                        .update({
-                            latitude: resolved.latitude,
-                            longitude: resolved.longitude
-                        })
-                        .eq('id', prog.id);
-
-                    if (!updateError) {
-                        updated++;
-                    } else {
-                        console.error(`Program ID ${prog.id} güncellenirken hata:`, updateError.message);
-                    }
-                } else {
-                    unmatched++;
-                }
+                const suggestion = await createBackfillSuggestion(prog);
+                pendingBackfillSuggestions.push(suggestion);
             }
 
-            // 4. Sonuç göster
-            const resultMsg = `${totalMissing} eksik koordinatlı programdan ${matched} tanesi eşleştirildi. ${updated} kayıt başarıyla güncellendi. ${unmatched} kayıt eşleştirilemedi.`;
-            alert(resultMsg);
-            showToast(resultMsg, "success");
-
-            // 5. Listeyi yenile
-            await loadPrograms();
+            // 4. Modalı göster
+            renderBackfillTable();
+            document.getElementById('backfill-review-modal')?.classList.remove('hidden');
 
         } catch (err) {
-            console.error("B16.1H - Toplu koordinat tamamlama hatası:", err);
+            console.error("B16.2H1 - Toplu koordinat tarama hatası:", err);
             showToast("İşlem sırasında bir hata oluştu.", "error");
         } finally {
             btn.disabled = false;
             btn.classList.remove('disabled');
             btn.innerHTML = originalHTML;
         }
+    }
+
+    async function createBackfillSuggestion(prog) {
+        const suggestion = {
+            programId: prog.id,
+            programName: prog.program_name,
+            venueName: prog.venue_name,
+            city: prog.city || 'Sakarya',
+            district: prog.district,
+            googleMapsLink: prog.google_maps_link,
+            matchType: 'UNMATCHED',
+            confidence: 'LOW',
+            proposedVenue: null,
+            proposedDistrict: null,
+            proposedCoords: null,
+            reason: 'Eşleşme bulunamadı'
+        };
+
+        // Institution check (Don't auto-match dernek/vakıf to mosques)
+        const isInstitution = /dernek|vakıf|merkezi|akademi|medrese|suffe|ümmetder|platformu|cemiyeti|kursu|yurdu/i.test(prog.venue_name || '');
+
+        // 1. Mosque Match
+        if (!isInstitution) {
+            const normalizedVenue = normalizeVenueName(prog.venue_name);
+            const normalizedCity = trNormalize(prog.city || 'Sakarya');
+            const normalizedDistrict = trNormalize(prog.district || '');
+
+            // Exact Name + Exact District
+            let match = mosquesListCache.find(m =>
+                trNormalize(m.city) === normalizedCity &&
+                trNormalize(m.district) === normalizedDistrict &&
+                normalizeVenueName(m.mosque_name) === normalizedVenue
+            );
+
+            if (match) {
+                suggestion.matchType = 'SAFE';
+                suggestion.confidence = 'HIGH';
+                suggestion.proposedVenue = match.mosque_name;
+                suggestion.proposedDistrict = match.district;
+                suggestion.proposedCoords = { lat: match.latitude, lng: match.longitude };
+                suggestion.reason = 'Tam isim ve ilçe eşleşmesi';
+                return suggestion;
+            }
+
+            // Exact Name + Different District
+            match = mosquesListCache.find(m =>
+                trNormalize(m.city) === normalizedCity &&
+                normalizeVenueName(m.mosque_name) === normalizedVenue
+            );
+
+            if (match) {
+                suggestion.matchType = 'REVIEW';
+                suggestion.confidence = 'MEDIUM';
+                suggestion.proposedVenue = match.mosque_name;
+                suggestion.proposedDistrict = match.district;
+                suggestion.proposedCoords = { lat: match.latitude, lng: match.longitude };
+                suggestion.reason = `Farklı ilçe (${match.district})`;
+                return suggestion;
+            }
+        }
+
+        // 2. Google Maps Link
+        if (prog.google_maps_link) {
+            const parsed = extractLatLngFromGoogleMapsLink(prog.google_maps_link);
+            if (parsed) {
+                if (parsed.latitude && parsed.longitude) {
+                    suggestion.matchType = 'REVIEW';
+                    suggestion.confidence = 'MEDIUM';
+                    suggestion.proposedVenue = 'Google Maps Linki';
+                    suggestion.proposedCoords = { lat: parsed.latitude, lng: parsed.longitude };
+                    suggestion.reason = 'Linkten koordinat çözüldü';
+                } else if (parsed.isShort) {
+                    suggestion.reason = 'Kısa link (Açılamadı)';
+                } else {
+                    suggestion.reason = 'Link koordinat içermiyor (Place ID)';
+                }
+            }
+        }
+
+        if (isInstitution && suggestion.matchType === 'UNMATCHED') {
+            suggestion.reason = 'Cami dışı kurum (İnceleyin)';
+        }
+
+        return suggestion;
+    }
+
+    function renderBackfillTable() {
+        const list = document.getElementById('backfill-review-list');
+        const stats = document.getElementById('backfill-stats');
+        if (!list) return;
+
+        list.innerHTML = '';
+
+        if (pendingBackfillSuggestions.length === 0) {
+            list.innerHTML = '<tr><td colspan="5" style="padding: 40px; text-align: center; color: var(--md-on-surface-variant);">Tüm kayıtlar işlendi.</td></tr>';
+            if (stats) stats.innerText = 'Bekleyen kayıt yok.';
+            return;
+        }
+
+        // Sort: Safe first, then review, then unmatched
+        const sorted = [...pendingBackfillSuggestions].sort((a, b) => {
+            const order = { 'SAFE': 0, 'REVIEW': 1, 'UNMATCHED': 2 };
+            return order[a.matchType] - order[b.matchType];
+        });
+
+        sorted.forEach(s => {
+            const tr = document.createElement('tr');
+            tr.style.borderBottom = '1px solid var(--md-outline)';
+
+            const badgeClass = s.matchType === 'SAFE' ? 'badge-active' : (s.matchType === 'REVIEW' ? 'badge-pending' : 'badge-inactive');
+
+            tr.innerHTML = `
+                <td style="padding: 12px; text-align: left;">
+                    <strong>${s.programName}</strong><br>
+                    <small style="color: #666;">${s.venueName}</small>
+                </td>
+                <td style="padding: 12px; text-align: left;">${s.district || '-'}</td>
+                <td style="padding: 12px; text-align: left;">
+                    ${s.proposedVenue ? `<strong>${s.proposedVenue}</strong>` : '<span style="color: #999;">Bulunamadı</span>'}<br>
+                    ${s.proposedCoords ? `<small style="color: var(--md-primary);">${s.proposedCoords.lat.toFixed(4)}, ${s.proposedCoords.lng.toFixed(4)}</small>` : ''}
+                </td>
+                <td style="padding: 12px; text-align: left;">
+                    <span class="category-badge ${badgeClass}" style="font-size: 11px;">${s.reason}</span>
+                </td>
+                <td style="padding: 12px; text-align: center; white-space: nowrap;">
+                    <div style="display: flex; gap: 8px; justify-content: center;">
+                        ${s.proposedCoords ? `
+                            <button onclick="window.approveBackfillSuggestion('${s.programId}')" class="btn btn-sm" style="background: #2e7d32; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;" title="Onayla">
+                                <i class="fa-solid fa-check"></i>
+                            </button>
+                            <a href="https://www.google.com/maps?q=${s.proposedCoords.lat},${s.proposedCoords.lng}" target="_blank" class="btn btn-sm" style="background: #1976d2; color: white; border: none; padding: 4px 8px; border-radius: 4px; display: inline-flex; align-items: center;" title="Haritada Gör">
+                                <i class="fa-solid fa-map"></i>
+                            </a>
+                        ` : ''}
+                        <button onclick="window.rejectBackfillSuggestion('${s.programId}')" class="btn btn-sm" style="background: #d32f2f; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer;" title="Yoksay">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+                </td>
+            `;
+            list.appendChild(tr);
+        });
+
+        if (stats) {
+            const safeCount = pendingBackfillSuggestions.filter(x => x.matchType === 'SAFE').length;
+            stats.innerText = `Toplam ${pendingBackfillSuggestions.length} aday listeleniyor. (${safeCount} Yüksek Güvenli)`;
+        }
+    }
+
+    async function approveBackfillSuggestion(programId) {
+        const suggestion = pendingBackfillSuggestions.find(s => s.programId === programId);
+        if (!suggestion || !suggestion.proposedCoords) return;
+
+        const confirmMsg = `Bu program için koordinatları güncellemeyi onaylıyor musunuz?\n\n` +
+                           `Program: ${suggestion.programName}\n` +
+                           `Mekan: ${suggestion.venueName}\n\n` +
+                           `Önerilen Konum: ${suggestion.proposedVenue}\n` +
+                           `İlçe: ${suggestion.proposedDistrict || suggestion.district}\n` +
+                           `Koordinat: ${suggestion.proposedCoords.lat}, ${suggestion.proposedCoords.lng}`;
+
+        if (!confirm(confirmMsg)) return;
+
+        try {
+            const { error } = await supabaseClient
+                .from('programs')
+                .update({
+                    latitude: suggestion.proposedCoords.lat,
+                    longitude: suggestion.proposedCoords.lng
+                })
+                .eq('id', programId);
+
+            if (error) throw error;
+
+            showToast("Program başarıyla güncellendi.", "success");
+
+            // Listeden kaldır
+            pendingBackfillSuggestions = pendingBackfillSuggestions.filter(s => s.programId !== programId);
+            renderBackfillTable();
+
+        } catch (err) {
+            console.error("Güncelleme hatası:", err);
+            alert("Güncelleme sırasında bir hata oluştu: " + err.message);
+        }
+    }
+
+    function rejectBackfillSuggestion(programId) {
+        pendingBackfillSuggestions = pendingBackfillSuggestions.filter(s => s.programId !== programId);
+        renderBackfillTable();
     }
 
     async function loadPrograms() {
@@ -10833,5 +10993,9 @@ out center tags;`;
     window.openPdfAddModal = openPdfAddModal;
     window.closePdfAddModal = closePdfAddModal;
     window.savePdfArticle = savePdfArticle;
+
+    // Expose Backfill functions globally (B16.2H1)
+    window.approveBackfillSuggestion = approveBackfillSuggestion;
+    window.rejectBackfillSuggestion = rejectBackfillSuggestion;
 
 });

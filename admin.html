@@ -2079,6 +2079,49 @@
         </div>
     </div>
 
+    <!-- Koordinat Tamamlama Review Modalı (B16.2H1) -->
+    <div id="backfill-review-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 1000px; width: 95%;">
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-location-crosshairs" style="font-size: 24px; color: var(--md-primary);"></i>
+                    <div>
+                        <h3 style="margin: 0; font-size: 20px; font-weight: 700;">Eksik Koordinatları İncele</h3>
+                        <span class="category-badge" style="background-color: var(--md-primary-container); color: var(--md-primary); font-size: 12px; display: inline-block; margin-top: 4px;">Güvenli Backfill Workflow</span>
+                    </div>
+                </div>
+                <button id="backfill-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 0; overflow: hidden;">
+                <div style="padding: 16px; background: #fff8e1; border-bottom: 1px solid #ffe082; font-size: 13px; color: #856404;">
+                    <i class="fa-solid fa-circle-info"></i> Aşağıdaki programların koordinatları eksiktir. İsim ve ilçe uyuşmasına göre adaylar belirlenmiştir. Onayladığınız kayıtlar <strong>tekil olarak</strong> güncellenecektir.
+                </div>
+                <div style="max-height: 500px; overflow-y: auto;">
+                    <table class="admin-table" style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                        <thead style="position: sticky; top: 0; background: white; z-index: 10; box-shadow: 0 1px 0 var(--md-outline);">
+                            <tr>
+                                <th style="padding: 12px; text-align: left;">Program / Mekan</th>
+                                <th style="padding: 12px; text-align: left;">Mevcut İlçe</th>
+                                <th style="padding: 12px; text-align: left;">Önerilen Cami / Konum</th>
+                                <th style="padding: 12px; text-align: left;">Durum</th>
+                                <th style="padding: 12px; text-align: center;">İşlemler</th>
+                            </tr>
+                        </thead>
+                        <tbody id="backfill-review-list">
+                            <!-- JS ile dolacak -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px;">
+                <span id="backfill-stats" style="font-size: 13px; font-weight: 500; color: var(--md-on-surface-variant);"></span>
+                <button id="backfill-modal-btn-close" class="btn btn-secondary">Kapat</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Supabase JS CDN (v2) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <!-- Config File (contains keys and setup) -->
