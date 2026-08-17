@@ -6205,6 +6205,15 @@ document.addEventListener('DOMContentLoaded', () => {
             activeProgramTypes = data || [];
             console.log("ADMIN_PROGRAM_TYPE_DEBUG - supabase program_types count:", activeProgramTypes.length);
 
+            // B16.2I - Türkçe Alfabetik Sıralama (A->Z)
+            activeProgramTypes.sort((a, b) => {
+                const nameA = a.name || '';
+                const nameB = b.name || '';
+                if (nameA === 'Diğer') return 1;
+                if (nameB === 'Diğer') return -1;
+                return nameA.localeCompare(nameB, 'tr', { sensitivity: 'accent' });
+            });
+
             if (activeProgramTypes.length === 0) {
                 optionsHtml = '<option value="">Program türü bulunamadı</option>';
             } else {
@@ -6229,6 +6238,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 "Davet Ameli", "Maruf Çalışması", "3 Günlük Sefer", "Gençlik Buluşması",
                 "Sinevizyon Sohbeti", "Seminer", "Konferans", "Panel", "Diğer"
             ];
+
+            // B16.2I - Türkçe Alfabetik Sıralama (A->Z)
+            fallbacks.sort((a, b) => {
+                if (a === 'Diğer') return 1;
+                if (b === 'Diğer') return -1;
+                return a.localeCompare(b, 'tr', { sensitivity: 'accent' });
+            });
+
             fallbacks.forEach(name => {
                 optionsHtml += `<option value="${name}">${name}</option>`;
             });
