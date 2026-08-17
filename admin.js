@@ -6207,11 +6207,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // B16.2I - Türkçe Alfabetik Sıralama (A->Z)
             activeProgramTypes.sort((a, b) => {
-                const nameA = a.name || '';
-                const nameB = b.name || '';
+                const nameA = (a.name || '').trim();
+                const nameB = (b.name || '').trim();
                 if (nameA === 'Diğer') return 1;
                 if (nameB === 'Diğer') return -1;
-                return nameA.localeCompare(nameB, 'tr', { sensitivity: 'accent' });
+                return nameA.localeCompare(nameB, 'tr', { sensitivity: 'base', numeric: true });
             });
 
             if (activeProgramTypes.length === 0) {
@@ -6241,9 +6241,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // B16.2I - Türkçe Alfabetik Sıralama (A->Z)
             fallbacks.sort((a, b) => {
-                if (a === 'Diğer') return 1;
-                if (b === 'Diğer') return -1;
-                return a.localeCompare(b, 'tr', { sensitivity: 'accent' });
+                const nameA = (a || '').trim();
+                const nameB = (b || '').trim();
+                if (nameA === 'Diğer') return 1;
+                if (nameB === 'Diğer') return -1;
+                return nameA.localeCompare(nameB, 'tr', { sensitivity: 'base', numeric: true });
             });
 
             fallbacks.forEach(name => {
@@ -6253,11 +6255,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (optionsHtml) {
                 if (editSuggestSelect) editSuggestSelect.innerHTML = optionsHtml;
                 if (editInputSelect) editInputSelect.innerHTML = optionsHtml;
-                if (addSelect) {
-                    addSelect.innerHTML = optionsHtml;
-                    console.log("ADMIN_PROGRAM_TYPE_DEBUG - option count after load (add-program-name):", addSelect.options.length);
-                    console.log("ADMIN_PROGRAM_TYPE_DEBUG - first option text (add-program-name):", addSelect.options[0]?.text);
-                }
+                if (addSelect) addSelect.innerHTML = optionsHtml;
+
+                // B16.2I1 - Final DOM Order Verification Reporter
+                [
+                    { id: 'add-program-name', label: 'CREATE' },
+                    { id: 'edit-program-name-input', label: 'EDIT' },
+                    { id: 'edit-program-name', label: 'INSPECT' }
+                ].forEach(target => {
+                    const el = document.getElementById(target.id);
+                    if (el) {
+                        const order = Array.from(el.options).map(opt => opt.text);
+                        console.log(`B16.2I1 - ${target.label} FINAL DOM ORDER:`, order.join(' | '));
+                    }
+                });
             }
         }
     }
