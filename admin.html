@@ -2411,10 +2411,38 @@
                                 <button type="button" id="tomb-modal-gallery-upload-btn" class="btn btn-secondary btn-sm" style="min-height: 38px; padding: 8px 16px;">
                                     <i class="fa-solid fa-plus"></i> Fotoğraf Ekle
                                 </button>
+                                <button type="button" id="tomb-modal-google-discovery-btn" class="btn btn-primary btn-sm" style="min-height: 38px; padding: 8px 16px; background-color: #4285F4; border-color: #4285F4;">
+                                    <i class="fa-brands fa-google"></i> Google'dan Fotoğraf Bul
+                                </button>
                                 <div id="tomb-modal-gallery-loader" class="hidden" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--md-primary);">
                                     <i class="fa-solid fa-spinner fa-spin"></i> Fotoğraflar yükleniyor...
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Google Discovery Results (Place/Photo Selection) -->
+                        <div id="tomb-google-discovery-area" class="hidden" style="margin-bottom: 24px; padding: 16px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                                <h5 id="google-discovery-title" style="margin: 0; font-size: 15px; font-weight: 600; color: #4285F4;"><i class="fa-solid fa-location-dot"></i> Google Yer Seçimi</h5>
+                                <button type="button" id="google-discovery-close" class="btn btn-xs" style="padding: 4px 8px;"><i class="fa-solid fa-xmark"></i></button>
+                            </div>
+
+                            <!-- Place Candidates -->
+                            <div id="google-place-candidates" class="grid-list" style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                                <!-- Place cards injected here -->
+                            </div>
+
+                            <!-- Photo Candidates -->
+                            <div id="google-photo-candidates" class="hidden" style="margin-top: 16px;">
+                                <div style="display: flex; gap: 8px; overflow-x: auto; padding-bottom: 12px;" id="google-photo-candidates-list">
+                                    <!-- Photo preview cards injected here -->
+                                </div>
+                            </div>
+
+                            <div id="google-discovery-loader" class="hidden" style="text-align: center; padding: 12px;">
+                                <i class="fa-solid fa-spinner fa-spin"></i> Google'da aranıyor...
+                            </div>
+                            <div id="google-discovery-error" class="hidden" style="color: var(--md-error); font-size: 13px; text-align: center; padding: 12px;"></div>
                         </div>
 
                         <!-- Gallery Grid -->

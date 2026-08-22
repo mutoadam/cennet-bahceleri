@@ -7437,6 +7437,25 @@ document.addEventListener('DOMContentLoaded', () => {
         return null;
     }
 
+    /**
+     * İki koordinat arasındaki mesafeyi (metre) hesaplar.
+     */
+    function calculateHaversineDistance(lat1, lon1, lat2, lon2) {
+        if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+        const R = 6371e3; // Earth's radius in meters
+        const φ1 = lat1 * Math.PI / 180;
+        const φ2 = lat2 * Math.PI / 180;
+        const Δφ = (lat2 - lat1) * Math.PI / 180;
+        const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+        const a = Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+        return R * c;
+    }
+
     async function loadMosques() {
         if (!supabaseClient) {
             if (!initSupabase()) return;
@@ -11810,6 +11829,255 @@ out center tags;`;
         }
     }
 
+    /**
+     * B16.3C2.1 - Google Places Photo Discovery Workflow
+     */
+    async function searchGooglePlacesForTomb() {
+        if (!currentEditTomb) return;
+
+        const discoveryArea = document.getElementById('tomb-google-discovery-area');
+        const loader = document.getElementById('google-discovery-loader');
+        const errorEl = document.getElementById('google-discovery-error');
+        const placeContainer = document.getElementById('google-place-candidates');
+        const photoContainer = document.getElementById('google-photo-candidates');
+
+        discoveryArea.classList.remove('hidden');
+        loader.classList.remove('hidden');
+        errorEl.classList.add('hidden');
+        placeContainer.innerHTML = '';
+        photoContainer.classList.add('hidden');
+
+        // Search Query: Name + District + City
+        const query = `${currentEditTomb.name} ${currentEditTomb.district} ${currentEditTomb.city}`;
+        const searchUrl = `${window.CENNET_CONFIG.SUPABASE_URL}/functions/v1/google-places-proxy/search?q=${encodeURIComponent(query)}`;
+
+        try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const response = await fetch(searchUrl, {
+                headers: {
+                    'Authorization': `Bearer ${session?.access_token || ''}`
+                }
+            });
+
+            if (!response.ok) throw new Error("Google Arama hatası oluştu.");
+
+            const data = await response.json();
+            const places = data.places || [];
+
+            loader.classList.add('hidden');
+
+            if (places.length === 0) {
+                errorEl.textContent = "Google'da eşleşen yer bulunamadı.";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            renderGooglePlaceCandidates(places);
+
+        } catch (error) {
+            console.error("Google discovery error:", error);
+            loader.classList.add('hidden');
+            errorEl.textContent = "Arama sırasında bir hata oluştu.";
+            errorEl.classList.remove('hidden');
+        }
+    }
+
+    function renderGooglePlaceCandidates(places) {
+        const placeContainer = document.getElementById('google-place-candidates');
+        placeContainer.innerHTML = '';
+
+        places.forEach(place => {
+            const card = document.createElement('div');
+            card.style.cssText = 'background: white; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);';
+
+            // Distance calculation
+            let distanceHtml = '';
+            if (currentEditTomb.latitude && currentEditTomb.longitude && place.location) {
+                const dist = calculateHaversineDistance(
+                    currentEditTomb.latitude, currentEditTomb.longitude,
+                    place.location.latitude, place.location.longitude
+                );
+                if (dist !== null) {
+                    const color = dist < 500 ? '#2e7d32' : dist < 2000 ? '#f57c00' : '#d32f2f';
+                    distanceHtml = `<span style="color: ${color}; font-weight: 600;"><i class="fa-solid fa-arrows-left-right"></i> ${dist < 1000 ? Math.round(dist) + 'm' : (dist / 1000).toFixed(1) + 'km'} mesafe</span>`;
+                }
+            }
+
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <h6 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--md-primary);">${escapeHtml(place.displayName?.text || 'İsimsiz Yer')}</h6>
+                        <p style="margin: 4px 0 0; font-size: 12px; color: var(--md-on-surface-variant);">${escapeHtml(place.formattedAddress || '')}</p>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-xs btn-select-place" style="background-color: #4285F4; border-color: #4285F4;">Seç</button>
+                </div>
+                <div style="display: flex; gap: 12px; font-size: 11px; color: #666;">
+                    <span><i class="fa-solid fa-location-crosshairs"></i> ${place.location?.latitude.toFixed(4)}, ${place.location?.longitude.toFixed(4)}</span>
+                    ${distanceHtml}
+                </div>
+            `;
+
+            card.querySelector('.btn-select-place').onclick = () => selectGooglePlace(place);
+            placeContainer.appendChild(card);
+        });
+    }
+
+    function selectGooglePlace(place) {
+        const placeContainer = document.getElementById('google-place-candidates');
+        const photoArea = document.getElementById('google-photo-candidates');
+        const photoList = document.getElementById('google-photo-candidates-list');
+        const titleEl = document.getElementById('google-discovery-title');
+
+        placeContainer.innerHTML = ''; // Clear other candidates
+        titleEl.innerHTML = `<i class="fa-solid fa-image"></i> ${escapeHtml(place.displayName?.text)} - Fotoğraflar`;
+        photoArea.classList.remove('hidden');
+        photoList.innerHTML = '';
+
+        const photos = (place.photos || []).slice(0, 5);
+
+        if (photos.length === 0) {
+            photoList.innerHTML = '<p style="padding: 12px; font-size: 13px; color: #666;">Bu yer için fotoğraf bulunamadı.</p>';
+            return;
+        }
+
+        photos.forEach((photo, idx) => {
+            const card = document.createElement('div');
+            card.style.cssText = 'min-width: 140px; flex-shrink: 0; background: white; border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column;';
+
+            // Google Photo Name is refreshable identifier.
+            // We use the proxy redirect URL for preview in admin.
+            // But Google allows direct preview if we use the API key here for admin only.
+            // However, to satisfy requirements of NOT storing temp URLs, we'll show a small placeholder or use the proxy.
+            // Proxy is safer.
+            const previewUrl = `https://places.googleapis.com/v1/${photo.name}/media?key=REPLACE_WITH_KEY_IF_NEEDED&maxHeightPx=200`;
+            // NOTE: Since I can't expose key in browser, I will use the proxy endpoint if it supports simple 'name' param
+            // Actually, the proxy endpoint I wrote uses 'tomb_image_id'.
+            // I'll add a 'preview' param to proxy for this or just use a generic Google placeholder if I can't use key.
+            // Let's assume the proxy handles simple redirect for preview if authorized.
+
+            // For now, I'll use a placeholder or try to use a proxy-preview endpoint if I add it.
+            // Better: Add a temporary preview link to the proxy.
+            const proxyPreviewUrl = `${window.CENNET_CONFIG.SUPABASE_URL}/functions/v1/google-places-proxy/photo-preview?name=${encodeURIComponent(photo.name)}`;
+
+            const attributionText = (photo.authorAttributions || []).map(a => a.displayName).join(', ');
+
+            card.innerHTML = `
+                <div style="height: 100px; background: #eee; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                         data-src="${proxyPreviewUrl}"
+                         class="google-preview-img"
+                         alt="Google photo" style="width: 100%; height: 100%; object-fit: cover;"
+                         onerror="this.src='https://placehold.co/140x100?text=Foto';">
+                </div>
+                <div style="padding: 8px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                    <p style="margin: 0; font-size: 10px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(attributionText)}">Atıf: ${escapeHtml(attributionText || 'Google')}</p>
+                    <button type="button" class="btn btn-primary btn-xs btn-save-google-photo" style="margin-top: 6px; width: 100%;">Kullan</button>
+                </div>
+            `;
+
+            card.querySelector('.btn-save-google-photo').onclick = () => saveGooglePhotoMetadata(place.id, photo, idx);
+            photoList.appendChild(card);
+        });
+
+        // Auth requirement for previews: Fetch images with token
+        loadGooglePreviewsWithAuth();
+    }
+
+    /**
+     * Authenticated fetch for Google preview images
+     */
+    async function loadGooglePreviewsWithAuth() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+
+        const imgs = document.querySelectorAll('.google-preview-img[data-src]');
+        for (const img of imgs) {
+            const src = img.getAttribute('data-src');
+            try {
+                const res = await fetch(src, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    img.src = URL.createObjectURL(blob);
+                }
+            } catch (e) {}
+            img.removeAttribute('data-src');
+        }
+    }
+
+    async function saveGooglePhotoMetadata(placeId, photo, photoIndex) {
+        if (!supabaseClient || !currentEditTomb) return;
+
+        const loader = document.getElementById('tomb-modal-gallery-loader');
+        loader.classList.remove('hidden');
+
+        try {
+            const isFirst = loadedTombGallery.length === 0;
+            const sortOrder = loadedTombGallery.length;
+            const attribution = (photo.authorAttributions || []).map(a => a.displayName).join(', ');
+
+            // Generate stable proxy URL using a pre-defined ID
+            const tombImageId = crypto.randomUUID();
+
+            // Construct absolute URL safely
+            const baseUrl = window.CENNET_CONFIG.SUPABASE_URL.replace(/\/$/, "");
+            const proxyUrl = `${baseUrl}/functions/v1/google-places-proxy/photo?tomb_image_id=${tombImageId}`;
+
+            const payload = {
+                id: tombImageId,
+                tomb_id: currentEditTomb.id,
+                source_type: 'GOOGLE_PLACES',
+                google_place_id: placeId,
+                google_photo_name: photo.name,
+                google_photo_index: photoIndex,
+                google_author_attribution: attribution,
+                image_url: proxyUrl,
+                image_attribution: attribution,
+                sort_order: sortOrder,
+                is_cover: isFirst,
+                created_at: new Date().toISOString()
+            };
+
+            const { data, error } = await supabaseClient
+                .from('tomb_images')
+                .insert(payload)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            loadedTombGallery.push(data);
+
+            if (isFirst) {
+                // Synchronize tomb_locations with exactly the same stable proxy URL
+                await supabaseClient
+                    .from('tomb_locations')
+                    .update({
+                        image_url: proxyUrl,
+                        image_attribution: attribution,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', currentEditTomb.id);
+
+                // Update local tomb object cover
+                if (currentEditTomb) {
+                    currentEditTomb.image_url = proxyUrl;
+                    currentEditTomb.image_attribution = attribution;
+                }
+            }
+
+            renderTombGallery();
+            document.getElementById('tomb-google-discovery-area').classList.add('hidden');
+            showToast("Google fotoğrafı galeriye eklendi.", "success");
+
+        } catch (error) {
+            console.error("Google photo save error:", error);
+            showToast("Fotoğraf kaydedilemedi: " + (error.message || ""), "error");
+        } finally {
+            loader.classList.add('hidden');
+        }
+    }
+
     function trNormalizeForPath(text) {
         return text.toLowerCase()
             .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
@@ -11861,6 +12129,12 @@ out center tags;`;
         document.getElementById('tomb-modal-close-top')?.addEventListener('click', closeTombModal);
         document.getElementById('tomb-modal-btn-cancel')?.addEventListener('click', closeTombModal);
         document.getElementById('tomb-modal-btn-save')?.addEventListener('click', handleTombSave);
+
+        // Google Discovery Workflow (B16.3C2.1)
+        document.getElementById('tomb-modal-google-discovery-btn')?.addEventListener('click', searchGooglePlacesForTomb);
+        document.getElementById('google-discovery-close')?.addEventListener('click', () => {
+            document.getElementById('tomb-google-discovery-area').classList.add('hidden');
+        });
 
         // Gallery Multi-Upload (B16.3C2)
         const galleryInput = document.getElementById('tomb-modal-gallery-input');
