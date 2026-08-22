@@ -3020,6 +3020,220 @@ body:not(.logged-out) #admin-login-screen {
     }
 }
 
+/* Autofill Button & Status (B16.2O) */
+.btn-autofill {
+    font-weight: 600 !important;
+    letter-spacing: 0.3px;
+    transition: all 0.2s ease;
+}
+
+.btn-autofill:hover:not(:disabled) {
+    background-color: var(--md-secondary-container) !important;
+    filter: brightness(0.95);
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+}
+
+.btn-autofill:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+.btn-autofill:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    filter: grayscale(0.5);
+}
+
+.autofill-status {
+    padding: 6px 10px;
+    border-radius: var(--radius-xs);
+    background-color: #f8f9fa;
+    border: 1px solid #eee;
+    color: var(--md-on-surface-variant);
+    animation: fadeIn 0.3s ease;
+}
+
+.autofill-status.success {
+    background-color: #e8f5e9;
+    border-color: #c8e6c9;
+    color: #2e7d32;
+}
+
+.autofill-status.info {
+    background-color: #e3f2fd;
+    border-color: #bbdefb;
+    color: #1565c0;
+}
+
+.autofill-candidate-list {
+    margin-top: 8px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.autofill-candidate-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 10px;
+    background: white;
+    border: 1px solid var(--md-outline);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-xs);
+    transition: background 0.2s;
+}
+
+.autofill-candidate-item:hover {
+    background: #fdfdfd;
+}
+
+.candidate-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.candidate-name {
+    font-weight: 700;
+    display: block;
+    font-size: 12px;
+}
+
+.candidate-loc {
+    font-size: 11px;
+    color: var(--md-on-surface-variant);
+}
+
+.btn-select-fill {
+    margin-left: 12px;
+    white-space: nowrap;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Türbeler Module Styles (B16.3C) */
+.tomb-card {
+    transition: var(--transition);
+}
+
+.tomb-card:hover {
+    box-shadow: var(--shadow-lg);
+    border-color: var(--md-secondary);
+}
+
+.form-section {
+    background: #fff;
+    padding: 20px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--md-outline);
+    margin-bottom: 24px;
+    box-shadow: var(--shadow-sm);
+}
+
+.form-section h4 {
+    margin-bottom: 20px;
+    color: var(--md-primary);
+    border-bottom: 1px solid var(--md-outline);
+    padding-bottom: 10px;
+    font-size: 18px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.tomb-image-preview-frame {
+    position: relative;
+    max-width: 300px;
+    border: 1px solid var(--md-outline);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+}
+
+.tomb-image-preview-frame img {
+    width: 100%;
+    height: auto;
+    display: block;
+    max-height: 250px;
+    object-fit: cover;
+}
+
+/* Tomb Gallery Grid Styles (B16.3C2) */
+.tomb-image-card {
+    background: #fff;
+    border: 1px solid var(--md-outline);
+    border-radius: var(--radius-sm);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+}
+
+.tomb-image-card:hover {
+    box-shadow: var(--shadow-md);
+    transform: translateY(-2px);
+}
+
+.tomb-image-card.is-cover {
+    border: 2px solid var(--md-primary);
+    background: var(--md-primary-container);
+}
+
+.tomb-image-thumb {
+    width: 100%;
+    height: 120px;
+    object-fit: cover;
+    border-bottom: 1px solid var(--md-outline);
+}
+
+.tomb-image-info {
+    padding: 8px;
+    flex: 1;
+}
+
+.tomb-image-attr-input {
+    width: 100%;
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid var(--md-outline);
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.tomb-image-actions {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px;
+    padding: 4px 8px 8px;
+}
+
+.tomb-image-actions .btn {
+    font-size: 11px;
+    padding: 4px;
+    min-height: 28px;
+}
+
+.tomb-image-actions .btn-full {
+    grid-column: span 2;
+}
+
+.cover-badge {
+    background: var(--md-primary);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 700;
+    padding: 2px 6px;
+    border-radius: 4px;
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    z-index: 2;
+}
+
 
 
 

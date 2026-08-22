@@ -98,6 +98,9 @@
             <button id="main-tab-discover" class="main-tab-btn">
                 <i class="fa-solid fa-compass"></i> Keşfet İçerikleri
             </button>
+            <button id="main-tab-tombs" class="main-tab-btn">
+                <i class="fa-solid fa-monument"></i> Türbeler
+            </button>
         </div>
 
         <!-- Öneriler (Suggestions) Sekmesi İçeriği -->
@@ -837,6 +840,134 @@
                 </main>
             </div>
         </div>
+        <!-- Türbeler (Tombs) Sekmesi İçeriği -->
+        <div id="tombs-tab-content" class="hidden">
+            <section class="page-title-section">
+                <div class="page-title-container">
+                    <h2>Türbe ve Makam Yönetimi</h2>
+                    <p class="section-desc">Türkiye genelindeki türbe, makam ve şehitlik bilgilerini yönetebilirsiniz.</p>
+                </div>
+                <button id="add-tomb-btn" class="btn btn-secondary add-program-btn">
+                    <i class="fa-solid fa-plus"></i> Yeni Türbe Ekle
+                </button>
+            </section>
+
+            <!-- İstatistik Kartları -->
+            <section class="stats-grid">
+                <div class="stats-card card-total" style="border-left: 6px solid var(--md-primary);">
+                    <div class="stats-icon" style="background-color: var(--md-primary-container); color: var(--md-primary);"><i class="fa-solid fa-monument"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Toplam Türbe</span>
+                        <h3 id="stats-total-tombs-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-approved">
+                    <div class="stats-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Aktif Kayıtlar</span>
+                        <h3 id="stats-active-tombs-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-rejected" style="border-left: 6px solid var(--md-warning);">
+                    <div class="stats-icon" style="background-color: var(--md-warning-container); color: var(--md-warning);"><i class="fa-solid fa-file-pen"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Taslak / İnceleme</span>
+                        <h3 id="stats-review-tombs-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Filtre ve Arama Paneli -->
+            <div class="filter-panel" id="tombs-filter-panel">
+                <div class="filter-row" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                    <div class="filter-group search-group" style="flex: 2; min-width: 200px;">
+                        <label for="tombs-filter-search"><i class="fa-solid fa-magnifying-glass"></i> Arama</label>
+                        <input type="text" id="tombs-filter-search" class="form-control" placeholder="Türbe adı, mahalle, adres...">
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="tombs-filter-city"><i class="fa-solid fa-city"></i> İl</label>
+                        <select id="tombs-filter-city" class="form-control">
+                            <option value="">Tüm İller</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="tombs-filter-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
+                        <select id="tombs-filter-district" class="form-control">
+                            <option value="">Tüm İlçeler</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="tombs-filter-type"><i class="fa-solid fa-tag"></i> Tür</label>
+                        <select id="tombs-filter-type" class="form-control">
+                            <option value="">Tümü</option>
+                            <option value="TURBE">Türbe</option>
+                            <option value="MAKAM">Makam</option>
+                            <option value="SEHITLIK">Şehitlik</option>
+                            <option value="TARIHI_KABIR">Tarihî Kabir</option>
+                            <option value="HAZIRE">Hazire</option>
+                            <option value="TOPLU_KABIR">Toplu Kabir</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="tombs-filter-status"><i class="fa-solid fa-circle-info"></i> Veri Durumu</label>
+                        <select id="tombs-filter-status" class="form-control">
+                            <option value="">Tümü</option>
+                            <option value="READY">Yayına Hazır</option>
+                            <option value="PARTIAL">Eksik Bilgi Var</option>
+                            <option value="REVIEW">İnceleme Bekliyor</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="tombs-filter-active"><i class="fa-solid fa-toggle-on"></i> Durum</label>
+                        <select id="tombs-filter-active" class="form-control">
+                            <option value="">Tümü</option>
+                            <option value="true" selected>Aktif</option>
+                            <option value="false">Pasif</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex-shrink: 0;">
+                        <button id="tombs-clear-filters-btn" class="btn btn-secondary" style="height: 40px; background-color: var(--md-outline-variant, #e0e0e0); color: var(--md-on-surface); display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--md-outline); border-radius: 8px; cursor: pointer;">
+                            <i class="fa-solid fa-filter-circle-xmark"></i> Temizle
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Türbeler Listesi -->
+            <section class="suggestions-section">
+                <div class="section-header">
+                    <div class="header-title-wrapper">
+                        <h3>Türbe Listesi</h3>
+                        <p class="subtitle-text" id="tombs-count-text">0 türbe içinden 0 kayıt gösteriliyor.</p>
+                    </div>
+                    <button id="tombs-refresh-btn" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-rotate"></i> Yenile
+                    </button>
+                </div>
+
+                <div id="tombs-loader" class="state-container hidden">
+                    <div class="spinner"></div>
+                    <p>Türbeler yükleniyor, lütfen bekleyin...</p>
+                </div>
+
+                <div id="tombs-error-container" class="state-container state-error hidden">
+                    <i class="fa-solid fa-triangle-exclamation state-icon"></i>
+                    <h4>Veriler yüklenirken bir hata oluştu.</h4>
+                    <p id="tombs-error-message">Lütfen veritabanı bağlantısını ve <code>tomb_locations</code> tablosunu kontrol edin.</p>
+                    <button id="tombs-retry-btn" class="btn btn-primary" style="margin-top: 15px;">Tekrar Dene</button>
+                </div>
+
+                <div id="tombs-empty-container" class="state-container state-empty hidden">
+                    <i class="fa-solid fa-monument state-icon"></i>
+                    <h4>Şu anda kayıtlı türbe bulunmuyor.</h4>
+                    <p>Yeni bir türbe eklemek için sağ üstteki butonu kullanabilirsiniz.</p>
+                </div>
+
+                <div id="tombs-list" class="suggestions-list grid-list">
+                    <!-- Türbe kartları buraya JS ile dolacak -->
+                </div>
+            </section>
+        </div>
     </main>
 
     <footer class="admin-footer">
@@ -1123,7 +1254,13 @@
                     </div>
                     <div class="form-group">
                         <label for="edit-program-venue-name"><i class="fa-solid fa-mosque"></i> Mekân Adı *</label>
-                        <input type="text" id="edit-program-venue-name" class="form-control" placeholder="Örn: Orhan Camii" required>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="edit-program-venue-name" class="form-control" placeholder="Örn: Orhan Camii" required style="flex: 1;">
+                            <button type="button" id="edit-program-venue-autofill-btn" class="btn btn-secondary btn-sm btn-autofill" title="Mekân Bilgilerini Getir" style="min-width: 44px; padding: 0; background-color: var(--md-secondary-container); color: var(--md-on-secondary-container); border: 1px dashed var(--md-secondary);">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                            </button>
+                        </div>
+                        <div id="edit-program-venue-autofill-status" class="autofill-status hidden" style="font-size: 11px; margin-top: 4px; line-height: 1.4;"></div>
                     </div>
                     <div class="form-group">
                         <label for="edit-program-city"><i class="fa-solid fa-city"></i> İl *</label>
@@ -1176,6 +1313,7 @@
                         <select id="edit-program-org-select" class="form-control">
                             <option value="">Çatı kurumu seçiniz</option>
                         </select>
+                        <div id="edit-program-org-info-status" class="autofill-status hidden" style="font-size: 11px; margin-top: 8px; line-height: 1.4; border-left: 3px solid var(--md-primary);"></div>
                     </div>
                     <div class="form-group">
                         <label for="edit-program-organization"><i class="fa-solid fa-building"></i> Şube Adı</label>
@@ -1365,7 +1503,13 @@
                     </div>
                     <div class="form-group">
                         <label for="add-venue-name"><i class="fa-solid fa-mosque"></i> Mekân Adı *</label>
-                        <input type="text" id="add-venue-name" class="form-control" placeholder="Örn: Orhan Camii" required>
+                        <div style="display: flex; gap: 8px;">
+                            <input type="text" id="add-venue-name" class="form-control" placeholder="Örn: Orhan Camii" required style="flex: 1;">
+                            <button type="button" id="add-program-venue-autofill-btn" class="btn btn-secondary btn-sm btn-autofill" title="Mekân Bilgilerini Getir" style="min-width: 44px; padding: 0; background-color: var(--md-secondary-container); color: var(--md-on-secondary-container); border: 1px dashed var(--md-secondary);">
+                                <i class="fa-solid fa-map-location-dot"></i>
+                            </button>
+                        </div>
+                        <div id="add-program-venue-autofill-status" class="autofill-status hidden" style="font-size: 11px; margin-top: 4px; line-height: 1.4;"></div>
                     </div>
                     <div class="form-group">
                         <label for="add-city"><i class="fa-solid fa-city"></i> İl *</label>
@@ -1417,6 +1561,7 @@
                         <select id="add-org-select" class="form-control">
                             <option value="">Çatı kurumu seçiniz</option>
                         </select>
+                        <div id="add-program-org-info-status" class="autofill-status hidden" style="font-size: 11px; margin-top: 8px; line-height: 1.4; border-left: 3px solid var(--md-primary);"></div>
                     </div>
                     <div class="form-group">
                         <label for="add-organization"><i class="fa-solid fa-building"></i> Şube Adı</label>
@@ -2118,6 +2263,177 @@
             <div class="modal-footer" style="display: flex; justify-content: space-between; align-items: center; padding: 16px 24px;">
                 <span id="backfill-stats" style="font-size: 13px; font-weight: 500; color: var(--md-on-surface-variant);"></span>
                 <button id="backfill-modal-btn-close" class="btn btn-secondary">Kapat</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tomb Modal (Yeni Türbe & Düzenleme Modalı) -->
+    <div id="tomb-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 900px; width: 95%;">
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-monument" style="font-size: 24px; color: var(--md-secondary);"></i>
+                    <div>
+                        <h3 id="tomb-modal-title">Yeni Türbe / Makam Ekle</h3>
+                        <span id="tomb-modal-origin-badge" class="category-badge" style="background-color: var(--md-primary-container); color: var(--md-primary); font-size: 12px; display: inline-block;">Türbe Kaydı</span>
+                    </div>
+                </div>
+                <button id="tomb-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="tomb-form" onsubmit="return false;">
+                    <input type="hidden" id="tomb-modal-id">
+                    <input type="hidden" id="tomb-modal-source-key">
+
+                    <!-- SECTION A: TEMEL BİLGİLER -->
+                    <div class="form-section">
+                        <h4 style="margin-bottom: 16px; color: var(--md-primary); border-bottom: 1px solid var(--md-outline); padding-bottom: 8px; font-size: 16px;"><i class="fa-solid fa-info-circle"></i> Temel Bilgiler</h4>
+                        <div class="edit-form-grid">
+                            <div class="form-group full-width" style="grid-column: span 2;">
+                                <label for="tomb-modal-name"><i class="fa-solid fa-signature"></i> Türbe / Makam Adı *</label>
+                                <input type="text" id="tomb-modal-name" class="form-control" placeholder="Örn: Sakar Baba Türbesi" required>
+                            </div>
+                            <div class="form-group full-width" style="grid-column: span 2;">
+                                <label for="tomb-modal-alt-name"><i class="fa-solid fa-pen-nib"></i> Alternatif Ad</label>
+                                <input type="text" id="tomb-modal-alt-name" class="form-control" placeholder="Varsa halk arasındaki diğer adı...">
+                            </div>
+                            <div class="form-group">
+                                <label for="tomb-modal-city"><i class="fa-solid fa-city"></i> İl *</label>
+                                <select id="tomb-modal-city" class="form-control" required></select>
+                            </div>
+                            <div class="form-group">
+                                <label for="tomb-modal-district"><i class="fa-solid fa-location-dot"></i> İlçe *</label>
+                                <select id="tomb-modal-district" class="form-control" required>
+                                    <option value="" disabled selected>İlçe Seçiniz</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label for="tomb-modal-neighborhood"><i class="fa-solid fa-map-pin"></i> Mahalle</label>
+                                <input type="text" id="tomb-modal-neighborhood" class="form-control" placeholder="Örn: Semerciler Mh.">
+                            </div>
+                            <div class="form-group">
+                                <label for="tomb-modal-type"><i class="fa-solid fa-tags"></i> Tür *</label>
+                                <select id="tomb-modal-type" class="form-control" required>
+                                    <option value="TURBE">Türbe</option>
+                                    <option value="MAKAM">Makam</option>
+                                    <option value="TARIHI_KABIR">Tarihî Kabir</option>
+                                    <option value="SEHITLIK">Şehitlik</option>
+                                    <option value="HAZIRE">Hazire</option>
+                                    <option value="TOPLU_KABIR">Toplu Kabir</option>
+                                    <option value="TURBE_KOMPLEKSI">Türbe Kompleksi</option>
+                                    <option value="BELIRSIZ">Belirsiz</option>
+                                </select>
+                            </div>
+                            <div class="form-group full-width" style="grid-column: span 2;">
+                                <label for="tomb-modal-address"><i class="fa-solid fa-house"></i> Açık Adres</label>
+                                <textarea id="tomb-modal-address" class="form-control" rows="2" placeholder="Türbenin açık tarifi, adresi..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION B: KONUM -->
+                    <div class="form-section" style="margin-top: 24px;">
+                        <h4 style="margin-bottom: 16px; color: var(--md-primary); border-bottom: 1px solid var(--md-outline); padding-bottom: 8px; font-size: 16px;"><i class="fa-solid fa-map-marked-alt"></i> Konum (Koordinatlar)</h4>
+                        <div class="edit-form-grid">
+                            <div class="form-group">
+                                <label for="tomb-modal-lat"><i class="fa-solid fa-arrows-up-down"></i> Enlem (Latitude)</label>
+                                <input type="number" step="any" id="tomb-modal-lat" class="form-control" placeholder="Örn: 40.7821">
+                            </div>
+                            <div class="form-group">
+                                <label for="tomb-modal-lng"><i class="fa-solid fa-arrows-left-right"></i> Boylam (Longitude)</label>
+                                <input type="number" step="any" id="tomb-modal-lng" class="form-control" placeholder="Örn: 30.4012">
+                            </div>
+                            <div class="form-group full-width" style="grid-column: span 2;">
+                                <p style="font-size: 13px; color: var(--md-on-surface-variant); margin: 0;">
+                                    <i class="fa-solid fa-circle-info"></i> Koordinat girilmezse uygulamada mesafe gösterilmez.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION C: İÇERİK -->
+                    <div class="form-section" style="margin-top: 24px;">
+                        <h4 style="margin-bottom: 16px; color: var(--md-primary); border-bottom: 1px solid var(--md-outline); padding-bottom: 8px; font-size: 16px;"><i class="fa-solid fa-file-alt"></i> İçerik</h4>
+                        <div class="form-group">
+                            <label for="tomb-modal-short-history"><i class="fa-solid fa-align-left"></i> Kısa Bilgi</label>
+                            <input type="text" id="tomb-modal-short-history" class="form-control" placeholder="1-3 cümlelik özet bilgi...">
+                        </div>
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label for="tomb-modal-description"><i class="fa-solid fa-book-open"></i> Tarihçe</label>
+                            <textarea id="tomb-modal-description" class="form-control" rows="6" placeholder="Türbe ve kişi hakkında detaylı tarihî bilgiler..."></textarea>
+                        </div>
+                        <div class="form-group" style="margin-top: 16px;">
+                            <label for="tomb-modal-tradition"><i class="fa-solid fa-comment-dots"></i> Yöresel Rivayet</label>
+                            <textarea id="tomb-modal-tradition" class="form-control" rows="4" placeholder="Halk arasında anlatılan menkıbe ve rivayetler..."></textarea>
+                            <small class="form-text text-muted" style="display: block; margin-top: 4px; color: var(--md-secondary);">
+                                <i class="fa-solid fa-lightbulb"></i> Yalnızca kaynakta rivayet/menkıbe olarak aktarılan bilgiler buraya yazılmalıdır.
+                            </small>
+                        </div>
+                    </div>
+
+                    <!-- SECTION D: KAYNAK VE DURUM -->
+                    <div class="form-section" style="margin-top: 24px;">
+                        <h4 style="margin-bottom: 16px; color: var(--md-primary); border-bottom: 1px solid var(--md-outline); padding-bottom: 8px; font-size: 16px;"><i class="fa-solid fa-database"></i> Kaynak ve Veri Durumu</h4>
+                        <div class="edit-form-grid">
+                            <div class="form-group">
+                                <label for="tomb-modal-source-name"><i class="fa-solid fa-scroll"></i> Kaynak Adı *</label>
+                                <input type="text" id="tomb-modal-source-name" class="form-control" placeholder="Örn: Kültür Portalı" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="tomb-modal-source-url"><i class="fa-solid fa-link"></i> Kaynak URL</label>
+                                <input type="url" id="tomb-modal-source-url" class="form-control" placeholder="https://...">
+                            </div>
+                            <div class="form-group">
+                                <label for="tomb-modal-pub-page"><i class="fa-solid fa-file-lines"></i> Yayın Sayfası</label>
+                                <input type="text" id="tomb-modal-pub-page" class="form-control" placeholder="Örn: S. 124">
+                            </div>
+                            <div class="form-group">
+                                <label for="tomb-modal-data-status"><i class="fa-solid fa-shield-halved"></i> Veri Durumu</label>
+                                <select id="tomb-modal-data-status" class="form-control">
+                                    <option value="REVIEW">İnceleme Bekliyor</option>
+                                    <option value="PARTIAL">Eksik Bilgi Var</option>
+                                    <option value="READY">Yayına Hazır</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SECTION E: FOTOĞRAF GALERİSİ (B16.3C2) -->
+                    <div class="form-section" style="margin-top: 24px;">
+                        <h4 style="margin-bottom: 16px; color: var(--md-primary); border-bottom: 1px solid var(--md-outline); padding-bottom: 8px; font-size: 16px;"><i class="fa-solid fa-images"></i> Fotoğraf Galerisi</h4>
+
+                        <div class="gallery-upload-area" style="margin-bottom: 20px;">
+                            <p style="font-size: 13px; color: var(--md-on-surface-variant); margin-bottom: 12px;"><i class="fa-solid fa-circle-info"></i> En fazla 8 fotoğraf ekleyebilirsiniz. İlk eklenen veya "Kapak Yap" seçilen fotoğraf ana listede görünür.</p>
+                            <div class="file-upload-wrapper" style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+                                <input type="file" id="tomb-modal-gallery-input" accept="image/png, image/jpeg, image/jpg, image/webp" style="display: none;" multiple>
+                                <button type="button" id="tomb-modal-gallery-upload-btn" class="btn btn-secondary btn-sm" style="min-height: 38px; padding: 8px 16px;">
+                                    <i class="fa-solid fa-plus"></i> Fotoğraf Ekle
+                                </button>
+                                <div id="tomb-modal-gallery-loader" class="hidden" style="display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--md-primary);">
+                                    <i class="fa-solid fa-spinner fa-spin"></i> Fotoğraflar yükleniyor...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Gallery Grid -->
+                        <div id="tomb-modal-gallery-container" class="tomb-gallery-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 16px;">
+                            <!-- JS will inject tomb-image-card items here -->
+                        </div>
+
+                        <div class="form-group" style="display: flex; align-items: center; gap: 8px; margin-top: 32px; padding-top: 16px; border-top: 1px dashed var(--md-outline);">
+                            <input type="checkbox" id="tomb-modal-active" checked style="width: 20px; height: 20px; cursor: pointer; accent-color: var(--md-primary);">
+                            <label for="tomb-modal-active" style="margin: 0; cursor: pointer; font-weight: 600;">Aktif (Uygulamada Görünür)</label>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
+                    <button id="tomb-modal-btn-cancel" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Vazgeç</button>
+                    <button id="tomb-modal-btn-save" class="btn btn-action btn-save" style="min-height: 40px; padding: 8px 16px;">Kaydet</button>
+                </div>
             </div>
         </div>
     </div>

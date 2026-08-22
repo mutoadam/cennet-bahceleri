@@ -54,6 +54,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let expandedNodes = new Set();
     let currentSearchTerm = '';
 
+    // Türbeler (Tombs) State Değişkenleri (B16.3C)
+    let loadedTombs = [];
+    let currentEditTomb = null;
+    let loadedTombGallery = []; // B16.3C2
+    let isTombGalleryLoading = false;
+
     // Auth & Yükleme Kontrolü
     let isDataLoaded = false;
     let isInitialAuthCheckDone = false;
@@ -2046,6 +2052,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // Reset photo upload elements
         clearProgramAddPhotosSelection();
 
+        // Reset Autofill statuses (B16.2O1)
+        const addOrgInfoStatus = document.getElementById('add-program-org-info-status');
+        if (addOrgInfoStatus) {
+            addOrgInfoStatus.innerHTML = '';
+            addOrgInfoStatus.classList.add('hidden');
+        }
+        const addVenueStatus = document.getElementById('add-program-venue-autofill-status');
+        if (addVenueStatus) {
+            addVenueStatus.innerHTML = '';
+            addVenueStatus.classList.add('hidden');
+        }
+
         const addFileName = document.getElementById('add-photo-file-name');
         if (addFileName) addFileName.textContent = 'Seçilen dosya yok';
         const addPreviewContainer = document.getElementById('add-photo-preview-container');
@@ -3731,76 +3749,64 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabOrganizations = document.getElementById('main-tab-organizations');
         const tabMosques = document.getElementById('main-tab-mosques');
         const tabDiscover = document.getElementById('main-tab-discover');
-        
+        const tabTombs = document.getElementById('main-tab-tombs');
+
         const suggestionsContent = document.getElementById('suggestions-tab-content');
         const programsContent = document.getElementById('programs-tab-content');
         const organizationsContent = document.getElementById('organizations-tab-content');
         const mosquesContent = document.getElementById('mosques-tab-content');
         const discoverContent = document.getElementById('discover-tab-content');
+        const tombsContent = document.getElementById('tombs-tab-content');
 
-        if (tabSuggestions && tabPrograms && tabOrganizations && tabMosques && suggestionsContent && programsContent && organizationsContent && mosquesContent) {
-            tabSuggestions.addEventListener('click', () => {
-                tabSuggestions.classList.add('active');
-                tabPrograms.classList.remove('active');
-                tabOrganizations.classList.remove('active');
-                tabMosques.classList.remove('active');
-                if (tabDiscover) tabDiscover.classList.remove('active');
-                
-                suggestionsContent.classList.remove('hidden');
-                programsContent.classList.add('hidden');
-                organizationsContent.classList.add('hidden');
-                mosquesContent.classList.add('hidden');
-                if (discoverContent) discoverContent.classList.add('hidden');
-            });
+        const allTabs = [tabSuggestions, tabPrograms, tabOrganizations, tabMosques, tabDiscover, tabTombs].filter(Boolean);
+        const allContents = [suggestionsContent, programsContent, organizationsContent, mosquesContent, discoverContent, tombsContent].filter(Boolean);
 
+        function switchTab(activeTab, activeContent) {
+            allTabs.forEach(tab => tab.classList.remove('active'));
+            allContents.forEach(content => content.classList.add('hidden'));
+
+            if (activeTab) activeTab.classList.add('active');
+            if (activeContent) activeContent.classList.remove('hidden');
+        }
+
+        if (tabSuggestions) {
+            tabSuggestions.addEventListener('click', () => switchTab(tabSuggestions, suggestionsContent));
+        }
+
+        if (tabPrograms) {
             tabPrograms.addEventListener('click', async () => {
-                tabPrograms.classList.add('active');
-                tabSuggestions.classList.remove('active');
-                tabOrganizations.classList.remove('active');
-                tabMosques.classList.remove('active');
-                if (tabDiscover) tabDiscover.classList.remove('active');
-                
-                programsContent.classList.remove('hidden');
-                suggestionsContent.classList.add('hidden');
-                organizationsContent.classList.add('hidden');
-                mosquesContent.classList.add('hidden');
-                if (discoverContent) discoverContent.classList.add('hidden');
-                
+                switchTab(tabPrograms, programsContent);
                 await loadOrganizations();
                 await loadProgramTypes();
                 loadPrograms();
             });
+        }
 
+        if (tabOrganizations) {
             tabOrganizations.addEventListener('click', () => {
-                tabOrganizations.classList.add('active');
-                tabSuggestions.classList.remove('active');
-                tabPrograms.classList.remove('active');
-                tabMosques.classList.remove('active');
-                if (tabDiscover) tabDiscover.classList.remove('active');
-                
-                organizationsContent.classList.remove('hidden');
-                suggestionsContent.classList.add('hidden');
-                programsContent.classList.add('hidden');
-                mosquesContent.classList.add('hidden');
-                if (discoverContent) discoverContent.classList.add('hidden');
-                
+                switchTab(tabOrganizations, organizationsContent);
                 loadAdminOrganizations();
             });
+        }
 
+        if (tabMosques) {
             tabMosques.addEventListener('click', () => {
-                tabMosques.classList.add('active');
-                tabSuggestions.classList.remove('active');
-                tabPrograms.classList.remove('active');
-                tabOrganizations.classList.remove('active');
-                if (tabDiscover) tabDiscover.classList.remove('active');
-                
-                mosquesContent.classList.remove('hidden');
-                suggestionsContent.classList.add('hidden');
-                programsContent.classList.add('hidden');
-                organizationsContent.classList.add('hidden');
-                if (discoverContent) discoverContent.classList.add('hidden');
-                
+                switchTab(tabMosques, mosquesContent);
                 loadMosques();
+            });
+        }
+
+        if (tabDiscover) {
+            tabDiscover.addEventListener('click', () => {
+                switchTab(tabDiscover, discoverContent);
+                loadDiscoverTree();
+            });
+        }
+
+        if (tabTombs) {
+            tabTombs.addEventListener('click', () => {
+                switchTab(tabTombs, tombsContent);
+                loadTombs();
             });
         }
     }
@@ -4246,6 +4252,18 @@ document.addEventListener('DOMContentLoaded', () => {
                     orgSelect.value = foundOrg.id;
                 }
             }
+        }
+
+        // Reset Autofill statuses (B16.2O1)
+        const editOrgInfoStatus = document.getElementById('edit-program-org-info-status');
+        if (editOrgInfoStatus) {
+            editOrgInfoStatus.innerHTML = '';
+            editOrgInfoStatus.classList.add('hidden');
+        }
+        const editVenueStatus = document.getElementById('edit-program-venue-autofill-status');
+        if (editVenueStatus) {
+            editVenueStatus.innerHTML = '';
+            editVenueStatus.classList.add('hidden');
         }
 
         // Reset logo upload input
@@ -6277,13 +6295,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const addSelect = document.getElementById('add-org-select');
         addSelect?.addEventListener('change', (e) => {
             const orgId = e.target.value;
-            console.log("Selected organization ID:", orgId);
+            const statusEl = document.getElementById('add-program-org-info-status');
+
             if (orgId) {
                 const org = activeOrganizations.find(o => o.id === orgId);
                 if (org) {
-                    console.log("Selected organization Name:", org.name);
-                    console.log("Selected organization Logo URL:", org.logo_url);
-                    
                     const orgInput = document.getElementById('add-organization');
                     if (orgInput) orgInput.value = org.name;
                     
@@ -6297,45 +6313,46 @@ document.addEventListener('DOMContentLoaded', () => {
                             'add-program-logo-preview-text',
                             'add-program-logo-file-name'
                         );
-                        console.log("Logo preview updated: true");
-                    } else {
-                        console.log("Logo preview updated: false");
                     }
-                } else {
-                    console.warn("Selected organization not found in activeOrganizations list.");
+
+                    // B16.2O1 - Social Info (Informational)
+                    if (statusEl) {
+                        const socials = [];
+                        if (org.website_url) socials.push("Website");
+                        if (org.instagram_url) socials.push("Instagram");
+                        if (org.youtube_url) socials.push("YouTube");
+                        if (org.whatsapp_url) socials.push("WhatsApp");
+
+                        if (socials.length > 0) {
+                            statusEl.innerHTML = `<div style="display: flex; align-items: center; gap: 8px; color: var(--md-primary); font-weight: 500;">
+                                <i class="fa-solid fa-share-nodes"></i> Kurumun <strong>${socials.join(', ')}</strong> bilgileri mevcuttur.
+                            </div>`;
+                            statusEl.classList.remove('hidden');
+                        } else {
+                            statusEl.classList.add('hidden');
+                        }
+                    }
                 }
             } else {
-                console.log("Organization selection cleared.");
                 const orgInput = document.getElementById('add-organization');
                 if (orgInput) orgInput.value = '';
-                
                 const logoInput = document.getElementById('add-program-logo-url');
                 if (logoInput) {
                     logoInput.value = '';
-                    updateLogoPreview(
-                        '',
-                        'add-program-logo-preview-container',
-                        'add-program-logo-preview-img',
-                        'add-program-logo-preview-text',
-                        'add-program-logo-file-name'
-                    );
-                    console.log("Logo preview updated: true (cleared)");
-                } else {
-                    console.log("Logo preview updated: false");
+                    updateLogoPreview('', 'add-program-logo-preview-container', 'add-program-logo-preview-img', 'add-program-logo-preview-text', 'add-program-logo-file-name');
                 }
+                if (statusEl) statusEl.classList.add('hidden');
             }
         });
 
         const editSelect = document.getElementById('edit-program-org-select');
         editSelect?.addEventListener('change', (e) => {
             const orgId = e.target.value;
-            console.log("Selected organization ID (edit):", orgId);
+            const statusEl = document.getElementById('edit-program-org-info-status');
+
             if (orgId) {
                 const org = activeOrganizations.find(o => o.id === orgId);
                 if (org) {
-                    console.log("Selected organization Name (edit):", org.name);
-                    console.log("Selected organization Logo URL (edit):", org.logo_url);
-                    
                     const orgInput = document.getElementById('edit-program-organization');
                     if (orgInput) orgInput.value = org.name;
                     
@@ -6349,32 +6366,35 @@ document.addEventListener('DOMContentLoaded', () => {
                             'edit-program-logo-preview-text',
                             'edit-program-logo-file-name'
                         );
-                        console.log("Logo preview updated (edit): true");
-                    } else {
-                        console.log("Logo preview updated (edit): false");
                     }
-                } else {
-                    console.warn("Selected organization not found in activeOrganizations list (edit).");
+
+                    // B16.2O1 - Social Info (Informational)
+                    if (statusEl) {
+                        const socials = [];
+                        if (org.website_url) socials.push("Website");
+                        if (org.instagram_url) socials.push("Instagram");
+                        if (org.youtube_url) socials.push("YouTube");
+                        if (org.whatsapp_url) socials.push("WhatsApp");
+
+                        if (socials.length > 0) {
+                            statusEl.innerHTML = `<div style="display: flex; align-items: center; gap: 8px; color: var(--md-primary); font-weight: 500;">
+                                <i class="fa-solid fa-share-nodes"></i> Kurumun <strong>${socials.join(', ')}</strong> bilgileri mevcuttur.
+                            </div>`;
+                            statusEl.classList.remove('hidden');
+                        } else {
+                            statusEl.classList.add('hidden');
+                        }
+                    }
                 }
             } else {
-                console.log("Organization selection cleared (edit).");
                 const orgInput = document.getElementById('edit-program-organization');
                 if (orgInput) orgInput.value = '';
-                
                 const logoInput = document.getElementById('edit-program-logo-url');
                 if (logoInput) {
                     logoInput.value = '';
-                    updateLogoPreview(
-                        '',
-                        'edit-program-logo-preview-container',
-                        'edit-program-logo-preview-img',
-                        'edit-program-logo-preview-text',
-                        'edit-program-logo-file-name'
-                    );
-                    console.log("Logo preview updated (edit): true (cleared)");
-                } else {
-                    console.log("Logo preview updated (edit): false");
+                    updateLogoPreview('', 'edit-program-logo-preview-container', 'edit-program-logo-preview-img', 'edit-program-logo-preview-text', 'edit-program-logo-file-name');
                 }
+                if (statusEl) statusEl.classList.add('hidden');
             }
         });
     }
@@ -7037,6 +7057,182 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Kurumlar Dinleyicileri
+    // B16.2O1 - Mekân Bilgilerini Otomatik Doldur
+    function handleVenueAutofill(context) {
+        const venueInputId = context === 'add' ? 'add-venue-name' : 'edit-program-venue-name';
+        const citySelectId = context === 'add' ? 'add-city' : 'edit-program-city';
+        const districtSelectId = context === 'add' ? 'add-district' : 'edit-program-district';
+        const statusId = context === 'add' ? 'add-program-venue-autofill-status' : 'edit-program-venue-autofill-status';
+
+        const venueName = document.getElementById(venueInputId)?.value.trim();
+        const city = document.getElementById(citySelectId)?.value;
+        const district = document.getElementById(districtSelectId)?.value;
+        const statusEl = document.getElementById(statusId);
+
+        if (!venueName) {
+            showToast("Lütfen önce bir mekân adı giriniz.", "warning");
+            return;
+        }
+
+        if (statusEl) {
+            statusEl.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Mekânlar taranıyor...';
+            statusEl.classList.remove('hidden');
+        }
+
+        const normalizedSearch = normalizeVenueName(venueName);
+        const candidates = [];
+
+        // 1. Birincil Kaynak: mosque_locations
+        if (mosquesListCache && mosquesListCache.length > 0) {
+            mosquesListCache.forEach(m => {
+                if (normalizeVenueName(m.mosque_name) === normalizedSearch) {
+                    candidates.push({
+                        source: 'mosque',
+                        name: m.mosque_name,
+                        city: m.city,
+                        district: m.district,
+                        address: m.address,
+                        maps: m.google_maps_link,
+                        lat: m.latitude,
+                        lng: m.longitude
+                    });
+                }
+            });
+        }
+
+        // 2. İkincil Kaynak: loadedPrograms (Sadece konum verisi olanlar)
+        if (loadedPrograms && loadedPrograms.length > 0) {
+            loadedPrograms.forEach(p => {
+                if (normalizeVenueName(p.venue_name) === normalizedSearch) {
+                    const hasValidLocation = (p.google_maps_link && p.google_maps_link.trim()) ||
+                                           (p.latitude && p.longitude && p.latitude !== 0);
+                    if (hasValidLocation) {
+                        // Cami veritabanında zaten varsa tekrar ekleme
+                        const exists = candidates.some(c => c.city === p.city && c.district === p.district && c.maps === p.google_maps_link);
+                        if (!exists) {
+                            candidates.push({
+                                source: 'program',
+                                name: p.venue_name,
+                                city: p.city,
+                                district: p.district,
+                                address: p.address,
+                                maps: p.google_maps_link,
+                                lat: p.latitude,
+                                lng: p.longitude
+                            });
+                        }
+                    }
+                }
+            });
+        }
+
+        if (candidates.length === 0) {
+            statusEl.innerHTML = '<div style="color: #d32f2f; padding: 4px;"><i class="fa-solid fa-circle-xmark"></i> Uygun bir konum adayı bulunamadı.</div>';
+            return;
+        }
+
+        // Puanlama ve Sıralama: Aynı il/ilçe olanları öne çıkar
+        candidates.forEach(c => {
+            let score = 0;
+            if (city && c.city === city) score += 10;
+            if (district && c.district === district) score += 5;
+            if (c.source === 'mosque') score += 2;
+            c.score = score;
+        });
+        candidates.sort((a, b) => b.score - a.score);
+
+        renderVenueCandidates(context, candidates);
+    }
+
+    function renderVenueCandidates(context, candidates) {
+        const statusId = context === 'add' ? 'add-program-venue-autofill-status' : 'edit-program-venue-autofill-status';
+        const statusEl = document.getElementById(statusId);
+        if (!statusEl) return;
+
+        let html = `<div style="margin-bottom: 8px; font-weight: 600; font-size: 12px; color: var(--md-primary);">${candidates.length} aday bulundu:</div>`;
+        html += '<div class="autofill-candidate-list">';
+
+        candidates.forEach((c, idx) => {
+            const sourceIcon = c.source === 'mosque' ? '<i class="fa-solid fa-mosque" title="Cami Veritabanı" style="color: #2e7d32;"></i>' : '<i class="fa-solid fa-calendar-check" title="Kayıtlı Programlar" style="color: #1565c0;"></i>';
+            html += `
+                <div class="autofill-candidate-item">
+                    <div class="candidate-info">
+                        <span class="candidate-name">${sourceIcon} ${escapeHtml(c.name)}</span>
+                        <span class="candidate-loc">${escapeHtml(c.city)} / ${escapeHtml(c.district)}</span>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-sm btn-select-fill" data-idx="${idx}" style="font-size: 10px; min-height: 28px; padding: 0 8px;">Doldur</button>
+                </div>
+            `;
+        });
+
+        html += '</div>';
+        html += `<div style="margin-top: 8px; text-align: right;"><button type="button" class="btn btn-secondary btn-xs btn-close-autofill" style="font-size: 10px; padding: 2px 8px;">Kapat</button></div>`;
+
+        statusEl.innerHTML = html;
+
+        // Seçim butonlarını bağla
+        statusEl.querySelectorAll('.btn-select-fill').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                e.preventDefault();
+                const idx = parseInt(btn.getAttribute('data-idx'));
+                applyVenueSelection(context, candidates[idx]);
+            });
+        });
+
+        // Kapat butonunu bağla
+        statusEl.querySelector('.btn-close-autofill')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            statusEl.classList.add('hidden');
+        });
+    }
+
+    function applyVenueSelection(context, candidate) {
+        const prefix = context === 'add' ? 'add-' : 'edit-program-';
+
+        const mapsInput = document.getElementById(`${prefix}google-maps-link`);
+        const addressInput = document.getElementById(`${prefix}address`);
+        const citySelect = document.getElementById(`${prefix}city`);
+        const districtSelect = document.getElementById(`${prefix}district`);
+
+        // Güvenlik: Dolu alanlar varsa onay iste
+        const isMapsDirty = mapsInput?.value && mapsInput.value.trim() !== '' && mapsInput.value !== candidate.maps;
+        const isAddressDirty = addressInput?.value && addressInput.value.trim() !== '' && addressInput.value !== candidate.address;
+
+        if ((isMapsDirty || isAddressDirty) && !confirm("Mevcut konum/adres bilgilerinin üzerine yazılacak. Emin misiniz?")) {
+            return;
+        }
+
+        // Değerleri bas
+        if (mapsInput) mapsInput.value = candidate.maps || '';
+        if (addressInput) addressInput.value = candidate.address || '';
+
+        // Edit modunda koordinat state'ini de güncelle
+        if (context === 'edit' && currentEditProgram) {
+            currentEditProgram.latitude = candidate.lat;
+            currentEditProgram.longitude = candidate.lng;
+            console.log("Edit program coordinates updated from candidate:", candidate.lat, candidate.lng);
+        }
+
+        // İl/İlçe uyumsuzsa onları da güncelle (Kullanıcı aday seçtiği için bu güvenlidir)
+        if (citySelect && districtSelect) {
+             if (citySelect.value !== candidate.city || districtSelect.value !== candidate.district) {
+                 setupLocationDropdowns(`${prefix}city`, `${prefix}district`, candidate.city, candidate.district);
+             }
+        }
+
+        const statusId = context === 'add' ? 'add-program-venue-autofill-status' : 'edit-program-venue-autofill-status';
+        const statusEl = document.getElementById(statusId);
+        if (statusEl) {
+            statusEl.innerHTML = `<div style="color: #2e7d32; font-weight: 600; padding: 4px;"><i class="fa-solid fa-check-circle"></i> ${escapeHtml(candidate.name)} verileri uygulandı.</div>`;
+            setTimeout(() => {
+                statusEl.classList.add('hidden');
+                statusEl.innerHTML = '';
+            }, 3000);
+        }
+
+        showToast("Konum bilgileri başarıyla aktarıldı.", "success");
+    }
+
     function initOrgListeners() {
         // Yeni Kurum Modalı Aç
         document.getElementById('add-organization-btn')?.addEventListener('click', () => {
@@ -8875,6 +9071,16 @@ out center tags;`;
     initSqlExport();
     initDiscoverListeners();
     
+    // B16.2O1 - Venue Autofill Listeners
+    document.getElementById('add-program-venue-autofill-btn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleVenueAutofill('add');
+    });
+    document.getElementById('edit-program-venue-autofill-btn')?.addEventListener('click', (e) => {
+        e.preventDefault();
+        handleVenueAutofill('edit');
+    });
+
     // Auth Initialization
     initSupabase();
     initAuth();
@@ -11025,5 +11231,653 @@ out center tags;`;
     // Expose Backfill functions globally (B16.2H1)
     window.approveBackfillSuggestion = approveBackfillSuggestion;
     window.rejectBackfillSuggestion = rejectBackfillSuggestion;
+
+    // ==========================================
+    // TÜRBELER (TOMBS) MODÜLÜ (B16.3C2 - Multi-Image Gallery)
+    // ==========================================
+
+    let isTombsInitialized = false;
+
+    async function loadTombs() {
+        if (!supabaseClient) return;
+
+        // Initialize listeners and filters only once
+        if (!isTombsInitialized) {
+            initTombListeners();
+            initTombFilterOptions();
+            isTombsInitialized = true;
+        }
+
+        const loader = document.getElementById('tombs-loader');
+        const container = document.getElementById('tombs-list');
+        const errorContainer = document.getElementById('tombs-error-container');
+        const emptyContainer = document.getElementById('tombs-empty-container');
+
+        if (loader) loader.classList.remove('hidden');
+        if (container) container.classList.add('hidden');
+        if (errorContainer) errorContainer.classList.add('hidden');
+        if (emptyContainer) emptyContainer.classList.add('hidden');
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('tomb_locations')
+                .select('*')
+                .order('city', { ascending: true })
+                .order('district', { ascending: true })
+                .order('name', { ascending: true });
+
+            if (error) throw error;
+
+            loadedTombs = data || [];
+            updateTombStats(loadedTombs);
+            renderTombs(loadedTombs);
+
+        } catch (error) {
+            console.error("Türbeler yüklenirken hata oluştu:", error);
+            if (errorContainer) errorContainer.classList.remove('hidden');
+            const errMsg = document.getElementById('tombs-error-message');
+            if (errMsg) errMsg.textContent = error.message;
+        } finally {
+            if (loader) loader.classList.add('hidden');
+        }
+    }
+
+    function updateTombStats(tombs) {
+        const totalVal = document.getElementById('stats-total-tombs-val');
+        const activeVal = document.getElementById('stats-active-tombs-val');
+        const reviewVal = document.getElementById('stats-review-tombs-val');
+
+        if (totalVal) totalVal.textContent = tombs.length;
+        if (activeVal) activeVal.textContent = tombs.filter(t => t.is_active).length;
+        if (reviewVal) reviewVal.textContent = tombs.filter(t => t.data_status === 'REVIEW' || t.data_status === 'PARTIAL').length;
+    }
+
+    function renderTombs(tombs) {
+        const container = document.getElementById('tombs-list');
+        const countText = document.getElementById('tombs-count-text');
+        const emptyContainer = document.getElementById('tombs-empty-container');
+
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (countText) countText.textContent = `${tombs.length} türbe içinden ${tombs.length} kayıt gösteriliyor.`;
+
+        if (tombs.length === 0) {
+            if (emptyContainer) emptyContainer.classList.remove('hidden');
+            return;
+        }
+
+        container.classList.remove('hidden');
+
+        tombs.forEach(tomb => {
+            const card = document.createElement('div');
+            card.className = 'suggestion-card tomb-card'; // Reuse existing styles
+
+            const statusBadgeClass = tomb.is_active ? 'status-approved' : 'status-rejected';
+            const dataStatusLabel = tomb.data_status === 'READY' ? 'Yayına Hazır' :
+                                   (tomb.data_status === 'PARTIAL' ? 'Eksik Bilgi' : 'İncelemede');
+
+            const photoUrl = tomb.image_url || 'https://placehold.co/400x250?text=Fotoğraf+Yok';
+
+            card.innerHTML = `
+                <div class="card-header-info">
+                    <div style="display: flex; gap: 6px; flex-wrap: wrap;">
+                        <span class="category-badge">${escapeHtml(tomb.place_type)}</span>
+                        <span class="status-badge ${statusBadgeClass}">${tomb.is_active ? 'Aktif' : 'Pasif'}</span>
+                        <span class="status-badge" style="background: var(--md-primary-container); color: var(--md-primary);">${dataStatusLabel}</span>
+                    </div>
+                    <span class="date-badge"><i class="fa-solid fa-database"></i> ${escapeHtml(tomb.dataset_origin)}</span>
+                </div>
+
+                <div style="display: flex; gap: 16px; margin-top: 12px;">
+                    <div style="width: 80px; height: 80px; flex-shrink: 0; border-radius: 8px; overflow: hidden; border: 1px solid var(--md-outline);">
+                        <img src="${photoUrl}" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <div style="flex: 1;">
+                        <h4 class="program-title" style="margin: 0;">${escapeHtml(tomb.name)}</h4>
+                        <p class="venue-info" style="margin: 4px 0;"><i class="fa-solid fa-location-dot"></i> <strong>${escapeHtml(tomb.city)} / ${escapeHtml(tomb.district)}</strong></p>
+                        <p style="font-size: 13px; color: var(--md-on-surface-variant); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${escapeHtml(tomb.short_history || 'Açıklama yok.')}</p>
+                    </div>
+                </div>
+
+                <div class="card-actions" style="margin-top: 16px;">
+                    <button class="btn btn-primary btn-sm btn-edit-tomb" data-id="${tomb.id}">
+                        <i class="fa-solid fa-pen-to-square"></i> Düzenle
+                    </button>
+                    <button class="btn btn-secondary btn-sm btn-toggle-tomb" data-id="${tomb.id}" data-active="${tomb.is_active}">
+                        <i class="fa-solid ${tomb.is_active ? 'fa-eye-slash' : 'fa-eye'}"></i> ${tomb.is_active ? 'Pasife Al' : 'Aktifleştir'}
+                    </button>
+                </div>
+            `;
+
+            card.querySelector('.btn-edit-tomb').addEventListener('click', () => openTombModal(tomb));
+            card.querySelector('.btn-toggle-tomb').addEventListener('click', () => toggleTombActive(tomb.id, !tomb.is_active));
+
+            container.appendChild(card);
+        });
+    }
+
+    async function toggleTombActive(id, newActive) {
+        if (!supabaseClient) return;
+        try {
+            const { error } = await supabaseClient
+                .from('tomb_locations')
+                .update({ is_active: newActive, updated_at: new Date().toISOString() })
+                .eq('id', id);
+
+            if (error) throw error;
+            showToast(newActive ? "Türbe aktifleştirildi." : "Türbe pasife alındı.", "success");
+            loadTombs();
+        } catch (error) {
+            console.error("Türbe durumu değiştirilemedi:", error);
+            showToast("Hata oluştu.", "error");
+        }
+    }
+
+    function applyTombFilters() {
+        const searchTerm = document.getElementById('tombs-filter-search').value.toLowerCase();
+        const city = document.getElementById('tombs-filter-city').value;
+        const district = document.getElementById('tombs-filter-district').value;
+        const type = document.getElementById('tombs-filter-type').value;
+        const status = document.getElementById('tombs-filter-status').value;
+        const active = document.getElementById('tombs-filter-active').value;
+
+        let filtered = loadedTombs.filter(t => {
+            const matchesSearch = !searchTerm ||
+                t.name.toLowerCase().includes(searchTerm) ||
+                (t.alternative_name && t.alternative_name.toLowerCase().includes(searchTerm)) ||
+                (t.neighborhood && t.neighborhood.toLowerCase().includes(searchTerm)) ||
+                (t.address && t.address.toLowerCase().includes(searchTerm));
+
+            const matchesCity = !city || t.city === city;
+            const matchesDistrict = !district || t.district === district;
+            const matchesType = !type || t.place_type === type;
+            const matchesStatus = !status || t.data_status === status;
+            const matchesActive = active === "" || String(t.is_active) === active;
+
+            return matchesSearch && matchesCity && matchesDistrict && matchesType && matchesStatus && matchesActive;
+        });
+
+        renderTombs(filtered);
+    }
+
+    async function openTombModal(tomb = null) {
+        currentEditTomb = tomb;
+        loadedTombGallery = [];
+
+        const modal = document.getElementById('tomb-modal');
+        const form = document.getElementById('tomb-form');
+        const title = document.getElementById('tomb-modal-title');
+        const originBadge = document.getElementById('tomb-modal-origin-badge');
+
+        if (!modal || !form) return;
+        form.reset();
+
+        // Populate City/District
+        setupLocationDropdowns('tomb-modal-city', 'tomb-modal-district', tomb ? tomb.city : 'Sakarya', tomb ? tomb.district : '');
+
+        if (tomb) {
+            title.textContent = "Türbe Düzenle";
+            originBadge.textContent = tomb.dataset_origin;
+
+            document.getElementById('tomb-modal-id').value = tomb.id;
+            document.getElementById('tomb-modal-source-key').value = tomb.source_key;
+            document.getElementById('tomb-modal-name').value = tomb.name;
+            document.getElementById('tomb-modal-alt-name').value = tomb.alternative_name || '';
+            document.getElementById('tomb-modal-neighborhood').value = tomb.neighborhood || '';
+            document.getElementById('tomb-modal-type').value = tomb.place_type;
+            document.getElementById('tomb-modal-address').value = tomb.address || '';
+            document.getElementById('tomb-modal-lat').value = tomb.latitude || '';
+            document.getElementById('tomb-modal-lng').value = tomb.longitude || '';
+            document.getElementById('tomb-modal-short-history').value = tomb.short_history || '';
+            document.getElementById('tomb-modal-description').value = tomb.description || '';
+            document.getElementById('tomb-modal-tradition').value = tomb.tradition_note || '';
+            document.getElementById('tomb-modal-source-name').value = tomb.source_name;
+            document.getElementById('tomb-modal-source-url').value = tomb.source_url || '';
+            document.getElementById('tomb-modal-pub-page').value = tomb.publication_page || '';
+            document.getElementById('tomb-modal-data-status').value = tomb.data_status;
+            document.getElementById('tomb-modal-active').checked = tomb.is_active;
+
+            // Load Gallery (B16.3C2)
+            await loadTombGallery(tomb.id);
+        } else {
+            title.textContent = "Yeni Türbe Ekle";
+            originBadge.textContent = "MANUEL GİRİŞ";
+            document.getElementById('tomb-modal-id').value = '';
+            document.getElementById('tomb-modal-source-key').value = '';
+            document.getElementById('tomb-modal-data-status').value = 'REVIEW';
+            document.getElementById('tomb-modal-active').checked = true;
+            renderTombGallery();
+        }
+
+        modal.classList.remove('hidden');
+    }
+
+    function closeTombModal() {
+        const modal = document.getElementById('tomb-modal');
+        if (modal) modal.classList.add('hidden');
+        currentEditTomb = null;
+        loadedTombGallery = [];
+    }
+
+    async function loadTombGallery(tombId) {
+        if (!supabaseClient) return;
+        const loader = document.getElementById('tomb-modal-gallery-loader');
+        if (loader) loader.classList.remove('hidden');
+
+        try {
+            const { data, error } = await supabaseClient
+                .from('tomb_images')
+                .select('*')
+                .eq('tomb_id', tombId)
+                .order('sort_order', { ascending: true });
+
+            if (error) throw error;
+            loadedTombGallery = data || [];
+            renderTombGallery();
+        } catch (error) {
+            console.error("Galeri yüklenemedi:", error);
+            showToast("Galeri fotoğrafları yüklenemedi.", "error");
+        } finally {
+            if (loader) loader.classList.add('hidden');
+        }
+    }
+
+    function renderTombGallery() {
+        const container = document.getElementById('tomb-modal-gallery-container');
+        if (!container) return;
+        container.innerHTML = '';
+
+        if (loadedTombGallery.length === 0) {
+            container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 20px; color: var(--md-on-surface-variant); font-size: 14px;">Henüz fotoğraf eklenmemiş.</p>';
+            return;
+        }
+
+        loadedTombGallery.forEach((img, index) => {
+            const card = document.createElement('div');
+            card.className = `tomb-image-card ${img.is_cover ? 'is-cover' : ''}`;
+
+            card.innerHTML = `
+                <div style="position: relative;">
+                    ${img.is_cover ? '<span class="cover-badge">KAPAK</span>' : ''}
+                    <img src="${img.image_url}" class="tomb-image-thumb" alt="Tomb photo">
+                </div>
+                <div class="tomb-image-info">
+                    <input type="text" class="tomb-image-attr-input" value="${escapeHtml(img.image_attribution || '')}" placeholder="Fotoğraf Kaynağı / Atıf" data-id="${img.id}">
+                </div>
+                <div class="tomb-image-actions">
+                    <button type="button" class="btn btn-primary btn-xs btn-full btn-set-cover" data-id="${img.id}" ${img.is_cover ? 'disabled' : ''}>Kapak Yap</button>
+                    <button type="button" class="btn btn-secondary btn-xs btn-move-left" data-id="${img.id}" ${index === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-left"></i></button>
+                    <button type="button" class="btn btn-secondary btn-xs btn-move-right" data-id="${img.id}" ${index === loadedTombGallery.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-right"></i></button>
+                    <button type="button" class="btn btn-secondary btn-xs btn-full btn-remove-image" data-id="${img.id}" style="color: var(--md-error); border-color: rgba(186, 26, 26, 0.2);"><i class="fa-solid fa-trash-can"></i> Kaldır</button>
+                </div>
+            `;
+
+            // Event Listeners
+            card.querySelector('.btn-set-cover').onclick = () => setTombCover(img.id);
+            card.querySelector('.btn-move-left').onclick = () => moveTombImage(img.id, 'left');
+            card.querySelector('.btn-move-right').onclick = () => moveTombImage(img.id, 'right');
+            card.querySelector('.btn-remove-image').onclick = () => removeTombImage(img.id);
+
+            const attrInput = card.querySelector('.tomb-image-attr-input');
+            attrInput.onchange = (e) => updateTombImageAttribution(img.id, e.target.value);
+
+            container.appendChild(card);
+        });
+    }
+
+    async function handleTombGalleryUpload(files) {
+        if (!supabaseClient || !currentEditTomb) {
+            showToast("Lütfen önce türbe kaydını oluşturun veya kaydedin.", "warning");
+            return;
+        }
+
+        if (loadedTombGallery.length + files.length > 8) {
+            showToast("En fazla 8 fotoğraf ekleyebilirsiniz.", "warning");
+            return;
+        }
+
+        const loader = document.getElementById('tomb-modal-gallery-loader');
+        if (loader) loader.classList.remove('hidden');
+
+        try {
+            for (const file of files) {
+                const uploadedUrl = await uploadTombPhotoToStorage(file, currentEditTomb.city, currentEditTomb.district, currentEditTomb.id);
+                if (uploadedUrl) {
+                    const isFirst = loadedTombGallery.length === 0;
+                    const sortOrder = loadedTombGallery.length;
+
+                    const payload = {
+                        tomb_id: currentEditTomb.id,
+                        image_url: uploadedUrl,
+                        storage_path: extractStoragePath(uploadedUrl),
+                        sort_order: sortOrder,
+                        is_cover: isFirst
+                    };
+
+                    const { data, error } = await supabaseClient
+                        .from('tomb_images')
+                        .insert(payload)
+                        .select()
+                        .single();
+
+                    if (error) throw error;
+
+                    loadedTombGallery.push(data);
+
+                    if (isFirst) {
+                        await syncTombCover(currentEditTomb.id, uploadedUrl);
+                    }
+                }
+            }
+            renderTombGallery();
+            showToast("Fotoğraflar başarıyla eklendi.", "success");
+        } catch (error) {
+            console.error("Yükleme hatası:", error);
+            showToast("Bazı fotoğraflar yüklenemedi.", "error");
+        } finally {
+            if (loader) loader.classList.add('hidden');
+        }
+    }
+
+    async function setTombCover(imageId) {
+        if (!supabaseClient || !currentEditTomb) return;
+
+        try {
+            // 1. Reset all covers for this tomb
+            await supabaseClient
+                .from('tomb_images')
+                .update({ is_cover: false })
+                .eq('tomb_id', currentEditTomb.id);
+
+            // 2. Set new cover
+            const { data, error } = await supabaseClient
+                .from('tomb_images')
+                .update({ is_cover: true })
+                .eq('id', imageId)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            // 3. Sync with tomb_locations
+            await syncTombCover(currentEditTomb.id, data.image_url);
+
+            // 4. Update UI
+            loadedTombGallery.forEach(img => img.is_cover = (img.id === imageId));
+            renderTombGallery();
+            showToast("Kapak fotoğrafı güncellendi.", "success");
+        } catch (error) {
+            console.error("Kapak değiştirilemedi:", error);
+            showToast("İşlem başarısız oldu.", "error");
+        }
+    }
+
+    async function syncTombCover(tombId, imageUrl) {
+        await supabaseClient
+            .from('tomb_locations')
+            .update({ image_url: imageUrl, updated_at: new Date().toISOString() })
+            .eq('id', tombId);
+    }
+
+    async function moveTombImage(imageId, direction) {
+        const index = loadedTombGallery.findIndex(img => img.id === imageId);
+        if (index === -1) return;
+
+        const newIndex = direction === 'left' ? index - 1 : index + 1;
+        if (newIndex < 0 || newIndex >= loadedTombGallery.length) return;
+
+        // Swap locally
+        const temp = loadedTombGallery[index];
+        loadedTombGallery[index] = loadedTombGallery[newIndex];
+        loadedTombGallery[newIndex] = temp;
+
+        // Update sort_order in DB
+        try {
+            await Promise.all(loadedTombGallery.map((img, i) =>
+                supabaseClient.from('tomb_images').update({ sort_order: i }).eq('id', img.id)
+            ));
+            renderTombGallery();
+        } catch (error) {
+            console.error("Sıralama güncellenemedi:", error);
+        }
+    }
+
+    async function removeTombImage(imageId) {
+        if (!confirm("Bu fotoğrafı galeriden silmek istediğinize emin misiniz?")) return;
+
+        const img = loadedTombGallery.find(i => i.id === imageId);
+        if (!img) return;
+
+        try {
+            // 1. Delete from DB
+            const { error: dbError } = await supabaseClient
+                .from('tomb_images')
+                .delete()
+                .eq('id', imageId);
+
+            if (dbError) throw dbError;
+
+            // 2. Safe Storage Delete
+            if (img.storage_path && img.storage_path.includes('tomb-images')) {
+                await supabaseClient.storage.from('tomb-images').remove([img.storage_path]);
+            }
+
+            // 3. Handle Cover sync if we deleted the cover
+            if (img.is_cover) {
+                const remaining = loadedTombGallery.filter(i => i.id !== imageId);
+                if (remaining.length > 0) {
+                    const newCover = remaining[0];
+                    await setTombCover(newCover.id);
+                } else {
+                    await syncTombCover(currentEditTomb.id, null);
+                }
+            }
+
+            // 4. Update UI
+            loadedTombGallery = loadedTombGallery.filter(i => i.id !== imageId);
+            renderTombGallery();
+            showToast("Fotoğraf silindi.", "success");
+        } catch (error) {
+            console.error("Silme hatası:", error);
+            showToast("Fotoğraf silinemedi.", "error");
+        }
+    }
+
+    async function updateTombImageAttribution(imageId, text) {
+        try {
+            await supabaseClient
+                .from('tomb_images')
+                .update({ image_attribution: text })
+                .eq('id', imageId);
+
+            const img = loadedTombGallery.find(i => i.id === imageId);
+            if (img) img.image_attribution = text;
+        } catch (error) {
+            console.error("Atıf güncellenemedi:", error);
+        }
+    }
+
+    function extractStoragePath(url) {
+        // Expected: .../storage/v1/object/public/tomb-images/TR/city/dist/file
+        try {
+            const parts = url.split('/tomb-images/');
+            if (parts.length > 1) return parts[1];
+        } catch (e) {}
+        return null;
+    }
+
+    async function handleTombSave() {
+        if (!supabaseClient) return;
+
+        const saveBtn = document.getElementById('tomb-modal-btn-save');
+        const originalHTML = saveBtn.innerHTML;
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Kaydediliyor...';
+
+        try {
+            const id = document.getElementById('tomb-modal-id').value;
+            const city = document.getElementById('tomb-modal-city').value;
+            const district = document.getElementById('tomb-modal-district').value;
+            const name = document.getElementById('tomb-modal-name').value.trim();
+
+            if (!name || !city || !district) {
+                showToast("Lütfen zorunlu alanları doldurunuz.", "warning");
+                return;
+            }
+
+            // Note: image_url is managed by gallery sync logic
+            const payload = {
+                name: name,
+                alternative_name: document.getElementById('tomb-modal-alt-name').value.trim() || null,
+                publication_name: name,
+                city: city,
+                district: district,
+                neighborhood: document.getElementById('tomb-modal-neighborhood').value.trim() || null,
+                address: document.getElementById('tomb-modal-address').value.trim() || null,
+                place_type: document.getElementById('tomb-modal-type').value,
+                latitude: parseFloat(document.getElementById('tomb-modal-lat').value) || null,
+                longitude: parseFloat(document.getElementById('tomb-modal-lng').value) || null,
+                short_history: document.getElementById('tomb-modal-short-history').value.trim() || null,
+                description: document.getElementById('tomb-modal-description').value.trim() || null,
+                tradition_note: document.getElementById('tomb-modal-tradition').value.trim() || null,
+                source_name: document.getElementById('tomb-modal-source-name').value.trim(),
+                source_url: document.getElementById('tomb-modal-source-url').value.trim() || null,
+                publication_page: document.getElementById('tomb-modal-pub-page').value.trim() || null,
+                data_status: document.getElementById('tomb-modal-data-status').value,
+                is_active: document.getElementById('tomb-modal-active').checked,
+                updated_at: new Date().toISOString()
+            };
+
+            if (!id) {
+                // NEW RECORD
+                const newId = crypto.randomUUID();
+                payload.id = newId;
+                payload.source_key = `admin_${newId}`;
+                payload.dataset_origin = 'OTHER_VERIFIED';
+                payload.created_at = new Date().toISOString();
+
+                const { error } = await supabaseClient.from('tomb_locations').insert(payload);
+                if (error) throw error;
+                showToast("Türbe başarıyla eklendi. Artık fotoğraf ekleyebilirsiniz.", "success");
+
+                // Allow adding photos after save
+                const { data } = await supabaseClient.from('tomb_locations').select('*').eq('id', newId).single();
+                openTombModal(data);
+            } else {
+                // UPDATE
+                const { error } = await supabaseClient.from('tomb_locations').update(payload).eq('id', id);
+                if (error) throw error;
+                showToast("Türbe güncellendi.", "success");
+                closeTombModal();
+            }
+
+            loadTombs();
+
+        } catch (error) {
+            console.error("Türbe kaydedilirken hata:", error);
+            showToast("Kayıt sırasında hata oluştu.", "error");
+        } finally {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalHTML;
+        }
+    }
+
+    async function uploadTombPhotoToStorage(file, city, district, tombId) {
+        try {
+            const fileExt = file.name.split('.').pop();
+            const cleanCity = trNormalizeForPath(city);
+            const cleanDistrict = trNormalizeForPath(district);
+            const timestamp = new Date().getTime();
+            const fileName = `${crypto.randomUUID()}_${timestamp}.${fileExt}`;
+
+            const path = `TR/${cleanCity}/${cleanDistrict}/${tombId}/${fileName}`;
+
+            const { data, error } = await supabaseClient.storage
+                .from('tomb-images')
+                .upload(path, file, { contentType: file.type });
+
+            if (error) throw error;
+
+            const { data: { publicUrl } } = supabaseClient.storage
+                .from('tomb-images')
+                .getPublicUrl(path);
+
+            return publicUrl;
+        } catch (error) {
+            console.error("Fotoğraf yükleme hatası:", error);
+            return null;
+        }
+    }
+
+    function trNormalizeForPath(text) {
+        return text.toLowerCase()
+            .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
+            .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
+            .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+    }
+
+    function initTombFilterOptions() {
+        const citySelect = document.getElementById('tombs-filter-city');
+        if (citySelect && typeof TURKEY_LOCATION_DATA !== 'undefined') {
+            citySelect.innerHTML = '<option value="">Tüm İller</option>';
+            const cities = Object.keys(TURKEY_LOCATION_DATA).sort((a, b) => a.localeCompare(b, 'tr'));
+            cities.forEach(city => {
+                const opt = document.createElement('option');
+                opt.value = city;
+                opt.textContent = city;
+                citySelect.appendChild(opt);
+            });
+        }
+    }
+
+    function initTombListeners() {
+        // Tab elements
+        document.getElementById('add-tomb-btn')?.addEventListener('click', () => openTombModal());
+        document.getElementById('tombs-refresh-btn')?.addEventListener('click', loadTombs);
+        document.getElementById('tombs-retry-btn')?.addEventListener('click', loadTombs);
+
+        // Filters
+        document.getElementById('tombs-filter-search')?.addEventListener('input', applyTombFilters);
+        document.getElementById('tombs-filter-city')?.addEventListener('change', () => {
+            updateDistrictDropdown('tombs-filter-city', 'tombs-filter-district');
+            applyTombFilters();
+        });
+        document.getElementById('tombs-filter-district')?.addEventListener('change', applyTombFilters);
+        document.getElementById('tombs-filter-type')?.addEventListener('change', applyTombFilters);
+        document.getElementById('tombs-filter-status')?.addEventListener('change', applyTombFilters);
+        document.getElementById('tombs-filter-active')?.addEventListener('change', applyTombFilters);
+        document.getElementById('tombs-clear-filters-btn')?.addEventListener('click', () => {
+            document.getElementById('tombs-filter-search').value = '';
+            document.getElementById('tombs-filter-city').value = '';
+            document.getElementById('tombs-filter-district').innerHTML = '<option value="">Tüm İlçeler</option>';
+            document.getElementById('tombs-filter-type').value = '';
+            document.getElementById('tombs-filter-status').value = '';
+            document.getElementById('tombs-filter-active').value = 'true';
+            applyTombFilters();
+        });
+
+        // Modal elements
+        document.getElementById('tomb-modal-close-top')?.addEventListener('click', closeTombModal);
+        document.getElementById('tomb-modal-btn-cancel')?.addEventListener('click', closeTombModal);
+        document.getElementById('tomb-modal-btn-save')?.addEventListener('click', handleTombSave);
+
+        // Gallery Multi-Upload (B16.3C2)
+        const galleryInput = document.getElementById('tomb-modal-gallery-input');
+        const galleryBtn = document.getElementById('tomb-modal-gallery-upload-btn');
+
+        if (galleryBtn && galleryInput) {
+            galleryBtn.onclick = () => galleryInput.click();
+            galleryInput.onchange = (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    handleTombGalleryUpload(Array.from(e.target.files));
+                    galleryInput.value = ''; // Reset
+                }
+            };
+        }
+    }
+
+    // Expose Tomb functions globally
+    window.openTombModal = openTombModal;
 
 });
