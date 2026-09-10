@@ -3301,7 +3301,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     ladiesMarkup = `<span class="category-badge" style="background-color: #fce4ec; color: #c2185b; border-color: rgba(194, 24, 91, 0.2);"><i class="fa-solid fa-person-dress"></i> Hanımlara Uygun</span>`;
                 }
 
-                const statusVal = (item.status || '').toLowerCase();
                 let batchMarkup = '';
                 if (item.import_batch_id) {
                     batchMarkup = `<span class="batch-label" style="font-size: 10px; margin-left: 6px;">Batch: ${escapeHtml(item.import_batch_id)}</span>`;
