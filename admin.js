@@ -26,6 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const addForm = document.getElementById('add-form');
 
     let supabaseClient = null;
+    const DIYANET_UUID = 'dc6127d9-f3af-4a80-9db0-f7ddcb81ef81';
     let currentSuggestion = null;
     let currentTabStatus = 'pending';
     let allLoadedSuggestions = [];
@@ -843,7 +844,10 @@ document.addEventListener('DOMContentLoaded', () => {
             const teacher = item.teacher || item.speaker || item.hoca || item.lecturer || 'Belirtilmemiş';
             
             // Organization / Kurum / Cemaat / Dernek
-            const organization = item.organization || item.institution || item.association || item.community || item.cemaat || item.dernek || item.kurum || 'Belirtilmemiş';
+            let organization = item.organization || item.institution || item.association || item.community || item.cemaat || item.dernek || item.kurum || 'Belirtilmemiş';
+            if (item.organization_id === DIYANET_UUID) {
+                organization = "Diyanet";
+            }
             
             // Hanımlara uygun mu? (isLadiesSuitable logic)
             let isLadies = false;
@@ -2403,6 +2407,9 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (statusVal === 'passive' || statusVal === 'inactive') {
             label = '🌙 Ara Verildi';
             badgeClass = 'status-badge status-rejected';
+        } else if (statusVal === 'draft') {
+            label = '📝 Taslak / Onay Bekliyor';
+            badgeClass = 'status-badge status-draft';
         } else if (statusVal === 'deleted') {
             label = '🗑 Silindi';
             badgeClass = 'status-badge status-deleted';
@@ -3068,6 +3075,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedDay = isTrashBinView ? '' : (document.getElementById('filter-day')?.value || '');
         const selectedStatus = isTrashBinView ? '' : (document.getElementById('filter-status')?.value || '');
         const selectedSource = isTrashBinView ? '' : (document.getElementById('filter-source')?.value || '');
+        const selectedBatch = isTrashBinView ? '' : (document.getElementById('filter-batch')?.value || '');
         const selectedOrg = isTrashBinView ? '' : (document.getElementById('filter-org')?.value || '');
 
         const filtered = loadedPrograms.filter(item => {
@@ -3130,7 +3138,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
 
-            // 6. Organization (Çatı Kurum) filter
+            // 6. Batch filter
+            if (selectedBatch && item.import_batch_id !== selectedBatch) {
+                return false;
+            }
+
+            // 7. Organization (Çatı Kurum) filter
             if (selectedOrg) {
                 const matchedOrg = activeOrganizations.find(o => o.id === selectedOrg);
                 const matchedOrgName = matchedOrg ? (matchedOrg.name || '').trim().toLowerCase() : '';
@@ -3158,6 +3171,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const infoText = document.getElementById('filter-info-text');
         if (infoText) {
             infoText.textContent = `${loadedPrograms.length} program içinden ${filtered.length} kayıt gösteriliyor.`;
+        }
+
+        // Batch 01 Bulk Publish button visibility
+        const batchPublishBtn = document.getElementById('batch-publish-btn');
+        if (batchPublishBtn) {
+            if (selectedBatch === 'ZIKIR_HALKALARI_TR_2026_01') {
+                batchPublishBtn.classList.remove('hidden');
+            } else {
+                batchPublishBtn.classList.add('hidden');
+            }
         }
 
         // Update list header subtitle
@@ -3257,6 +3280,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 const sourceBadge = getSourceBadge(item.source);
                 const statusBadge = getStatusBadge(item.status);
+                const statusVal = (item.status || '').toLowerCase();
+
+                let orgDisplayName = item.organization || '-';
+                if (item.organization_id === DIYANET_UUID) {
+                    orgDisplayName = "Diyanet";
+                }
 
                 let photoMarkup = '';
                 if (item.photo_url) {
@@ -3273,9 +3302,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 const statusVal = (item.status || '').toLowerCase();
+                let batchMarkup = '';
+                if (item.import_batch_id) {
+                    batchMarkup = `<span class="batch-label" style="font-size: 10px; margin-left: 6px;">Batch: ${escapeHtml(item.import_batch_id)}</span>`;
+                }
+
                 const toggleButtonHtml = statusVal === 'active'
                     ? `<button class="btn btn-secondary btn-status-toggle" data-id="${item.id}" data-action="pause" style="width: 100%;"><i class="fa-solid fa-moon"></i> 🌙 Ara Ver</button>`
-                    : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="width: 100%;"><i class="fa-solid fa-play"></i> ▶️ Devam Ettir</button>`;
+                    : (statusVal === 'draft'
+                        ? `<button class="btn btn-primary btn-inspect-draft" data-id="${item.id}" style="width: 100%; background-color: var(--md-secondary); border-color: var(--md-secondary);"><i class="fa-solid fa-magnifying-glass"></i> İncele</button>`
+                        : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="width: 100%;"><i class="fa-solid fa-play"></i> ▶️ Devam Ettir</button>`);
 
                 const editButtonHtml = isTrashBinView ? '' : `
                     <button class="btn-card-edit" title="Programı Düzenle">
@@ -3288,6 +3324,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
                             <span class="${sourceBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(sourceBadge.label)}</span>
                             <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
+                            ${batchMarkup}
                             ${ladiesMarkup}
                         </div>
                         ${editButtonHtml}
@@ -3309,9 +3346,9 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="detail-label">👤 Hoca:</span>
                             <span class="detail-value">${escapeHtml(item.teacher || '-')}</span>
                         </div>
-                        <div class="detail-item" title="${escapeHtml(item.organization || '-')}">
+                        <div class="detail-item" title="${escapeHtml(orgDisplayName)}">
                             <span class="detail-label">🏢 Kurum / Dernek:</span>
-                            <span class="detail-value">${escapeHtml(item.organization || '-')}</span>
+                            <span class="detail-value">${escapeHtml(orgDisplayName)}</span>
                         </div>
                     </div>
 
@@ -3333,6 +3370,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 const cardEditBtn = card.querySelector('.btn-card-edit');
                 if (cardEditBtn) {
                     cardEditBtn.addEventListener('click', () => {
+                        openProgramEditModal(item);
+                    });
+                }
+
+                const inspectDraftBtn = card.querySelector('.btn-inspect-draft');
+                if (inspectDraftBtn) {
+                    inspectDraftBtn.addEventListener('click', () => {
                         openProgramEditModal(item);
                     });
                 }
@@ -3430,12 +3474,16 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (currentViewMode === 'list') {
                     toggleButtonHtml = statusVal === 'active'
                         ? `<button class="btn btn-secondary btn-sm btn-status-toggle" data-id="${item.id}" data-action="pause"><i class="fa-solid fa-moon"></i> 🌙 Ara Ver</button>`
-                        : `<button class="btn btn-primary btn-sm btn-status-toggle" data-id="${item.id}" data-action="resume"><i class="fa-solid fa-play"></i> ▶️ Devam Ettir</button>`;
+                        : (statusVal === 'draft'
+                            ? `<button class="btn btn-primary btn-sm btn-inspect-draft" data-id="${item.id}"><i class="fa-solid fa-magnifying-glass"></i> İncele</button>`
+                            : `<button class="btn btn-primary btn-sm btn-status-toggle" data-id="${item.id}" data-action="resume"><i class="fa-solid fa-play"></i> ▶️ Devam Ettir</button>`);
                 } else {
                     // Ultra dense style for Compact View
                     toggleButtonHtml = statusVal === 'active'
                         ? `<button class="btn btn-secondary btn-status-toggle" data-id="${item.id}" data-action="pause" style="min-height: 28px; padding: 2px 6px; font-size: 11px;"><i class="fa-solid fa-moon"></i> Ara Ver</button>`
-                        : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="min-height: 28px; padding: 2px 6px; font-size: 11px;"><i class="fa-solid fa-play"></i> Devam Ettir</button>`;
+                        : (statusVal === 'draft'
+                            ? `<button class="btn btn-primary btn-inspect-draft" data-id="${item.id}" style="min-height: 28px; padding: 2px 6px; font-size: 11px; background-color: var(--md-secondary); border-color: var(--md-secondary);"><i class="fa-solid fa-magnifying-glass"></i> İncele</button>`
+                            : `<button class="btn btn-primary btn-status-toggle" data-id="${item.id}" data-action="resume" style="min-height: 28px; padding: 2px 6px; font-size: 11px;"><i class="fa-solid fa-play"></i> Devam Ettir</button>`);
                 }
 
                 let actionsHtml = '';
@@ -3474,9 +3522,13 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (matchedOrg) {
                     if (!orgName) {
-                        orgName = matchedOrg.name || "";
+                        orgName = matchedOrg.id === DIYANET_UUID ? "Diyanet" : (matchedOrg.name || "");
                     }
                     logoUrl = matchedOrg.logo_url || "";
+                }
+
+                if (item.organization_id === DIYANET_UUID) {
+                    orgName = "Diyanet";
                 }
                 
                 if (!orgName.trim()) {
@@ -3567,6 +3619,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="table-venue-name" style="display: block; font-size: 12px; color: var(--md-on-surface-variant); margin-top: 2px;">
                                 <i class="fa-solid fa-mosque" style="font-size: 10px; margin-right: 4px; color: var(--md-secondary);"></i>${escapeHtml(item.venue_name || '-')}
                             </span>
+                            ${item.import_batch_id ? `<span class="batch-label" style="font-size: 10px; display: inline-block; margin-top: 4px;">Batch: ${escapeHtml(item.import_batch_id)}</span>` : ''}
                             ${mobileBadgeHtml}
                         </td>
                         <td class="program-col-organization organization-cell" title="${escapeHtml(orgName)}">
@@ -3600,6 +3653,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="table-venue-name" style="display: block; font-size: 12px; color: var(--md-on-surface-variant); margin-top: 2px;">
                                 <i class="fa-solid fa-mosque" style="font-size: 10px; margin-right: 4px; color: var(--md-secondary);"></i>${escapeHtml(item.venue_name || '-')}
                             </span>
+                            ${item.import_batch_id ? `<span class="batch-label" style="font-size: 10px; display: inline-block; margin-top: 4px;">Batch: ${escapeHtml(item.import_batch_id)}</span>` : ''}
                             ${mobileBadgeHtml}
                         </td>
                         <td title="${escapeHtml(item.district || '-')}">${escapeHtml(item.district || '-')}</td>
@@ -6153,8 +6207,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 filterOptionsHtml = '<option value="">Tüm kurumlar</option>';
             } else {
                 activeOrganizations.forEach(org => {
-                    optionsHtml += `<option value="${org.id}">${escapeHtml(org.name)}</option>`;
-                    filterOptionsHtml += `<option value="${org.id}">${escapeHtml(org.name)}</option>`;
+                    const displayName = org.id === DIYANET_UUID ? "Diyanet" : org.name;
+                    optionsHtml += `<option value="${org.id}">${escapeHtml(displayName)}</option>`;
+                    filterOptionsHtml += `<option value="${org.id}">${escapeHtml(displayName)}</option>`;
                 });
             }
 
@@ -12150,6 +12205,52 @@ out center tags;`;
             };
         }
     }
+
+    async function handleBatch01BulkPublish() {
+        if (!supabaseClient) return;
+
+        const batchId = 'ZIKIR_HALKALARI_TR_2026_01';
+        const batchPrograms = loadedPrograms.filter(p => p.import_batch_id === batchId);
+
+        // Verification
+        const uniqueVenues = new Set(batchPrograms.map(p => (p.venue_name || '').trim().toLowerCase()));
+
+        if (batchPrograms.length !== 50 || uniqueVenues.size !== 47) {
+            const confirmMsg = `Batch doğrulaması uyuşmuyor!\nBeklenen: 50 program, 47 mekan.\nBulunan: ${batchPrograms.length} program, ${uniqueVenues.size} mekan.\n\nEmin misiniz?`;
+            if (!confirm(confirmMsg)) return;
+        } else {
+            if (!confirm(`Batch 01 Doğrulandı: 50 program, 47 mekan.\n\nBu batch'e ait TÜM taslakları yayına almak istediğinize emin misiniz?`)) return;
+        }
+
+        const btn = document.getElementById('batch-publish-btn');
+        const originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Yayınlanıyor...';
+
+        try {
+            console.log(`Bulk publishing batch: ${batchId}`);
+            const { data, error } = await supabaseClient
+                .from('programs')
+                .update({ status: 'active', updated_at: new Date().toISOString() })
+                .eq('import_batch_id', batchId)
+                .eq('status', 'draft')
+                .select();
+
+            if (error) throw error;
+
+            showToast(`${data?.length || 0} program başarıyla yayına alındı.`, "success");
+            await loadPrograms();
+
+        } catch (err) {
+            console.error("Batch publish error:", err);
+            showToast("Toplu yayınlama sırasında hata oluştu.", "error");
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+        }
+    }
+
+    document.getElementById('batch-publish-btn')?.addEventListener('click', handleBatch01BulkPublish);
 
     // Expose Tomb functions globally
     window.openTombModal = openTombModal;

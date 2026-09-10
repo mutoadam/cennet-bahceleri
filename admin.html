@@ -270,6 +270,9 @@
                     <button id="programs-complete-coords-btn" class="btn btn-primary btn-sm" style="background-color: var(--md-secondary); border-color: var(--md-secondary); color: white;">
                         <i class="fa-solid fa-location-crosshairs"></i> Eksik Koordinatları Tamamla
                     </button>
+                    <button id="batch-publish-btn" class="btn btn-primary btn-sm hidden" style="background-color: #2e7d32; border-color: #2e7d32; color: white;">
+                        <i class="fa-solid fa-cloud-arrow-up"></i> Batch 01 Toplu Yayınla
+                    </button>
                 </div>
 
                 <!-- Filtre ve Arama Paneli (Paket H3) -->
@@ -319,6 +322,13 @@
                                 <option value="admin_manual">MANUEL</option>
                                 <option value="suggestion">ÖNERİ</option>
                                 <option value="unknown">KAYNAK YOK</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label for="filter-batch"><i class="fa-solid fa-layer-group"></i> Batch</label>
+                            <select id="filter-batch" class="form-control">
+                                <option value="">Tümü</option>
+                                <option value="ZIKIR_HALKALARI_TR_2026_01">Zikir Halkaları Batch 01</option>
                             </select>
                         </div>
                     </div>

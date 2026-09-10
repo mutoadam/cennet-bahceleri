@@ -381,6 +381,17 @@ body {
     border: 1px solid rgba(181, 141, 61, 0.2);
 }
 
+.batch-label {
+    background-color: #f1f8e9;
+    color: #33691e;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+    border: 1px solid rgba(51, 105, 30, 0.2);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
 .date-badge {
     font-size: 13px;
     color: var(--md-on-surface-variant);
@@ -2320,6 +2331,12 @@ body {
     background-color: #ffebee !important;
     color: #c2185b !important;
     border: 1px solid rgba(194, 24, 91, 0.2) !important;
+}
+
+.status-draft {
+    background-color: #e8eaf6 !important;
+    color: #3f51b5 !important;
+    border: 1px solid rgba(63, 81, 181, 0.2) !important;
 }
 
 .status-pending {
