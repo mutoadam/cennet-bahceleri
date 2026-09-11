@@ -3254,3 +3254,108 @@ body:not(.logged-out) #admin-login-screen {
 
 
 
+
+/* Mosque Google Discovery Styles (B16.3C2.3) */
+.mosque-google-card {
+    background: #fff;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 16px;
+    display: flex;
+    gap: 16px;
+    box-shadow: var(--shadow-sm);
+    transition: var(--transition);
+    align-items: flex-start;
+}
+
+.mosque-google-card:hover {
+    box-shadow: var(--shadow-md);
+    border-color: #4285F4;
+}
+
+.mosque-google-thumb-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.mosque-google-thumb {
+    width: 100px;
+    height: 75px;
+    border-radius: 4px;
+    object-fit: cover;
+    background: #eee;
+    display: block;
+}
+
+.mosque-google-attr {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    background: rgba(0,0,0,0.6);
+    color: #fff;
+    font-size: 9px;
+    padding: 2px 4px;
+    border-bottom-left-radius: 4px;
+    border-bottom-right-radius: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mosque-google-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.mosque-google-title {
+    margin: 0 0 4px 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--md-primary);
+    line-height: 1.3;
+}
+
+.mosque-google-address {
+    font-size: 12px;
+    color: var(--md-on-surface-variant);
+    margin-bottom: 8px;
+    line-height: 1.4;
+}
+
+.mosque-google-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    font-size: 11px;
+    color: #666;
+    margin-bottom: 12px;
+}
+
+.mosque-google-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+}
+
+.mosque-google-link {
+    font-size: 12px;
+    color: #4285F4;
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.mosque-google-link:hover {
+    text-decoration: underline;
+}
+
+@media (max-width: 600px) {
+    .mosque-google-card {
+        flex-direction: column;
+    }
+    .mosque-google-thumb {
+        width: 100%;
+        height: 150px;
+    }
+}
+

@@ -516,6 +516,14 @@
                         </select>
                     </div>
                     <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="mosques-filter-google"><i class="fa-brands fa-google"></i> Google Eşleşmesi</label>
+                        <select id="mosques-filter-google" class="form-control">
+                            <option value="">Tüm Kayıtlar</option>
+                            <option value="missing">Eşleşme Eksik</option>
+                            <option value="matched">Eşleşmiş</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
                         <label for="mosques-filter-unnamed"><i class="fa-solid fa-eye-slash"></i> İsimsizler</label>
                         <select id="mosques-filter-unnamed" class="form-control">
                             <option value="hide" selected>İsimsizleri Gizle</option>
@@ -1892,10 +1900,18 @@
                 <form id="mosque-form" class="edit-form-grid" onsubmit="return false;">
                     <!-- Hidden ID input for editing -->
                     <input type="hidden" id="mosque-modal-id">
-                    
-                    <div class="form-group">
-                        <label for="mosque-modal-name-input"><i class="fa-solid fa-mosque"></i> Camii Adı *</label>
-                        <input type="text" id="mosque-modal-name-input" class="form-control" placeholder="Örn: Orhan Camii" required>
+                    <input type="hidden" id="mosque-modal-google-place-id">
+
+                    <div class="form-group full-width" style="grid-column: span 2;">
+                        <div style="display: flex; justify-content: space-between; align-items: flex-end; gap: 12px;">
+                            <div style="flex: 1;">
+                                <label for="mosque-modal-name-input"><i class="fa-solid fa-mosque"></i> Camii Adı *</label>
+                                <input type="text" id="mosque-modal-name-input" class="form-control" placeholder="Örn: Orhan Camii" required style="margin-bottom: 0;">
+                            </div>
+                            <button type="button" id="mosque-modal-google-discovery-btn" class="btn btn-primary" style="min-height: 40px; padding: 0 16px; background-color: #4285F4; border-color: #4285F4; display: flex; align-items: center; gap: 8px;">
+                                <i class="fa-brands fa-google"></i> Google'dan Bul
+                            </button>
+                        </div>
                     </div>
                     
                     <div class="form-group">
@@ -1948,6 +1964,23 @@
                         </select>
                     </div>
                 </form>
+
+                <!-- Google Discovery Results for Mosques (Place Selection) -->
+                <div id="mosque-google-discovery-area" class="hidden" style="margin-top: 24px; padding: 16px; background-color: #f8f9fa; border: 1px solid #dee2e6; border-radius: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+                        <h5 style="margin: 0; font-size: 15px; font-weight: 600; color: #4285F4;"><i class="fa-solid fa-location-dot"></i> Google Yer Seçimi</h5>
+                        <button type="button" id="mosque-google-discovery-close" class="btn btn-xs" style="padding: 4px 8px;"><i class="fa-solid fa-xmark"></i></button>
+                    </div>
+
+                    <div id="mosque-google-candidates" class="grid-list" style="display: grid; grid-template-columns: 1fr; gap: 12px;">
+                        <!-- Mosque candidates injected here -->
+                    </div>
+
+                    <div id="mosque-google-loader" class="hidden" style="text-align: center; padding: 12px;">
+                        <i class="fa-solid fa-spinner fa-spin"></i> Google'da aranıyor...
+                    </div>
+                    <div id="mosque-google-error" class="hidden" style="color: var(--md-error); font-size: 13px; text-align: center; padding: 12px;"></div>
+                </div>
             </div>
             <div class="modal-footer">
                 <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
