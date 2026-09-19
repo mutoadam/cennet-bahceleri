@@ -58,7 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
     // Türbeler (Tombs) State Değişkenleri (B16.3C)
     let loadedTombs = [];
     let currentEditTomb = null;
-    let loadedTombGallery = []; // B16.3C2
+    let currentEditMosque = null;
+    let loadedTombGallery = [];
+    let loadedMosqueGallery = [];
+    let loadedProgramGallery = [];
+ // B16.3C2
     let isTombGalleryLoading = false;
 
     // Auth & Yükleme Kontrolü
@@ -4061,7 +4065,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 // Galeriyi Yenile
-                await loadProgramGallery(programId, currentEditProgram.photo_url);
+                await loadEntityGallery('program', programId);
             }
         }
     }
@@ -4367,7 +4371,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // Ardından veritabanından güncel galeri kayıtlarını getir (Asenkron)
-        loadProgramGallery(item.id, currentPhotoUrl);
+        loadEntityGallery('program', item.id);
     }
 
     function closeProgramEditModal(force = false) {
@@ -4423,192 +4427,6 @@ document.addEventListener('DOMContentLoaded', () => {
     /**
      * B12.2A3.3A - Program Galerisi Veri Yükleme
      */
-    async function loadProgramGallery(programId, fallbackUrl) {
-        if (!programId || !supabaseClient) return;
-
-        const container = document.getElementById('edit-program-gallery-container');
-        const loader = document.getElementById('edit-program-gallery-loading');
-        const grid = document.getElementById('edit-program-gallery-grid');
-        const errorEl = document.getElementById('edit-program-gallery-error');
-
-        if (container) container.classList.remove('hidden');
-        if (loader) loader.classList.remove('hidden');
-
-        // ÖNEMLİ: Loader açılırken mevcut fallback fotoğrafını gizlemiyoruz (Süreklilik)
-        if (errorEl) errorEl.classList.add('hidden');
-
-        try {
-            console.log(`Loading gallery for program: ${programId}`);
-
-            const { data: photos, error } = await supabaseClient
-                .from('program_photos')
-                .select('id, program_id, photo_url, sort_order, is_cover, bucket_name, storage_path')
-                .eq('program_id', programId)
-                .order('sort_order', { ascending: true });
-
-            // Race Condition Kontrolü: Hala aynı program mı açık?
-            if (!currentEditProgram || currentEditProgram.id !== programId) {
-                console.log("Program gallery load ignored: Modal context changed.");
-                return;
-            }
-
-            if (error) {
-                console.warn("Program galerisi çekilirken hata oluştu:", error.code);
-                if (errorEl) errorEl.classList.remove('hidden');
-                // Hata durumunda, eğer grid boşsa fallback'i render et
-                if (!grid || grid.innerHTML === '') {
-                    renderProgramGallery([], fallbackUrl);
-                }
-                return;
-            }
-
-            renderProgramGallery(photos || [], fallbackUrl);
-
-        } catch (err) {
-            console.error("Program gallery loading exception:", err);
-            if (errorEl) errorEl.classList.remove('hidden');
-            if (!grid || grid.innerHTML === '') {
-                renderProgramGallery([], fallbackUrl);
-            }
-        } finally {
-            if (loader) loader.classList.add('hidden');
-        }
-    }
-
-    /**
-     * B12.2A3.3A - Program Galerisi DOM Render
-     */
-    function renderProgramGallery(photos, fallbackUrl) {
-        const grid = document.getElementById('edit-program-gallery-grid');
-        const container = document.getElementById('edit-program-gallery-container');
-
-        if (!grid) return;
-        grid.innerHTML = '';
-
-        const normalizedFallback = typeof fallbackUrl === 'string' ? fallbackUrl.trim() : '';
-
-        if (photos && photos.length > 0) {
-            // Metadata Galerisini Göster
-            grid.classList.remove('hidden');
-            if (container) container.classList.remove('hidden');
-
-            photos.forEach((photo, index) => {
-                const photoUrl = typeof photo.photo_url === 'string' ? photo.photo_url.trim() : '';
-                if (!photoUrl) return;
-
-                const itemDiv = document.createElement('div');
-                itemDiv.className = 'gallery-item';
-
-                const img = document.createElement('img');
-                img.src = photoUrl;
-                img.alt = "Program Fotoğrafı";
-                img.loading = "lazy";
-                img.onerror = () => { itemDiv.style.display = 'none'; };
-
-                itemDiv.appendChild(img);
-
-                if (photo.is_cover) {
-                    const badge = document.createElement('span');
-                    badge.className = 'cover-badge';
-                    badge.textContent = 'Kapak';
-                    itemDiv.appendChild(badge);
-                } else {
-                    // B12.2A3.3B1 - Kapak Yap Butonu
-                    const makeCoverBtn = document.createElement('button');
-                    makeCoverBtn.className = 'btn-make-cover';
-                    makeCoverBtn.title = "Bu fotoğrafı kapak yap";
-                    makeCoverBtn.innerHTML = '<i class="fa-solid fa-star"></i> Kapak Yap';
-
-                    makeCoverBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        setProgramPhotoCover(photo, makeCoverBtn);
-                    });
-
-                    itemDiv.appendChild(makeCoverBtn);
-                }
-
-                // B12.2A3.3B3B - Fotoğrafı Galeriden Kaldır
-                // Legacy fallback'lerde id bulunmaz, sadece metadata olanlara ekle.
-                if (photo.id) {
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.className = 'btn-delete-program-photo';
-                    deleteBtn.title = "Fotoğrafı galeriden kaldır";
-                    deleteBtn.innerHTML = '<i class="fa-solid fa-trash-can"></i>';
-
-                    deleteBtn.addEventListener('click', (e) => {
-                        e.stopPropagation();
-                        deleteProgramPhoto(photo, deleteBtn);
-                    });
-
-                    itemDiv.appendChild(deleteBtn);
-                }
-
-                // B12.2A3.3B2 - Sıralama Kontrolleri
-                if (photos.length > 1) {
-                    const controlsDiv = document.createElement('div');
-                    controlsDiv.className = 'gallery-order-controls';
-
-                    // Sola Taşı
-                    if (index > 0) {
-                        const moveLeftBtn = document.createElement('button');
-                        moveLeftBtn.className = 'btn-move-photo';
-                        moveLeftBtn.title = "Sola Taşı";
-                        moveLeftBtn.innerHTML = '<i class="fa-solid fa-chevron-left"></i>';
-                        moveLeftBtn.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            moveProgramPhoto(photo, -1, moveLeftBtn);
-                        });
-                        controlsDiv.appendChild(moveLeftBtn);
-                    }
-
-                    // Sağa Taşı
-                    if (index < photos.length - 1) {
-                        const moveRightBtn = document.createElement('button');
-                        moveRightBtn.className = 'btn-move-photo';
-                        moveRightBtn.title = "Sağa Taşı";
-                        moveRightBtn.innerHTML = '<i class="fa-solid fa-chevron-right"></i>';
-                        moveRightBtn.addEventListener('click', (e) => {
-                            e.stopPropagation();
-                            moveProgramPhoto(photo, 1, moveRightBtn);
-                        });
-                        controlsDiv.appendChild(moveRightBtn);
-                    }
-
-                    itemDiv.appendChild(controlsDiv);
-                }
-
-                grid.appendChild(itemDiv);
-            });
-        } else if (normalizedFallback) {
-            // Legacy Fallback Göster
-            grid.classList.remove('hidden');
-            if (container) container.classList.remove('hidden');
-
-            const itemDiv = document.createElement('div');
-            itemDiv.className = 'gallery-item';
-
-            const img = document.createElement('img');
-            img.src = normalizedFallback;
-            img.alt = "Program Fotoğrafı (Fallback)";
-            img.onerror = () => {
-                grid.classList.add('hidden');
-                if (container) container.classList.add('hidden');
-            };
-
-            itemDiv.appendChild(img);
-
-            const badge = document.createElement('span');
-            badge.className = 'cover-badge';
-            badge.textContent = 'Kapak';
-            itemDiv.appendChild(badge);
-
-            grid.appendChild(itemDiv);
-        } else {
-            // Hiç fotoğraf yok, alanı gizle
-            grid.classList.add('hidden');
-            if (container) container.classList.add('hidden');
-        }
-    }
 
     /**
      * B12.2A3.3B1 - Program Galerisinde Kapak Değiştirme
@@ -4663,7 +4481,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showToast("Program kapak fotoğrafı güncellendi.", "success");
 
             // 2. Galeriyi Yenile
-            await loadProgramGallery(programId, photo.photo_url);
+            await loadEntityGallery('program', programId);
 
         } catch (err) {
             console.error("Program kapak değiştirme hatası:", err.code || err);
@@ -4723,7 +4541,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // Galeriyi Yenile (photo_url değişmez, kapak korunur)
-            await loadProgramGallery(programId, currentEditProgram.photo_url);
+            await loadEntityGallery('program', programId);
 
         } catch (err) {
             console.error("Program fotoğraf taşıma hatası:", err.code || err);
@@ -4868,7 +4686,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 2. Galeriyi Yenile
-        await loadProgramGallery(programId, newCoverUrl);
+        await loadEntityGallery('program', programId);
 
         // 3. Program Listesi Thumbnail Senkronizasyonu
         if (typeof loadPrograms === 'function') {
@@ -5179,6 +4997,12 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-program-modal-close-top')?.addEventListener('click', () => closeProgramEditModal());
     document.getElementById('edit-program-btn-cancel')?.addEventListener('click', () => closeProgramEditModal());
     document.getElementById('edit-program-btn-save')?.addEventListener('click', () => handleProgramEditSave());
+
+    // Program Gallery Listeners (B16.6)
+    document.getElementById('program-modal-google-photo-btn')?.addEventListener('click', () => searchGooglePlacesGeneric('program'));
+    document.getElementById('program-google-photo-discovery-close')?.addEventListener('click', () => {
+        document.getElementById('program-google-photo-discovery-area').classList.add('hidden');
+    });
 
     document.getElementById('edit-program-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'edit-program-modal') {
@@ -8058,6 +7882,9 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
 
         document.getElementById('mosque-modal').classList.remove('hidden');
         document.body.style.overflow = "hidden";
+        currentEditMosque = null;
+        loadedMosqueGallery = [];
+        renderMosqueGallery();
     }
 
     function openEditMosqueModal(m) {
@@ -8084,11 +7911,14 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
 
         document.getElementById('mosque-modal').classList.remove('hidden');
         document.body.style.overflow = "hidden";
+        currentEditMosque = m;
+        loadMosqueGallery(m.id);
     }
 
     function closeMosqueModal() {
         document.getElementById('mosque-modal').classList.add('hidden');
         document.body.style.overflow = "";
+        currentEditMosque = null;
     }
 
     async function saveMosque() {
@@ -8180,7 +8010,9 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
                     }
                 }
 
-                showToast("Camii konumu kaydedildi.", "success");
+                showToast("Camii konumu kaydedildi. Artık fotoğraf ekleyebilirsiniz.", "success");
+                const { data: newData } = await supabaseClient.from('mosque_locations').select('*').eq('id', insertedId).single();
+                if (newData) openEditMosqueModal(newData);
             } else {
                 // UPDATE
                 payload.verification_status = 'verified';
@@ -11534,6 +11366,7 @@ out center tags;`;
         // Initialize listeners and filters only once
         if (!isTombsInitialized) {
             initTombListeners();
+        initMosqueListeners();
             initTombFilterOptions();
             isTombsInitialized = true;
         }
@@ -11729,7 +11562,7 @@ out center tags;`;
             document.getElementById('tomb-modal-active').checked = tomb.is_active;
 
             // Load Gallery (B16.3C2)
-            await loadTombGallery(tomb.id);
+            await loadEntityGallery('tomb', tomb.id);
         } else {
             title.textContent = "Yeni Türbe Ekle";
             originBadge.textContent = "MANUEL GİRİŞ";
@@ -11737,7 +11570,7 @@ out center tags;`;
             document.getElementById('tomb-modal-source-key').value = '';
             document.getElementById('tomb-modal-data-status').value = 'REVIEW';
             document.getElementById('tomb-modal-active').checked = true;
-            renderTombGallery();
+            renderEntityGallery('tomb');
         }
 
         modal.classList.remove('hidden');
@@ -11750,139 +11583,271 @@ out center tags;`;
         loadedTombGallery = [];
     }
 
-    async function loadTombGallery(tombId) {
+    // ==========================================================
+    // FOTOĞRAF GALERİSİ GENERIC SİSTEMİ (B16.4)
+    // ==========================================================
+
+    const GALLERY_CONFIGS = {
+        tomb: {
+            type: 'tomb',
+            table: 'tomb_images',
+            idField: 'tomb_id',
+            photoField: 'image_url',
+            entityTable: 'tomb_locations',
+            coverField: 'image_url',
+            container: 'tomb-modal-gallery-container',
+            loader: 'tomb-modal-gallery-loader',
+            discoveryArea: 'tomb-google-discovery-area',
+            discoveryBtn: 'tomb-modal-google-discovery-btn',
+            discoveryTitle: 'google-discovery-title',
+            discoveryPlaceCandidates: 'google-place-candidates',
+            discoveryPhotoCandidates: 'google-photo-candidates',
+            discoveryPhotoCandidatesList: 'google-photo-candidates-list',
+            discoveryLoader: 'google-discovery-loader',
+            discoveryError: 'google-discovery-error',
+            discoveryClose: 'google-discovery-close',
+            input: 'tomb-modal-gallery-input',
+            uploadBtn: 'tomb-modal-gallery-upload-btn',
+            storageBucket: 'tomb-images',
+            imageCardClass: 'tomb-image-card',
+            imageThumbClass: 'tomb-image-thumb',
+            imageAttrInputClass: 'tomb-image-attr-input'
+        },
+        mosque: {
+            type: 'mosque',
+            table: 'mosque_images',
+            idField: 'mosque_id',
+            photoField: 'image_url',
+            entityTable: 'mosque_locations',
+            coverField: 'image_url',
+            container: 'mosque-modal-gallery-container',
+            loader: 'mosque-modal-gallery-loader',
+            discoveryArea: 'mosque-google-photo-discovery-area',
+            discoveryBtn: 'mosque-modal-google-photo-btn',
+            discoveryTitle: 'mosque-google-photo-discovery-title',
+            discoveryPlaceCandidates: 'mosque-google-photo-place-candidates',
+            discoveryPhotoCandidates: 'mosque-google-photo-candidates',
+            discoveryPhotoCandidatesList: 'mosque-google-photo-candidates-list',
+            discoveryLoader: 'mosque-google-photo-discovery-loader',
+            discoveryError: 'mosque-google-photo-discovery-error',
+            discoveryClose: 'mosque-google-photo-discovery-close',
+            input: 'mosque-modal-gallery-input',
+            uploadBtn: 'mosque-modal-gallery-upload-btn',
+            storageBucket: 'mosque-images', // Will fall back to tomb-images if bucket not exists, or handled in upload
+            imageCardClass: 'mosque-image-card',
+            imageThumbClass: 'mosque-image-thumb',
+            imageAttrInputClass: 'mosque-image-attr-input',
+            searchQueryBuilder: (entity) => `${entity.mosque_name} ${entity.district} ${entity.city}`
+        },
+        program: {
+            type: 'program',
+            table: 'program_photos',
+            idField: 'program_id',
+            photoField: 'photo_url',
+            entityTable: 'programs',
+            coverField: 'photo_url',
+            container: 'edit-program-gallery-grid',
+            loader: 'edit-program-gallery-loading',
+            discoveryArea: 'program-google-photo-discovery-area',
+            discoveryBtn: 'program-modal-google-photo-btn',
+            discoveryTitle: 'program-google-photo-discovery-title',
+            discoveryPlaceCandidates: 'program-google-photo-place-candidates',
+            discoveryPhotoCandidates: 'program-google-photo-candidates',
+            discoveryPhotoCandidatesList: 'program-google-photo-candidates-list',
+            discoveryLoader: 'program-google-photo-discovery-loader',
+            discoveryError: 'program-google-photo-discovery-error',
+            discoveryClose: 'program-google-photo-discovery-close',
+            input: null,
+            uploadBtn: null,
+            storageBucket: 'program-photos',
+            imageCardClass: 'program-image-card',
+            imageThumbClass: 'program-image-thumb',
+            imageAttrInputClass: 'program-image-attr-input',
+            searchQueryBuilder: (entity) => {
+                if (entity.venue_name && entity.venue_name.length > 3) {
+                    return `${entity.venue_name} ${entity.district || ''} ${entity.city || ''}`;
+                }
+                return `${entity.program_name} ${entity.city || ''}`;
+            }
+        }
+    };
+
+    // Update tomb config too
+    GALLERY_CONFIGS.tomb.searchQueryBuilder = (entity) => `${entity.name} ${entity.district} ${entity.city}`;
+
+    let activeGalleryType = 'tomb';
+
+    async function loadEntityGallery(type, entityId) {
         if (!supabaseClient) return;
-        const loader = document.getElementById('tomb-modal-gallery-loader');
+        activeGalleryType = type;
+        const config = GALLERY_CONFIGS[type];
+
+        // Program galerisi için wrapper container'ı her zaman görünür yap (B16.4 Fix)
+        if (type === 'program') {
+            document.getElementById('edit-program-gallery-container')?.classList.remove('hidden');
+        }
+
+        const loader = document.getElementById(config.loader);
         if (loader) loader.classList.remove('hidden');
 
         try {
             const { data, error } = await supabaseClient
-                .from('tomb_images')
+                .from(config.table)
                 .select('*')
-                .eq('tomb_id', tombId)
+                .eq(config.idField, entityId)
                 .order('sort_order', { ascending: true });
 
             if (error) throw error;
-            loadedTombGallery = data || [];
-            renderTombGallery();
+
+            if (type === 'tomb') loadedTombGallery = data || [];
+            else if (type === 'mosque') loadedMosqueGallery = data || [];
+            else if (type === 'program') {
+                loadedProgramGallery = data || [];
+            }
+
+            renderEntityGallery(type);
         } catch (error) {
-            console.error("Galeri yüklenemedi:", error);
+            console.error(`${type} galeri yüklenemedi:`, error);
             showToast("Galeri fotoğrafları yüklenemedi.", "error");
         } finally {
             if (loader) loader.classList.add('hidden');
         }
     }
 
-    function renderTombGallery() {
-        const container = document.getElementById('tomb-modal-gallery-container');
+    function renderEntityGallery(type) {
+        const config = GALLERY_CONFIGS[type];
+        const container = document.getElementById(config.container);
         if (!container) return;
         container.innerHTML = '';
 
-        if (loadedTombGallery.length === 0) {
+        let gallery = [];
+        if (type === 'tomb') gallery = loadedTombGallery;
+        else if (type === 'mosque') gallery = loadedMosqueGallery;
+        else if (type === 'program') gallery = loadedProgramGallery;
+
+        if (gallery.length === 0) {
             container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 20px; color: var(--md-on-surface-variant); font-size: 14px;">Henüz fotoğraf eklenmemiş.</p>';
             return;
         }
 
-        loadedTombGallery.forEach((img, index) => {
+        gallery.forEach((img, index) => {
             const card = document.createElement('div');
-            card.className = `tomb-image-card ${img.is_cover ? 'is-cover' : ''}`;
+            card.className = `${config.imageCardClass} ${img.is_cover ? 'is-cover' : ''}`;
+            // Add basic styles for mosque cards if not in CSS
+            if (type === 'mosque') {
+                card.style.cssText = 'border: 1px solid var(--md-outline); border-radius: 8px; overflow: hidden; background: var(--md-surface); position: relative; display: flex; flex-direction: column;';
+            }
 
             card.innerHTML = `
-                <div style="position: relative;">
-                    ${img.is_cover ? '<span class="cover-badge">KAPAK</span>' : ''}
-                    <img src="${img.image_url}" class="tomb-image-thumb" alt="Tomb photo">
+                <div style="position: relative; height: 120px; background: #eee;">
+                    ${img.is_cover ? '<span class="cover-badge" style="position: absolute; top: 8px; left: 8px; background: var(--md-primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; z-index: 2;">KAPAK</span>' : ''}
+                    <img src="${img[config.photoField]}" class="${config.imageThumbClass}" alt="Photo" style="width: 100%; height: 100%; object-fit: cover;">
                 </div>
-                <div class="tomb-image-info">
-                    <input type="text" class="tomb-image-attr-input" value="${escapeHtml(img.image_attribution || '')}" placeholder="Fotoğraf Kaynağı / Atıf" data-id="${img.id}">
+                <div class="gallery-image-info" style="padding: 8px;">
+                    <input type="text" class="${config.imageAttrInputClass} form-control btn-xs" value="${escapeHtml(img.image_attribution || '')}" placeholder="Fotoğraf Kaynağı / Atıf" data-id="${img.id}" style="font-size: 11px; padding: 4px;">
                 </div>
-                <div class="tomb-image-actions">
-                    <button type="button" class="btn btn-primary btn-xs btn-full btn-set-cover" data-id="${img.id}" ${img.is_cover ? 'disabled' : ''}>Kapak Yap</button>
+                <div class="gallery-image-actions" style="padding: 8px; padding-top: 0; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px;">
+                    <button type="button" class="btn btn-primary btn-xs btn-set-cover" data-id="${img.id}" ${img.is_cover ? 'disabled' : ''} style="grid-column: span 3; margin-bottom: 4px;">Kapak Yap</button>
                     <button type="button" class="btn btn-secondary btn-xs btn-move-left" data-id="${img.id}" ${index === 0 ? 'disabled' : ''}><i class="fa-solid fa-arrow-left"></i></button>
-                    <button type="button" class="btn btn-secondary btn-xs btn-move-right" data-id="${img.id}" ${index === loadedTombGallery.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-right"></i></button>
-                    <button type="button" class="btn btn-secondary btn-xs btn-full btn-remove-image" data-id="${img.id}" style="color: var(--md-error); border-color: rgba(186, 26, 26, 0.2);"><i class="fa-solid fa-trash-can"></i> Kaldır</button>
+                    <button type="button" class="btn btn-secondary btn-xs btn-move-right" data-id="${img.id}" ${index === gallery.length - 1 ? 'disabled' : ''}><i class="fa-solid fa-arrow-right"></i></button>
+                    <button type="button" class="btn btn-secondary btn-xs btn-remove-image" data-id="${img.id}" style="color: var(--md-error);"><i class="fa-solid fa-trash-can"></i></button>
                 </div>
             `;
 
             // Event Listeners
-            card.querySelector('.btn-set-cover').onclick = () => setTombCover(img.id);
-            card.querySelector('.btn-move-left').onclick = () => moveTombImage(img.id, 'left');
-            card.querySelector('.btn-move-right').onclick = () => moveTombImage(img.id, 'right');
-            card.querySelector('.btn-remove-image').onclick = () => removeTombImage(img.id);
+            card.querySelector('.btn-set-cover').onclick = () => setEntityCover(type, img.id);
+            card.querySelector('.btn-move-left').onclick = () => moveEntityImage(type, img.id, 'left');
+            card.querySelector('.btn-move-right').onclick = () => moveEntityImage(type, img.id, 'right');
+            card.querySelector('.btn-remove-image').onclick = () => removeEntityImage(type, img.id);
 
-            const attrInput = card.querySelector('.tomb-image-attr-input');
-            attrInput.onchange = (e) => updateTombImageAttribution(img.id, e.target.value);
+            const attrInput = card.querySelector(`.${config.imageAttrInputClass}`);
+            attrInput.onchange = (e) => updateEntityImageAttribution(type, img.id, e.target.value);
 
             container.appendChild(card);
         });
     }
 
-    async function handleTombGalleryUpload(files) {
-        if (!supabaseClient || !currentEditTomb) {
-            showToast("Lütfen önce türbe kaydını oluşturun veya kaydedin.", "warning");
+    async function handleEntityGalleryUpload(type, files) {
+        if (!supabaseClient) return;
+        let entity = null;
+        let gallery = [];
+
+        if (type === 'tomb') { entity = currentEditTomb; gallery = loadedTombGallery; }
+        else if (type === 'mosque') { entity = currentEditMosque; gallery = loadedMosqueGallery; }
+        else if (type === 'program') { entity = currentEditProgram; gallery = loadedProgramGallery; }
+
+        if (!entity) {
+            showToast("Lütfen önce kaydı oluşturun veya kaydedin.", "warning");
             return;
         }
 
-        if (loadedTombGallery.length + files.length > 8) {
+        if (gallery.length + files.length > 8) {
             showToast("En fazla 8 fotoğraf ekleyebilirsiniz.", "warning");
             return;
         }
 
-        const loader = document.getElementById('tomb-modal-gallery-loader');
+        const config = GALLERY_CONFIGS[type];
+        const loader = document.getElementById(config.loader);
         if (loader) loader.classList.remove('hidden');
 
         try {
             for (const file of files) {
-                const uploadedUrl = await uploadTombPhotoToStorage(file, currentEditTomb.city, currentEditTomb.district, currentEditTomb.id);
+                const uploadedUrl = await uploadEntityPhotoToStorage(type, file, entity);
                 if (uploadedUrl) {
-                    const isFirst = loadedTombGallery.length === 0;
-                    const sortOrder = loadedTombGallery.length;
+                    const isFirst = gallery.length === 0;
+                    const sortOrder = gallery.length;
 
                     const payload = {
-                        tomb_id: currentEditTomb.id,
-                        image_url: uploadedUrl,
-                        storage_path: extractStoragePath(uploadedUrl),
+                        [config.idField]: entity.id,
+                        [config.photoField]: uploadedUrl,
+                        storage_path: extractEntityStoragePath(type, uploadedUrl),
                         sort_order: sortOrder,
                         is_cover: isFirst
                     };
 
                     const { data, error } = await supabaseClient
-                        .from('tomb_images')
+                        .from(config.table)
                         .insert(payload)
                         .select()
                         .single();
 
                     if (error) throw error;
 
-                    loadedTombGallery.push(data);
+                    gallery.push(data);
 
                     if (isFirst) {
-                        await syncTombCover(currentEditTomb.id, uploadedUrl);
+                        await syncEntityCover(type, entity.id, uploadedUrl);
                     }
                 }
             }
-            renderTombGallery();
+            renderEntityGallery(type);
             showToast("Fotoğraflar başarıyla eklendi.", "success");
         } catch (error) {
-            console.error("Yükleme hatası:", error);
+            console.error(`${type} yükleme hatası:`, error);
             showToast("Bazı fotoğraflar yüklenemedi.", "error");
         } finally {
             if (loader) loader.classList.add('hidden');
         }
     }
 
-    async function setTombCover(imageId) {
-        if (!supabaseClient || !currentEditTomb) return;
+    async function setEntityCover(type, imageId) {
+        if (!supabaseClient) return;
+        let entity = null;
+        if (type === 'tomb') entity = currentEditTomb;
+        else if (type === 'mosque') entity = currentEditMosque;
+        else if (type === 'program') entity = currentEditProgram;
+
+        const config = GALLERY_CONFIGS[type];
+        if (!entity) return;
 
         try {
-            // 1. Reset all covers for this tomb
             await supabaseClient
-                .from('tomb_images')
+                .from(config.table)
                 .update({ is_cover: false })
-                .eq('tomb_id', currentEditTomb.id);
+                .eq(config.idField, entity.id);
 
-            // 2. Set new cover
             const { data, error } = await supabaseClient
-                .from('tomb_images')
+                .from(config.table)
                 .update({ is_cover: true })
                 .eq('id', imageId)
                 .select()
@@ -11890,12 +11855,15 @@ out center tags;`;
 
             if (error) throw error;
 
-            // 3. Sync with tomb_locations
-            await syncTombCover(currentEditTomb.id, data.image_url);
+            await syncEntityCover(type, entity.id, data[config.photoField]);
 
-            // 4. Update UI
-            loadedTombGallery.forEach(img => img.is_cover = (img.id === imageId));
-            renderTombGallery();
+            let gallery = [];
+            if (type === 'tomb') gallery = loadedTombGallery;
+            else if (type === 'mosque') gallery = loadedMosqueGallery;
+            else if (type === 'program') gallery = loadedProgramGallery;
+
+            gallery.forEach(img => img.is_cover = (img.id === imageId));
+            renderEntityGallery(type);
             showToast("Kapak fotoğrafı güncellendi.", "success");
         } catch (error) {
             console.error("Kapak değiştirilemedi:", error);
@@ -11903,70 +11871,90 @@ out center tags;`;
         }
     }
 
-    async function syncTombCover(tombId, imageUrl) {
+    async function syncEntityCover(type, entityId, imageUrl) {
+        const config = GALLERY_CONFIGS[type];
+        const payload = { [config.coverField]: imageUrl, updated_at: new Date().toISOString() };
+
         await supabaseClient
-            .from('tomb_locations')
-            .update({ image_url: imageUrl, updated_at: new Date().toISOString() })
-            .eq('id', tombId);
+            .from(config.entityTable)
+            .update(payload)
+            .eq('id', entityId);
+
+        let entity = null;
+        if (type === 'tomb') entity = currentEditTomb;
+        else if (type === 'mosque') entity = currentEditMosque;
+        else if (type === 'program') entity = currentEditProgram;
+
+        if (entity) entity[config.coverField] = imageUrl;
     }
 
-    async function moveTombImage(imageId, direction) {
-        const index = loadedTombGallery.findIndex(img => img.id === imageId);
+    async function moveEntityImage(type, imageId, direction) {
+        let gallery = [];
+        if (type === 'tomb') gallery = loadedTombGallery;
+        else if (type === 'mosque') gallery = loadedMosqueGallery;
+        else if (type === 'program') gallery = loadedProgramGallery;
+
+        const index = gallery.findIndex(img => img.id === imageId);
         if (index === -1) return;
 
         const newIndex = direction === 'left' ? index - 1 : index + 1;
-        if (newIndex < 0 || newIndex >= loadedTombGallery.length) return;
+        if (newIndex < 0 || newIndex >= gallery.length) return;
 
-        // Swap locally
-        const temp = loadedTombGallery[index];
-        loadedTombGallery[index] = loadedTombGallery[newIndex];
-        loadedTombGallery[newIndex] = temp;
+        const temp = gallery[index];
+        gallery[index] = gallery[newIndex];
+        gallery[newIndex] = temp;
 
-        // Update sort_order in DB
+        const config = GALLERY_CONFIGS[type];
         try {
-            await Promise.all(loadedTombGallery.map((img, i) =>
-                supabaseClient.from('tomb_images').update({ sort_order: i }).eq('id', img.id)
+            await Promise.all(gallery.map((img, i) =>
+                supabaseClient.from(config.table).update({ sort_order: i }).eq('id', img.id)
             ));
-            renderTombGallery();
+            renderEntityGallery(type);
         } catch (error) {
             console.error("Sıralama güncellenemedi:", error);
         }
     }
 
-    async function removeTombImage(imageId) {
+    async function removeEntityImage(type, imageId) {
         if (!confirm("Bu fotoğrafı galeriden silmek istediğinize emin misiniz?")) return;
 
-        const img = loadedTombGallery.find(i => i.id === imageId);
+        let gallery = [];
+        let entity = null;
+        if (type === 'tomb') { gallery = loadedTombGallery; entity = currentEditTomb; }
+        else if (type === 'mosque') { gallery = loadedMosqueGallery; entity = currentEditMosque; }
+        else if (type === 'program') { gallery = loadedProgramGallery; entity = currentEditProgram; }
+
+        const img = gallery.find(i => i.id === imageId);
         if (!img) return;
 
+        const config = GALLERY_CONFIGS[type];
+
         try {
-            // 1. Delete from DB
             const { error: dbError } = await supabaseClient
-                .from('tomb_images')
+                .from(config.table)
                 .delete()
                 .eq('id', imageId);
 
             if (dbError) throw dbError;
 
-            // 2. Safe Storage Delete
-            if (img.storage_path && img.storage_path.includes('tomb-images')) {
-                await supabaseClient.storage.from('tomb-images').remove([img.storage_path]);
+            if (img.storage_path) {
+                await supabaseClient.storage.from(config.storageBucket).remove([img.storage_path]);
             }
 
-            // 3. Handle Cover sync if we deleted the cover
             if (img.is_cover) {
-                const remaining = loadedTombGallery.filter(i => i.id !== imageId);
+                const remaining = gallery.filter(i => i.id !== imageId);
                 if (remaining.length > 0) {
-                    const newCover = remaining[0];
-                    await setTombCover(newCover.id);
+                    await setEntityCover(type, remaining[0].id);
                 } else {
-                    await syncTombCover(currentEditTomb.id, null);
+                    await syncEntityCover(type, entity.id, null);
                 }
             }
 
-            // 4. Update UI
-            loadedTombGallery = loadedTombGallery.filter(i => i.id !== imageId);
-            renderTombGallery();
+            if (type === 'tomb') loadedTombGallery = loadedTombGallery.filter(i => i.id !== imageId);
+            else if (type === 'mosque') loadedMosqueGallery = loadedMosqueGallery.filter(i => i.id !== imageId);
+            else if (type === 'program') loadedProgramGallery = loadedProgramGallery.filter(i => i.id !== imageId);
+
+            renderEntityGallery(type);
             showToast("Fotoğraf silindi.", "success");
         } catch (error) {
             console.error("Silme hatası:", error);
@@ -11974,27 +11962,329 @@ out center tags;`;
         }
     }
 
-    async function updateTombImageAttribution(imageId, text) {
+    async function updateEntityImageAttribution(type, imageId, text) {
+        const config = GALLERY_CONFIGS[type];
         try {
             await supabaseClient
-                .from('tomb_images')
+                .from(config.table)
                 .update({ image_attribution: text })
                 .eq('id', imageId);
 
-            const img = loadedTombGallery.find(i => i.id === imageId);
+            let gallery = [];
+            if (type === 'tomb') gallery = loadedTombGallery;
+            else if (type === 'mosque') gallery = loadedMosqueGallery;
+            else if (type === 'program') gallery = loadedProgramGallery;
+
+            const img = gallery.find(i => i.id === imageId);
             if (img) img.image_attribution = text;
         } catch (error) {
             console.error("Atıf güncellenemedi:", error);
         }
     }
 
-    function extractStoragePath(url) {
-        // Expected: .../storage/v1/object/public/tomb-images/TR/city/dist/file
+    function extractEntityStoragePath(type, url) {
+        const config = GALLERY_CONFIGS[type];
         try {
-            const parts = url.split('/tomb-images/');
+            const parts = url.split(`/${config.storageBucket}/`);
             if (parts.length > 1) return parts[1];
         } catch (e) {}
         return null;
+    }
+
+    async function uploadEntityPhotoToStorage(type, file, entity) {
+        const config = GALLERY_CONFIGS[type];
+        try {
+            const fileExt = file.name.split('.').pop();
+            const city = entity.city || 'Sakarya';
+            const district = entity.district || 'Merkez';
+            const cleanCity = trNormalizeForPath(city);
+            const cleanDistrict = trNormalizeForPath(district);
+            const timestamp = new Date().getTime();
+            const fileName = `${crypto.randomUUID()}_${timestamp}.${fileExt}`;
+
+            const path = `TR/${cleanCity}/${cleanDistrict}/${entity.id}/${fileName}`;
+
+            const { data, error } = await supabaseClient.storage
+                .from(config.storageBucket)
+                .upload(path, file, { contentType: file.type });
+
+            if (error) throw error;
+
+            const { data: { publicUrl } } = supabaseClient.storage
+                .from(config.storageBucket)
+                .getPublicUrl(path);
+
+            return publicUrl;
+        } catch (error) {
+            console.error("Fotoğraf yükleme hatası:", error);
+            return null;
+        }
+    }
+
+    // Google Photo Discovery Generic Workflow
+    async function searchGooglePlacesGeneric(type) {
+        activeGalleryType = type;
+        const config = GALLERY_CONFIGS[type];
+
+        let entity = null;
+        if (type === 'tomb') entity = currentEditTomb;
+        else if (type === 'mosque') entity = currentEditMosque;
+        else if (type === 'program') entity = currentEditProgram;
+
+        if (!entity) return;
+
+        const discoveryArea = document.getElementById(config.discoveryArea);
+        const loader = document.getElementById(config.discoveryLoader);
+        const errorEl = document.getElementById(config.discoveryError);
+        const placeContainer = document.getElementById(config.discoveryPlaceCandidates);
+        const photoContainer = document.getElementById(config.discoveryPhotoCandidates);
+
+        discoveryArea.classList.remove('hidden');
+        loader.classList.remove('hidden');
+        errorEl.classList.add('hidden');
+        placeContainer.innerHTML = '';
+        photoContainer.classList.add('hidden');
+
+        // Search Query building via config
+        const query = config.searchQueryBuilder(entity);
+        const searchUrl = `${window.CENNET_CONFIG.SUPABASE_URL}/functions/v1/google-places-proxy/search?q=${encodeURIComponent(query)}`;
+
+        try {
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            const response = await fetch(searchUrl, {
+                headers: { 'Authorization': `Bearer ${session?.access_token || ''}` }
+            });
+
+            if (!response.ok) throw new Error("Google Arama hatası oluştu.");
+
+            const data = await response.json();
+            const places = data.places || [];
+
+            loader.classList.add('hidden');
+
+            if (places.length === 0) {
+                errorEl.textContent = "Google'da eşleşen yer bulunamadı.";
+                errorEl.classList.remove('hidden');
+                return;
+            }
+
+            renderGooglePlaceCandidatesGeneric(type, places);
+
+        } catch (error) {
+            console.error("Google discovery error:", error);
+            loader.classList.add('hidden');
+            errorEl.textContent = "Arama sırasında bir hata oluştu.";
+            errorEl.classList.remove('hidden');
+        }
+    }
+
+    function renderGooglePlaceCandidatesGeneric(type, places) {
+        const config = GALLERY_CONFIGS[type];
+        const placeContainer = document.getElementById(config.discoveryPlaceCandidates);
+
+        let entity = null;
+        if (type === 'tomb') entity = currentEditTomb;
+        else if (type === 'mosque') entity = currentEditMosque;
+        else if (type === 'program') entity = currentEditProgram;
+
+        placeContainer.innerHTML = '';
+
+        places.forEach(place => {
+            const card = document.createElement('div');
+            card.style.cssText = 'background: white; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);';
+
+            let distanceHtml = '';
+            if (entity.latitude && entity.longitude && place.location) {
+                const dist = calculateHaversineDistance(entity.latitude, entity.longitude, place.location.latitude, place.location.longitude);
+                if (dist !== null) {
+                    const color = dist < 500 ? '#2e7d32' : dist < 2000 ? '#f57c00' : '#d32f2f';
+                    distanceHtml = `<span style="color: ${color}; font-weight: 600;"><i class="fa-solid fa-arrows-left-right"></i> ${dist < 1000 ? Math.round(dist) + 'm' : (dist / 1000).toFixed(1) + 'km'} mesafe</span>`;
+                }
+            }
+
+            card.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
+                    <div style="flex: 1;">
+                        <h6 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--md-primary);">${escapeHtml(place.displayName?.text || 'İsimsiz Yer')}</h6>
+                        <p style="margin: 4px 0 0; font-size: 12px; color: var(--md-on-surface-variant);">${escapeHtml(place.formattedAddress || '')}</p>
+                    </div>
+                    <button type="button" class="btn btn-primary btn-xs btn-select-place" style="background-color: #4285F4; border-color: #4285F4;">Seç</button>
+                </div>
+                <div style="display: flex; gap: 12px; font-size: 11px; color: #666;">
+                    <span><i class="fa-solid fa-location-crosshairs"></i> ${place.location?.latitude.toFixed(4)}, ${place.location?.longitude.toFixed(4)}</span>
+                    ${distanceHtml}
+                </div>
+            `;
+
+            card.querySelector('.btn-select-place').onclick = () => selectGooglePlaceGeneric(type, place);
+            placeContainer.appendChild(card);
+        });
+    }
+
+    function selectGooglePlaceGeneric(type, place) {
+        const config = GALLERY_CONFIGS[type];
+        const placeContainer = document.getElementById(config.discoveryPlaceCandidates);
+        const photoArea = document.getElementById(config.discoveryPhotoCandidates);
+        const photoList = document.getElementById(config.discoveryPhotoCandidatesList);
+        const titleEl = document.getElementById(config.discoveryTitle);
+
+        placeContainer.innerHTML = '';
+        titleEl.innerHTML = `<i class="fa-solid fa-image"></i> ${escapeHtml(place.displayName?.text)} - Fotoğraflar`;
+        photoArea.classList.remove('hidden');
+        photoList.innerHTML = '';
+
+        const photos = (place.photos || []).slice(0, 5);
+        if (photos.length === 0) {
+            photoList.innerHTML = '<p style="padding: 12px; font-size: 13px; color: #666;">Bu yer için fotoğraf bulunamadı.</p>';
+            return;
+        }
+
+        photos.forEach((photo, idx) => {
+            const card = document.createElement('div');
+            card.style.cssText = 'min-width: 140px; flex-shrink: 0; background: white; border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column;';
+            const proxyPreviewUrl = `${window.CENNET_CONFIG.SUPABASE_URL}/functions/v1/google-places-proxy/photo-preview?name=${encodeURIComponent(photo.name)}`;
+            const attributionText = (photo.authorAttributions || []).map(a => a.displayName).join(', ');
+
+            card.innerHTML = `
+                <div style="height: 100px; background: #eee; display: flex; align-items: center; justify-content: center; overflow: hidden;">
+                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
+                         data-src="${proxyPreviewUrl}" class="google-preview-img" alt="Google photo" style="width: 100%; height: 100%; object-fit: cover;"
+                         onerror="this.src='https://placehold.co/140x100?text=Foto';">
+                </div>
+                <div style="padding: 8px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
+                    <p style="margin: 0; font-size: 10px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(attributionText)}">Atıf: ${escapeHtml(attributionText || 'Google')}</p>
+                    <button type="button" class="btn btn-primary btn-xs btn-save-google-photo" style="margin-top: 6px; width: 100%;">Kullan</button>
+                </div>
+            `;
+
+            card.querySelector('.btn-save-google-photo').onclick = () => saveGooglePhotoMetadataGeneric(type, place.id, photo, idx);
+            photoList.appendChild(card);
+        });
+
+        loadGooglePreviewsWithAuth();
+    }
+
+    async function loadGooglePreviewsWithAuth() {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        const token = session?.access_token;
+        if (!token) return;
+
+        const imgs = document.querySelectorAll('.google-preview-img[data-src]');
+        for (const img of imgs) {
+            const src = img.getAttribute('data-src');
+            try {
+                const res = await fetch(src, { headers: { 'Authorization': `Bearer ${token}` } });
+                if (res.ok) {
+                    const blob = await res.blob();
+                    img.src = URL.createObjectURL(blob);
+                }
+            } catch (e) {}
+            img.removeAttribute('data-src');
+        }
+    }
+
+    async function saveGooglePhotoMetadataGeneric(type, placeId, photo, photoIndex) {
+        if (!supabaseClient) return;
+
+        let entity = null;
+        let gallery = [];
+
+        if (type === 'tomb') { entity = currentEditTomb; gallery = loadedTombGallery; }
+        else if (type === 'mosque') { entity = currentEditMosque; gallery = loadedMosqueGallery; }
+        else if (type === 'program') { entity = currentEditProgram; gallery = loadedProgramGallery; }
+
+        const config = GALLERY_CONFIGS[type];
+        if (!entity) return;
+
+        const loader = document.getElementById(config.loader);
+        if (loader) loader.classList.remove('hidden');
+
+        try {
+            const isFirst = gallery.length === 0;
+            const sortOrder = gallery.length;
+            const attribution = (photo.authorAttributions || []).map(a => a.displayName).join(', ');
+            const imageId = crypto.randomUUID();
+            const baseUrl = window.CENNET_CONFIG.SUPABASE_URL.replace(/\/$/, "");
+
+            let proxyUrl = "";
+            if (type === 'tomb') proxyUrl = `${baseUrl}/functions/v1/google-places-proxy/photo?tomb_image_id=${imageId}`;
+            else if (type === 'mosque') proxyUrl = `${baseUrl}/functions/v1/google-places-proxy/mosque-photo?mosque_image_id=${imageId}`;
+            else if (type === 'program') proxyUrl = `${baseUrl}/functions/v1/google-places-proxy/program-photo?program_image_id=${imageId}`;
+
+            const payload = {
+                id: imageId,
+                [config.idField]: entity.id,
+                source_type: 'GOOGLE_PLACES',
+                google_place_id: placeId,
+                google_photo_name: photo.name,
+                google_photo_index: photoIndex,
+                google_author_attribution: attribution,
+                [config.photoField]: proxyUrl,
+                image_attribution: attribution,
+                sort_order: sortOrder,
+                is_cover: isFirst,
+                created_at: new Date().toISOString()
+            };
+
+            const { data, error } = await supabaseClient
+                .from(config.table)
+                .insert(payload)
+                .select()
+                .single();
+
+            if (error) throw error;
+
+            gallery.push(data);
+
+            if (isFirst) {
+                await syncEntityCover(type, entity.id, proxyUrl);
+            }
+
+            renderEntityGallery(type);
+            document.getElementById(config.discoveryArea).classList.add('hidden');
+            showToast("Google fotoğrafı galeriye eklendi.", "success");
+
+        } catch (error) {
+            console.error("Google photo save error:", error);
+            showToast("Fotoğraf kaydedilemedi: " + (error.message || ""), "error");
+        } finally {
+            if (loader) loader.classList.add('hidden');
+        }
+    }
+
+    // Tomb Wrappers for backward compatibility (B16.3C2)
+    async function loadTombGallery(tombId) { await loadEntityGallery('tomb', tombId); }
+    function renderTombGallery() { renderEntityGallery('tomb'); }
+    async function handleTombGalleryUpload(files) { await handleEntityGalleryUpload('tomb', files); }
+    async function setTombCover(imageId) { await setEntityCover('tomb', imageId); }
+    async function syncTombCover(tombId, imageUrl) { await syncEntityCover('tomb', tombId, imageUrl); }
+    async function moveTombImage(imageId, direction) { await moveEntityImage('tomb', imageId, direction); }
+    async function removeTombImage(imageId) { await removeEntityImage('tomb', imageId); }
+    async function updateTombImageAttribution(imageId, text) { await updateEntityImageAttribution('tomb', imageId, text); }
+    async function searchGooglePlacesForTomb() { await searchGooglePlacesGeneric('tomb'); }
+
+    // Mosque implementation
+    async function loadMosqueGallery(mosqueId) { await loadEntityGallery('mosque', mosqueId); }
+    function renderMosqueGallery() { renderEntityGallery('mosque'); }
+    async function handleMosqueGalleryUpload(files) { await handleEntityGalleryUpload('mosque', files); }
+    async function searchGooglePlacesForMosquePhoto() { await searchGooglePlacesGeneric('mosque'); }
+    async function searchGooglePlacesForProgramPhoto() { await searchGooglePlacesGeneric('program'); }
+
+    function trNormalizeForPath(text) {
+        if (!text) return "";
+        return text.toString()
+            .normalize("NFD")
+            .replace(/[\u0300-\u036f]/g, "")
+            .replace(/ı/g, 'i').replace(/İ/g, 'i')
+            .replace(/ğ/g, 'g').replace(/Ğ/g, 'g')
+            .replace(/ü/g, 'u').replace(/Ü/g, 'u')
+            .replace(/ş/g, 's').replace(/Ş/g, 's')
+            .replace(/ö/g, 'o').replace(/Ö/g, 'o')
+            .replace(/ç/g, 'c').replace(/Ç/g, 'c')
+            .toLowerCase()
+            .trim()
+            .replace(/\s+/g, '-')
+            .replace(/[^a-z0-9-]/g, '');
     }
 
     async function handleTombSave() {
@@ -12100,276 +12390,6 @@ out center tags;`;
         }
     }
 
-    /**
-     * B16.3C2.1 - Google Places Photo Discovery Workflow
-     */
-    async function searchGooglePlacesForTomb() {
-        if (!currentEditTomb) return;
-
-        const discoveryArea = document.getElementById('tomb-google-discovery-area');
-        const loader = document.getElementById('google-discovery-loader');
-        const errorEl = document.getElementById('google-discovery-error');
-        const placeContainer = document.getElementById('google-place-candidates');
-        const photoContainer = document.getElementById('google-photo-candidates');
-
-        discoveryArea.classList.remove('hidden');
-        loader.classList.remove('hidden');
-        errorEl.classList.add('hidden');
-        placeContainer.innerHTML = '';
-        photoContainer.classList.add('hidden');
-
-        // Search Query: Name + District + City
-        const query = `${currentEditTomb.name} ${currentEditTomb.district} ${currentEditTomb.city}`;
-        const searchUrl = `${window.CENNET_CONFIG.SUPABASE_URL}/functions/v1/google-places-proxy/search?q=${encodeURIComponent(query)}`;
-
-        try {
-            const { data: { session } } = await supabaseClient.auth.getSession();
-            const response = await fetch(searchUrl, {
-                headers: {
-                    'Authorization': `Bearer ${session?.access_token || ''}`
-                }
-            });
-
-            if (!response.ok) throw new Error("Google Arama hatası oluştu.");
-
-            const data = await response.json();
-            const places = data.places || [];
-
-            loader.classList.add('hidden');
-
-            if (places.length === 0) {
-                errorEl.textContent = "Google'da eşleşen yer bulunamadı.";
-                errorEl.classList.remove('hidden');
-                return;
-            }
-
-            renderGooglePlaceCandidates(places);
-
-        } catch (error) {
-            console.error("Google discovery error:", error);
-            loader.classList.add('hidden');
-            errorEl.textContent = "Arama sırasında bir hata oluştu.";
-            errorEl.classList.remove('hidden');
-        }
-    }
-
-    function renderGooglePlaceCandidates(places) {
-        const placeContainer = document.getElementById('google-place-candidates');
-        placeContainer.innerHTML = '';
-
-        places.forEach(place => {
-            const card = document.createElement('div');
-            card.style.cssText = 'background: white; border: 1px solid #dee2e6; border-radius: 6px; padding: 12px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05);';
-
-            // Distance calculation
-            let distanceHtml = '';
-            if (currentEditTomb.latitude && currentEditTomb.longitude && place.location) {
-                const dist = calculateHaversineDistance(
-                    currentEditTomb.latitude, currentEditTomb.longitude,
-                    place.location.latitude, place.location.longitude
-                );
-                if (dist !== null) {
-                    const color = dist < 500 ? '#2e7d32' : dist < 2000 ? '#f57c00' : '#d32f2f';
-                    distanceHtml = `<span style="color: ${color}; font-weight: 600;"><i class="fa-solid fa-arrows-left-right"></i> ${dist < 1000 ? Math.round(dist) + 'm' : (dist / 1000).toFixed(1) + 'km'} mesafe</span>`;
-                }
-            }
-
-            card.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: flex-start;">
-                    <div style="flex: 1;">
-                        <h6 style="margin: 0; font-size: 14px; font-weight: 700; color: var(--md-primary);">${escapeHtml(place.displayName?.text || 'İsimsiz Yer')}</h6>
-                        <p style="margin: 4px 0 0; font-size: 12px; color: var(--md-on-surface-variant);">${escapeHtml(place.formattedAddress || '')}</p>
-                    </div>
-                    <button type="button" class="btn btn-primary btn-xs btn-select-place" style="background-color: #4285F4; border-color: #4285F4;">Seç</button>
-                </div>
-                <div style="display: flex; gap: 12px; font-size: 11px; color: #666;">
-                    <span><i class="fa-solid fa-location-crosshairs"></i> ${place.location?.latitude.toFixed(4)}, ${place.location?.longitude.toFixed(4)}</span>
-                    ${distanceHtml}
-                </div>
-            `;
-
-            card.querySelector('.btn-select-place').onclick = () => selectGooglePlace(place);
-            placeContainer.appendChild(card);
-        });
-    }
-
-    function selectGooglePlace(place) {
-        const placeContainer = document.getElementById('google-place-candidates');
-        const photoArea = document.getElementById('google-photo-candidates');
-        const photoList = document.getElementById('google-photo-candidates-list');
-        const titleEl = document.getElementById('google-discovery-title');
-
-        placeContainer.innerHTML = ''; // Clear other candidates
-        titleEl.innerHTML = `<i class="fa-solid fa-image"></i> ${escapeHtml(place.displayName?.text)} - Fotoğraflar`;
-        photoArea.classList.remove('hidden');
-        photoList.innerHTML = '';
-
-        const photos = (place.photos || []).slice(0, 5);
-
-        if (photos.length === 0) {
-            photoList.innerHTML = '<p style="padding: 12px; font-size: 13px; color: #666;">Bu yer için fotoğraf bulunamadı.</p>';
-            return;
-        }
-
-        photos.forEach((photo, idx) => {
-            const card = document.createElement('div');
-            card.style.cssText = 'min-width: 140px; flex-shrink: 0; background: white; border: 1px solid #dee2e6; border-radius: 6px; overflow: hidden; display: flex; flex-direction: column;';
-
-            // Google Photo Name is refreshable identifier.
-            // We use the proxy redirect URL for preview in admin.
-            // But Google allows direct preview if we use the API key here for admin only.
-            // However, to satisfy requirements of NOT storing temp URLs, we'll show a small placeholder or use the proxy.
-            // Proxy is safer.
-            const previewUrl = `https://places.googleapis.com/v1/${photo.name}/media?key=REPLACE_WITH_KEY_IF_NEEDED&maxHeightPx=200`;
-            // NOTE: Since I can't expose key in browser, I will use the proxy endpoint if it supports simple 'name' param
-            // Actually, the proxy endpoint I wrote uses 'tomb_image_id'.
-            // I'll add a 'preview' param to proxy for this or just use a generic Google placeholder if I can't use key.
-            // Let's assume the proxy handles simple redirect for preview if authorized.
-
-            // For now, I'll use a placeholder or try to use a proxy-preview endpoint if I add it.
-            // Better: Add a temporary preview link to the proxy.
-            const proxyPreviewUrl = `${window.CENNET_CONFIG.SUPABASE_URL}/functions/v1/google-places-proxy/photo-preview?name=${encodeURIComponent(photo.name)}`;
-
-            const attributionText = (photo.authorAttributions || []).map(a => a.displayName).join(', ');
-
-            card.innerHTML = `
-                <div style="height: 100px; background: #eee; display: flex; align-items: center; justify-content: center; overflow: hidden;">
-                    <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7"
-                         data-src="${proxyPreviewUrl}"
-                         class="google-preview-img"
-                         alt="Google photo" style="width: 100%; height: 100%; object-fit: cover;"
-                         onerror="this.src='https://placehold.co/140x100?text=Foto';">
-                </div>
-                <div style="padding: 8px; flex: 1; display: flex; flex-direction: column; justify-content: space-between;">
-                    <p style="margin: 0; font-size: 10px; color: #777; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(attributionText)}">Atıf: ${escapeHtml(attributionText || 'Google')}</p>
-                    <button type="button" class="btn btn-primary btn-xs btn-save-google-photo" style="margin-top: 6px; width: 100%;">Kullan</button>
-                </div>
-            `;
-
-            card.querySelector('.btn-save-google-photo').onclick = () => saveGooglePhotoMetadata(place.id, photo, idx);
-            photoList.appendChild(card);
-        });
-
-        // Auth requirement for previews: Fetch images with token
-        loadGooglePreviewsWithAuth();
-    }
-
-    /**
-     * Authenticated fetch for Google preview images
-     */
-    async function loadGooglePreviewsWithAuth() {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        const token = session?.access_token;
-        if (!token) return;
-
-        const imgs = document.querySelectorAll('.google-preview-img[data-src]');
-        for (const img of imgs) {
-            const src = img.getAttribute('data-src');
-            try {
-                const res = await fetch(src, { headers: { 'Authorization': `Bearer ${token}` } });
-                if (res.ok) {
-                    const blob = await res.blob();
-                    img.src = URL.createObjectURL(blob);
-                }
-            } catch (e) {}
-            img.removeAttribute('data-src');
-        }
-    }
-
-    async function saveGooglePhotoMetadata(placeId, photo, photoIndex) {
-        if (!supabaseClient || !currentEditTomb) return;
-
-        const loader = document.getElementById('tomb-modal-gallery-loader');
-        loader.classList.remove('hidden');
-
-        try {
-            const isFirst = loadedTombGallery.length === 0;
-            const sortOrder = loadedTombGallery.length;
-            const attribution = (photo.authorAttributions || []).map(a => a.displayName).join(', ');
-
-            // Generate stable proxy URL using a pre-defined ID
-            const tombImageId = crypto.randomUUID();
-
-            // Construct absolute URL safely
-            const baseUrl = window.CENNET_CONFIG.SUPABASE_URL.replace(/\/$/, "");
-            const proxyUrl = `${baseUrl}/functions/v1/google-places-proxy/photo?tomb_image_id=${tombImageId}`;
-
-            const payload = {
-                id: tombImageId,
-                tomb_id: currentEditTomb.id,
-                source_type: 'GOOGLE_PLACES',
-                google_place_id: placeId,
-                google_photo_name: photo.name,
-                google_photo_index: photoIndex,
-                google_author_attribution: attribution,
-                image_url: proxyUrl,
-                image_attribution: attribution,
-                sort_order: sortOrder,
-                is_cover: isFirst,
-                created_at: new Date().toISOString()
-            };
-
-            const { data, error } = await supabaseClient
-                .from('tomb_images')
-                .insert(payload)
-                .select()
-                .single();
-
-            if (error) throw error;
-
-            loadedTombGallery.push(data);
-
-            if (isFirst) {
-                // Synchronize tomb_locations with exactly the same stable proxy URL
-                await supabaseClient
-                    .from('tomb_locations')
-                    .update({
-                        image_url: proxyUrl,
-                        image_attribution: attribution,
-                        updated_at: new Date().toISOString()
-                    })
-                    .eq('id', currentEditTomb.id);
-
-                // Update local tomb object cover
-                if (currentEditTomb) {
-                    currentEditTomb.image_url = proxyUrl;
-                    currentEditTomb.image_attribution = attribution;
-                }
-            }
-
-            renderTombGallery();
-            document.getElementById('tomb-google-discovery-area').classList.add('hidden');
-            showToast("Google fotoğrafı galeriye eklendi.", "success");
-
-        } catch (error) {
-            console.error("Google photo save error:", error);
-            showToast("Fotoğraf kaydedilemedi: " + (error.message || ""), "error");
-        } finally {
-            loader.classList.add('hidden');
-        }
-    }
-
-    function trNormalizeForPath(text) {
-        return text.toLowerCase()
-            .replace(/ğ/g, 'g').replace(/ü/g, 'u').replace(/ş/g, 's')
-            .replace(/ı/g, 'i').replace(/ö/g, 'o').replace(/ç/g, 'c')
-            .replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
-    }
-
-    function initTombFilterOptions() {
-        const citySelect = document.getElementById('tombs-filter-city');
-        if (citySelect && typeof TURKEY_LOCATION_DATA !== 'undefined') {
-            citySelect.innerHTML = '<option value="">Tüm İller</option>';
-            const cities = Object.keys(TURKEY_LOCATION_DATA).sort((a, b) => a.localeCompare(b, 'tr'));
-            cities.forEach(city => {
-                const opt = document.createElement('option');
-                opt.value = city;
-                opt.textContent = city;
-                citySelect.appendChild(opt);
-            });
-        }
-    }
-
     function initTombListeners() {
         // Tab elements
         document.getElementById('add-tomb-btn')?.addEventListener('click', () => openTombModal());
@@ -12416,6 +12436,34 @@ out center tags;`;
             galleryInput.onchange = (e) => {
                 if (e.target.files && e.target.files.length > 0) {
                     handleTombGalleryUpload(Array.from(e.target.files));
+                    galleryInput.value = ''; // Reset
+                }
+            };
+        }
+    }
+
+    function initMosqueListeners() {
+        // Google Discovery buttons
+        document.getElementById('mosque-modal-google-discovery-btn')?.addEventListener('click', searchGooglePlacesForMosque);
+        document.getElementById('mosque-google-discovery-close')?.addEventListener('click', () => {
+            document.getElementById('mosque-google-discovery-area').classList.add('hidden');
+        });
+
+        // Google Discovery for Photo (B16.4)
+        document.getElementById('mosque-modal-google-photo-btn')?.addEventListener('click', searchGooglePlacesForMosquePhoto);
+        document.getElementById('mosque-google-photo-discovery-close')?.addEventListener('click', () => {
+            document.getElementById('mosque-google-photo-discovery-area').classList.add('hidden');
+        });
+
+        // Gallery Multi-Upload (B16.4)
+        const galleryInput = document.getElementById('mosque-modal-gallery-input');
+        const galleryBtn = document.getElementById('mosque-modal-gallery-upload-btn');
+
+        if (galleryBtn && galleryInput) {
+            galleryBtn.onclick = () => galleryInput.click();
+            galleryInput.onchange = (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    handleEntityGalleryUpload('mosque', Array.from(e.target.files));
                     galleryInput.value = ''; // Reset
                 }
             };

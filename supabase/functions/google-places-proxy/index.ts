@@ -94,16 +94,45 @@ serve(async (req) => {
   }
 
   // 3. PUBLIC STABLE PHOTO ENDPOINT
-  if (path === "photo") {
-    const tombImageId = url.searchParams.get("tomb_image_id");
-    if (!tombImageId) return new Response("Missing tomb_image_id", { status: 400, headers: corsHeaders });
+  if (path === "photo" || path === "mosque-photo" || path === "program-photo") {
+    const isMosque = path === "mosque-photo";
+    const isProgram = path === "program-photo";
+
+    let imageId = "";
+    if (isMosque) imageId = url.searchParams.get("mosque_image_id");
+    else if (isProgram) imageId = url.searchParams.get("program_image_id");
+    else imageId = url.searchParams.get("tomb_image_id");
+
+    if (!imageId) return new Response("Missing image_id", { status: 400, headers: corsHeaders });
+
+    let imagesTable = "tomb_images";
+    let locationsTable = "tomb_locations";
+    let entityIdField = "tomb_id";
+    let statusField = "is_active";
+    let activeValue: any = true;
+    let photoField = "image_url";
+
+    if (isMosque) {
+      imagesTable = "mosque_images";
+      locationsTable = "mosque_locations";
+      entityIdField = "mosque_id";
+      statusField = "status";
+      activeValue = "active";
+    } else if (isProgram) {
+      imagesTable = "program_photos";
+      locationsTable = "programs";
+      entityIdField = "program_id";
+      statusField = "status";
+      activeValue = "active";
+      photoField = "photo_url";
+    }
 
     try {
       // 1. Get metadata
       const { data: record, error: dbError } = await adminClient
-        .from("tomb_images")
-        .select("google_photo_name, google_place_id, google_photo_index, tomb_id")
-        .eq("id", tombImageId)
+        .from(imagesTable)
+        .select(`google_photo_name, google_place_id, google_photo_index, ${entityIdField}`)
+        .eq("id", imageId)
         .eq("source_type", "GOOGLE_PLACES")
         .single();
 
@@ -111,15 +140,15 @@ serve(async (req) => {
         return new Response("Photo metadata not found", { status: 404, headers: corsHeaders });
       }
 
-      // 2. Check active tomb
-      const { data: tomb, error: tombError } = await adminClient
-        .from("tomb_locations")
-        .select("is_active")
-        .eq("id", record.tomb_id)
+      // 2. Check active entity
+      const { data: entity, error: entityError } = await adminClient
+        .from(locationsTable)
+        .select(statusField)
+        .eq("id", record[entityIdField])
         .single();
 
-      if (tombError || !tomb || !tomb.is_active) {
-        return new Response("Tomb inactive or not found", { status: 404, headers: corsHeaders });
+      if (entityError || !entity || entity[statusField] !== activeValue) {
+        return new Response("Entity inactive or not found", { status: 404, headers: corsHeaders });
       }
 
       let currentName = record.google_photo_name;
@@ -137,7 +166,7 @@ serve(async (req) => {
           if (match && match.name) {
             currentName = match.name;
             // Update DB
-            adminClient.from("tomb_images").update({ google_photo_name: currentName }).eq("id", tombImageId).then();
+            adminClient.from(imagesTable).update({ google_photo_name: currentName }).eq("id", imageId).then();
             // Retry
             photoRes = await fetch(`https://places.googleapis.com/v1/${currentName}/media?key=${googleApiKey}&maxHeightPx=1600&maxWidthPx=1600`);
           }

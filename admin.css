@@ -3178,8 +3178,8 @@ body:not(.logged-out) #admin-login-screen {
     object-fit: cover;
 }
 
-/* Tomb Gallery Grid Styles (B16.3C2) */
-.tomb-image-card {
+/* Gallery Grid Styles (B16.4) */
+.tomb-image-card, .mosque-image-card, .program-image-card {
     background: #fff;
     border: 1px solid var(--md-outline);
     border-radius: var(--radius-sm);
@@ -3190,29 +3190,29 @@ body:not(.logged-out) #admin-login-screen {
     transition: var(--transition);
 }
 
-.tomb-image-card:hover {
+.tomb-image-card:hover, .mosque-image-card:hover, .program-image-card:hover {
     box-shadow: var(--shadow-md);
     transform: translateY(-2px);
 }
 
-.tomb-image-card.is-cover {
+.tomb-image-card.is-cover, .mosque-image-card.is-cover, .program-image-card.is-cover {
     border: 2px solid var(--md-primary);
     background: var(--md-primary-container);
 }
 
-.tomb-image-thumb {
+.tomb-image-thumb, .mosque-image-thumb, .program-image-thumb {
     width: 100%;
     height: 120px;
     object-fit: cover;
     border-bottom: 1px solid var(--md-outline);
 }
 
-.tomb-image-info {
+.tomb-image-info, .mosque-image-info, .program-image-info {
     padding: 8px;
     flex: 1;
 }
 
-.tomb-image-attr-input {
+.tomb-image-attr-input, .mosque-image-attr-input, .program-image-attr-input {
     width: 100%;
     font-size: 12px;
     padding: 4px 8px;
@@ -3221,20 +3221,20 @@ body:not(.logged-out) #admin-login-screen {
     margin-bottom: 8px;
 }
 
-.tomb-image-actions {
+.tomb-image-actions, .mosque-image-actions, .program-image-actions {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 4px;
     padding: 4px 8px 8px;
 }
 
-.tomb-image-actions .btn {
+.tomb-image-actions .btn, .mosque-image-actions .btn {
     font-size: 11px;
     padding: 4px;
     min-height: 28px;
 }
 
-.tomb-image-actions .btn-full {
+.tomb-image-actions .btn-full, .mosque-image-actions .btn-full {
     grid-column: span 2;
 }
 
