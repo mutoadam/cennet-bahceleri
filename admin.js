@@ -4359,16 +4359,6 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.overflow = "hidden";
         }
 
-        // B12.2A3.3A - Program Galerisi İlkleme (Salt Okunur / Legacy Fallback)
-        const currentPhotoUrl = typeof item.photo_url === 'string' ? item.photo_url.trim() : '';
-
-        // Önce mevcut state'i temizle ve legacy fotoğrafı göster
-        const galleryGrid = document.getElementById('edit-program-gallery-grid');
-        if (galleryGrid) galleryGrid.innerHTML = '';
-
-        if (currentPhotoUrl) {
-            renderProgramGallery([], currentPhotoUrl);
-        }
 
         // Ardından veritabanından güncel galeri kayıtlarını getir (Asenkron)
         loadEntityGallery('program', item.id);
@@ -11726,6 +11716,25 @@ out center tags;`;
         else if (type === 'program') gallery = loadedProgramGallery;
 
         if (gallery.length === 0) {
+            // Minimal Legacy Fallback for Programs (B16.7 Fix)
+            if (type === 'program' && currentEditProgram && currentEditProgram.photo_url && currentEditProgram.photo_url.trim() !== '') {
+                const card = document.createElement('div');
+                card.className = `${config.imageCardClass} is-cover`;
+                card.innerHTML = `
+                    <div style="position: relative; height: 120px; background: #eee;">
+                        <span class="cover-badge" style="position: absolute; top: 8px; left: 8px; background: var(--md-primary); color: white; padding: 2px 8px; border-radius: 4px; font-size: 10px; font-weight: 700; z-index: 2;">KAPAK</span>
+                        <img src="${currentEditProgram.photo_url}" class="${config.imageThumbClass}" alt="Legacy Photo" style="width: 100%; height: 100%; object-fit: cover;">
+                    </div>
+                    <div style="padding: 8px; text-align: center;">
+                        <small style="color: var(--md-secondary); font-weight: 600; font-size: 11px;">
+                            <i class="fa-solid fa-info-circle"></i> Mevcut Fotoğraf (Legacy)
+                        </small>
+                    </div>
+                `;
+                container.appendChild(card);
+                return;
+            }
+
             container.innerHTML = '<p style="grid-column: 1/-1; text-align: center; padding: 20px; color: var(--md-on-surface-variant); font-size: 14px;">Henüz fotoğraf eklenmemiş.</p>';
             return;
         }
