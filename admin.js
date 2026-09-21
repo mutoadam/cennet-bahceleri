@@ -3090,6 +3090,144 @@ document.addEventListener('DOMContentLoaded', () => {
         applyFilters();
     }
 
+    // Bulk selection state & handlers
+    let selectedProgramIds = new Set();
+    let currentFilteredPrograms = [];
+
+    function updateBulkActionsUI() {
+        const bar = document.getElementById('programs-bulk-actions-bar');
+        const countSpan = document.getElementById('bulk-selection-count');
+        const headerCheckbox = document.getElementById('header-bulk-checkbox');
+
+        const visibleCount = currentFilteredPrograms.length;
+        const selectedVisibleCount = currentFilteredPrograms.filter(p => selectedProgramIds.has(p.id)).length;
+
+        if (countSpan) {
+            countSpan.textContent = `${selectedProgramIds.size} program seçildi`;
+        }
+
+        if (headerCheckbox) {
+            if (visibleCount === 0) {
+                headerCheckbox.checked = false;
+                headerCheckbox.indeterminate = false;
+            } else if (selectedVisibleCount === visibleCount) {
+                headerCheckbox.checked = true;
+                headerCheckbox.indeterminate = false;
+            } else if (selectedVisibleCount === 0) {
+                headerCheckbox.checked = false;
+                headerCheckbox.indeterminate = false;
+            } else {
+                headerCheckbox.checked = false;
+                headerCheckbox.indeterminate = true;
+            }
+        }
+
+        if (bar) {
+            bar.classList.remove('hidden'); // Her zaman görünür kalsın ki Tümünü Seç checkbox'ı kullanılabilsin
+            const actionButtonsWrapper = bar.querySelector('.bulk-action-buttons');
+            if (actionButtonsWrapper) {
+                if (selectedProgramIds.size > 0) {
+                    actionButtonsWrapper.classList.remove('hidden');
+                } else {
+                    actionButtonsWrapper.classList.add('hidden');
+                }
+            }
+        }
+
+        const checkboxes = document.querySelectorAll('.program-item-checkbox');
+        checkboxes.forEach(cb => {
+            const id = cb.getAttribute('data-id');
+            cb.checked = selectedProgramIds.has(id);
+        });
+    }
+
+    function initBulkActionsListeners() {
+        const headerCheckbox = document.getElementById('header-bulk-checkbox');
+        headerCheckbox?.addEventListener('change', () => {
+            if (headerCheckbox.checked) {
+                currentFilteredPrograms.forEach(p => {
+                    selectedProgramIds.add(p.id);
+                });
+            } else {
+                currentFilteredPrograms.forEach(p => {
+                    selectedProgramIds.delete(p.id);
+                });
+            }
+            updateBulkActionsUI();
+        });
+
+        document.getElementById('bulk-clear-btn')?.addEventListener('click', () => {
+            selectedProgramIds.clear();
+            updateBulkActionsUI();
+        });
+
+        document.getElementById('bulk-active-btn')?.addEventListener('click', async () => {
+            if (selectedProgramIds.size === 0) return;
+            const confirmed = confirm(`Seçili ${selectedProgramIds.size} program aktif edilecek. Devam edilsin mi?`);
+            if (!confirmed) return;
+            await handleBulkStatusUpdate('active');
+        });
+
+        document.getElementById('bulk-pause-btn')?.addEventListener('click', async () => {
+            if (selectedProgramIds.size === 0) return;
+            const confirmed = confirm(`Seçili ${selectedProgramIds.size} program ara verilecek. Devam edilsin mi?`);
+            if (!confirmed) return;
+            await handleBulkStatusUpdate('inactive');
+        });
+    }
+
+    async function handleBulkStatusUpdate(newStatus) {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        const idsArray = Array.from(selectedProgramIds);
+        const count = idsArray.length;
+
+        const activeBtn = document.getElementById('bulk-active-btn');
+        const pauseBtn = document.getElementById('bulk-pause-btn');
+        const clearBtn = document.getElementById('bulk-clear-btn');
+
+        if (activeBtn) activeBtn.disabled = true;
+        if (pauseBtn) pauseBtn.disabled = true;
+        if (clearBtn) clearBtn.disabled = true;
+
+        try {
+            console.log(`Updating ${count} programs status to ${newStatus}...`);
+            const { error } = await supabaseClient
+                .from('programs')
+                .update({ status: newStatus, updated_at: new Date().toISOString() })
+                .in('id', idsArray);
+
+            if (error) {
+                console.warn("Bulk update with updated_at failed, trying status only:", error);
+                const retryRes = await supabaseClient
+                    .from('programs')
+                    .update({ status: newStatus })
+                    .in('id', idsArray);
+                if (retryRes.error) throw retryRes.error;
+            }
+
+            showToast(`${count} program başarıyla güncellendi.`, "success");
+            selectedProgramIds.clear();
+            const headerCheckbox = document.getElementById('header-bulk-checkbox');
+            if (headerCheckbox) {
+                headerCheckbox.checked = false;
+                headerCheckbox.indeterminate = false;
+            }
+            await loadPrograms();
+
+        } catch (error) {
+            console.error('Toplu durum güncelleme hatası:', error);
+            showToast("Toplu güncelleme sırasında hata oluştu.", "error");
+        } finally {
+            if (activeBtn) activeBtn.disabled = false;
+            if (pauseBtn) pauseBtn.disabled = false;
+            if (clearBtn) clearBtn.disabled = false;
+            updateBulkActionsUI();
+        }
+    }
+
     function applyFilters() {
         const searchQuery = document.getElementById('filter-search')?.value.trim().toLowerCase() || '';
         const selectedCity = isTrashBinView ? '' : (document.getElementById('filter-city')?.value || '');
@@ -3211,7 +3349,16 @@ document.addEventListener('DOMContentLoaded', () => {
             subtitleText.innerHTML = `<span id="programs-count-total">${loadedPrograms.length}</span> program içinden <span id="programs-count">${filtered.length}</span> kayıt gösteriliyor`;
         }
 
+        currentFilteredPrograms = filtered;
+        const visibleIds = new Set(currentFilteredPrograms.map(p => p.id));
+        for (let id of selectedProgramIds) {
+            if (!visibleIds.has(id)) {
+                selectedProgramIds.delete(id);
+            }
+        }
+
         renderPrograms(filtered);
+        updateBulkActionsUI();
     }
 
     function renderPrograms(programs) {
@@ -3343,6 +3490,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 card.innerHTML = `
                     <div class="card-header-info">
                         <div style="display: flex; gap: 6px; flex-wrap: wrap; align-items: center;">
+                            <input type="checkbox" class="program-item-checkbox bulk-checkbox" data-id="${item.id}" style="margin-right: 4px; cursor: pointer; width: 16px; height: 16px;">
                             <span class="${sourceBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(sourceBadge.label)}</span>
                             <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
                             ${batchMarkup}
@@ -3431,6 +3579,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                 }
 
+                const itemCheckbox = card.querySelector('.program-item-checkbox');
+                if (itemCheckbox) {
+                    itemCheckbox.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                    });
+                    itemCheckbox.addEventListener('change', () => {
+                        if (itemCheckbox.checked) {
+                            selectedProgramIds.add(item.id);
+                        } else {
+                            selectedProgramIds.delete(item.id);
+                        }
+                        updateBulkActionsUI();
+                    });
+                }
+
                 programsList.appendChild(card);
             });
         } else {
@@ -3449,6 +3612,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 table.innerHTML = `
                     <thead>
                         <tr>
+                            <th style="width: 40px; text-align: center;">Seç</th>
                             <th class="program-col-photo">Foto</th>
                             <th class="program-col-main">Program / Mekân</th>
                             <th class="program-col-organization">Çatı Kurum</th>
@@ -3466,6 +3630,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 table.innerHTML = `
                     <thead>
                         <tr>
+                            <th style="width: 40px; text-align: center;">Seç</th>
                             <th>Durum</th>
                             <th>Kaynak</th>
                             <th>Çatı Kurum</th>
@@ -3631,6 +3796,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     `;
 
                     tr.innerHTML = `
+                        <td style="text-align: center; vertical-align: middle;"><input type="checkbox" class="program-item-checkbox bulk-checkbox" data-id="${item.id}" style="cursor: pointer; width: 16px; height: 16px;"></td>
                         <td class="program-col-photo">${photoCellHtml}</td>
                         <td class="program-col-main" title="${escapeHtml(item.program_name || 'İsimsiz Program')}">
                             <div class="compact-program-header">
@@ -3660,6 +3826,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     // Render Row for Standard List View
                     tr.innerHTML = `
+                        <td style="text-align: center; vertical-align: middle;"><input type="checkbox" class="program-item-checkbox bulk-checkbox" data-id="${item.id}" style="cursor: pointer; width: 16px; height: 16px;"></td>
                         <td title="${escapeHtml(statusBadge.label)}">
                             <span class="${statusBadge.badgeClass}">${escapeHtml(statusBadge.label)}</span>
                         </td>
@@ -3723,6 +3890,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (tableRestoreBtn) {
                     tableRestoreBtn.addEventListener('click', async () => {
                         await restoreProgram(item.id);
+                    });
+                }
+
+                const itemCheckbox = tr.querySelector('.program-item-checkbox');
+                if (itemCheckbox) {
+                    itemCheckbox.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                    });
+                    itemCheckbox.addEventListener('change', () => {
+                        if (itemCheckbox.checked) {
+                            selectedProgramIds.add(item.id);
+                        } else {
+                            selectedProgramIds.delete(item.id);
+                        }
+                        updateBulkActionsUI();
                     });
                 }
 
@@ -9278,6 +9460,7 @@ out center tags;`;
     // Initial Load
     initViewSelector();
     initFilterListeners();
+    initBulkActionsListeners();
     initMainNavigation();
     initTrashBinListeners();
     initTabs();
