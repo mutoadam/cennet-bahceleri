@@ -9162,6 +9162,26 @@ out center tags;`;
                 }
             });
         }
+
+        // Google Discovery for Photo (B16.4)
+        document.getElementById('mosque-modal-google-photo-btn')?.addEventListener('click', searchGooglePlacesForMosquePhoto);
+        document.getElementById('mosque-google-photo-discovery-close')?.addEventListener('click', () => {
+            document.getElementById('mosque-google-photo-discovery-area').classList.add('hidden');
+        });
+
+        // Gallery Multi-Upload (B16.4)
+        const galleryInput = document.getElementById('mosque-modal-gallery-input');
+        const galleryBtn = document.getElementById('mosque-modal-gallery-upload-btn');
+
+        if (galleryBtn && galleryInput) {
+            galleryBtn.onclick = () => galleryInput.click();
+            galleryInput.onchange = (e) => {
+                if (e.target.files && e.target.files.length > 0) {
+                    handleEntityGalleryUpload('mosque', Array.from(e.target.files));
+                    galleryInput.value = ''; // Reset
+                }
+            };
+        }
     }
 
     // ==========================================
@@ -12817,33 +12837,7 @@ out center tags;`;
         }
     }
 
-    function initMosqueListeners() {
-        // Google Discovery buttons
-        document.getElementById('mosque-modal-google-discovery-btn')?.addEventListener('click', searchGooglePlacesForMosque);
-        document.getElementById('mosque-google-discovery-close')?.addEventListener('click', () => {
-            document.getElementById('mosque-google-discovery-area').classList.add('hidden');
-        });
 
-        // Google Discovery for Photo (B16.4)
-        document.getElementById('mosque-modal-google-photo-btn')?.addEventListener('click', searchGooglePlacesForMosquePhoto);
-        document.getElementById('mosque-google-photo-discovery-close')?.addEventListener('click', () => {
-            document.getElementById('mosque-google-photo-discovery-area').classList.add('hidden');
-        });
-
-        // Gallery Multi-Upload (B16.4)
-        const galleryInput = document.getElementById('mosque-modal-gallery-input');
-        const galleryBtn = document.getElementById('mosque-modal-gallery-upload-btn');
-
-        if (galleryBtn && galleryInput) {
-            galleryBtn.onclick = () => galleryInput.click();
-            galleryInput.onchange = (e) => {
-                if (e.target.files && e.target.files.length > 0) {
-                    handleEntityGalleryUpload('mosque', Array.from(e.target.files));
-                    galleryInput.value = ''; // Reset
-                }
-            };
-        }
-    }
 
     async function handleBatch01BulkPublish() {
         if (!supabaseClient) return;
