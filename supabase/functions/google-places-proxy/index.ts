@@ -55,7 +55,7 @@ serve(async (req) => {
         headers: {
           "Content-Type": "application/json",
           "X-Goog-Api-Key": googleApiKey,
-          "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.photos",
+          "X-Goog-FieldMask": "places.id,places.displayName,places.formattedAddress,places.location,places.photos,places.googleMapsUri",
         },
         body: JSON.stringify({ textQuery: query, languageCode: "tr" }),
       });

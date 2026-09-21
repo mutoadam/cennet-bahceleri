@@ -5015,6 +5015,12 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('program-google-photo-discovery-area').classList.add('hidden');
     });
 
+    // Add Program Google Photo Discovery (B16.6)
+    document.getElementById('add-program-google-photo-btn')?.addEventListener('click', () => searchGooglePlacesGeneric('program'));
+    document.getElementById('add-program-google-photo-discovery-close')?.addEventListener('click', () => {
+        document.getElementById('add-program-google-photo-discovery-area').classList.add('hidden');
+    });
+
     document.getElementById('edit-program-modal')?.addEventListener('click', (e) => {
         if (e.target.id === 'edit-program-modal') {
             closeProgramEditModal();
@@ -12135,14 +12141,40 @@ out center tags;`;
     // Google Photo Discovery Generic Workflow
     async function searchGooglePlacesGeneric(type) {
         activeGalleryType = type;
-        const config = GALLERY_CONFIGS[type];
+        let config = { ...GALLERY_CONFIGS[type] };
 
         let entity = null;
         if (type === 'tomb') entity = currentEditTomb;
         else if (type === 'mosque') entity = currentEditMosque;
-        else if (type === 'program') entity = currentEditProgram;
+        else if (type === 'program') {
+            entity = currentEditProgram;
+            // B16.6+ If no currentEditProgram, we might be in "Add" mode
+            if (!entity) {
+                entity = {
+                    venue_name: document.getElementById('add-venue-name')?.value.trim(),
+                    city: document.getElementById('add-city')?.value,
+                    district: document.getElementById('add-district')?.value,
+                    program_name: document.getElementById('add-program-name-custom')?.value.trim() ||
+                                 document.getElementById('add-program-name-select')?.value
+                };
 
-        if (!entity) return;
+                // Switch to "Add" mode IDs
+                config.discoveryArea = 'add-program-google-photo-discovery-area';
+                config.discoveryBtn = 'add-program-google-photo-btn';
+                config.discoveryTitle = 'add-program-google-photo-discovery-title';
+                config.discoveryPlaceCandidates = 'add-program-google-photo-place-candidates';
+                config.discoveryPhotoCandidates = 'add-program-google-photo-candidates';
+                config.discoveryPhotoCandidatesList = 'add-program-google-photo-candidates-list';
+                config.discoveryLoader = 'add-program-google-photo-discovery-loader';
+                config.discoveryError = 'add-program-google-photo-discovery-error';
+                config.discoveryClose = 'add-program-google-photo-discovery-close';
+            }
+        }
+
+        if (!entity || (!entity.venue_name && !entity.name && !entity.mosque_name && !entity.program_name)) {
+            showToast("Arama için yeterli bilgi yok. Lütfen mekân adını doldurun.", "warning");
+            return;
+        }
 
         const discoveryArea = document.getElementById(config.discoveryArea);
         const loader = document.getElementById(config.discoveryLoader);
@@ -12190,13 +12222,23 @@ out center tags;`;
     }
 
     function renderGooglePlaceCandidatesGeneric(type, places) {
-        const config = GALLERY_CONFIGS[type];
+        let config = { ...GALLERY_CONFIGS[type] };
+        const isProgramAdd = type === 'program' && !currentEditProgram;
+        if (isProgramAdd) {
+            config.discoveryPlaceCandidates = 'add-program-google-photo-place-candidates';
+        }
+
         const placeContainer = document.getElementById(config.discoveryPlaceCandidates);
 
         let entity = null;
         if (type === 'tomb') entity = currentEditTomb;
         else if (type === 'mosque') entity = currentEditMosque;
-        else if (type === 'program') entity = currentEditProgram;
+        else if (type === 'program') {
+            entity = currentEditProgram || {
+                latitude: parseFloat(document.getElementById('add-latitude')?.value),
+                longitude: parseFloat(document.getElementById('add-longitude')?.value)
+            };
+        }
 
         placeContainer.innerHTML = '';
 
@@ -12233,7 +12275,15 @@ out center tags;`;
     }
 
     function selectGooglePlaceGeneric(type, place) {
-        const config = GALLERY_CONFIGS[type];
+        let config = { ...GALLERY_CONFIGS[type] };
+        const isProgramAdd = type === 'program' && !currentEditProgram;
+        if (isProgramAdd) {
+            config.discoveryPlaceCandidates = 'add-program-google-photo-place-candidates';
+            config.discoveryPhotoCandidates = 'add-program-google-photo-candidates';
+            config.discoveryPhotoCandidatesList = 'add-program-google-photo-candidates-list';
+            config.discoveryTitle = 'add-program-google-photo-discovery-title';
+        }
+
         const placeContainer = document.getElementById(config.discoveryPlaceCandidates);
         const photoArea = document.getElementById(config.discoveryPhotoCandidates);
         const photoList = document.getElementById(config.discoveryPhotoCandidatesList);
@@ -12241,6 +12291,31 @@ out center tags;`;
 
         placeContainer.innerHTML = '';
         titleEl.innerHTML = `<i class="fa-solid fa-image"></i> ${escapeHtml(place.displayName?.text)} - Fotoğraflar`;
+
+        // B16.6+ Autofill Program Coordinates if applicable
+        if (type === 'program' && place.location) {
+            const isEdit = !!currentEditProgram;
+            const prefix = isEdit ? 'edit-program-' : 'add-';
+            const latInput = document.getElementById(`${prefix}latitude`);
+            const lngInput = document.getElementById(`${prefix}longitude`);
+            const mapsInput = document.getElementById(`${prefix}google-maps-link`);
+
+            if (latInput && (!latInput.value || latInput.value.trim() === '' || latInput.value === '0')) {
+                latInput.value = place.location.latitude;
+            }
+            if (lngInput && (!lngInput.value || lngInput.value.trim() === '' || lngInput.value === '0')) {
+                lngInput.value = place.location.longitude;
+            }
+
+            if (mapsInput && (!mapsInput.value || mapsInput.value.trim() === '')) {
+                if (place.googleMapsUri) {
+                    mapsInput.value = place.googleMapsUri;
+                } else {
+                    mapsInput.value = `https://www.google.com/maps?q=${place.location.latitude},${place.location.longitude}`;
+                }
+            }
+        }
+
         photoArea.classList.remove('hidden');
         photoList.innerHTML = '';
 
