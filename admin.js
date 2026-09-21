@@ -726,12 +726,21 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             // 5. Construct programs payload
-            const coordinates = await resolveProgramCoordinates(
-                suggestion.city || 'Sakarya',
-                suggestion.district || '',
-                suggestion.venue_name || '',
-                suggestion.google_maps_link || suggestion.googleMapsLink || suggestion.maps_link || suggestion.mapsLink || suggestion.map_link || suggestion.mapLink || ''
-            );
+            let latitude = suggestion.latitude || suggestion.lat || null;
+            let longitude = suggestion.longitude || suggestion.lng || null;
+
+            if (latitude === null || longitude === null) {
+                const coordinates = await resolveProgramCoordinates(
+                    suggestion.city || 'Sakarya',
+                    suggestion.district || '',
+                    suggestion.venue_name || '',
+                    suggestion.google_maps_link || suggestion.googleMapsLink || suggestion.maps_link || suggestion.mapsLink || suggestion.map_link || suggestion.mapLink || ''
+                );
+                if (coordinates) {
+                    if (latitude === null) latitude = coordinates.latitude;
+                    if (longitude === null) longitude = coordinates.longitude;
+                }
+            }
 
             const programPayload = {
                 suggestion_id: suggestion.id,
@@ -747,8 +756,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 women_friendly: women_friendly,
                 address: suggestion.address || suggestion.location || '',
                 google_maps_link: suggestion.google_maps_link || suggestion.googleMapsLink || suggestion.maps_link || suggestion.mapsLink || suggestion.map_link || suggestion.mapLink || '',
-                latitude: coordinates ? coordinates.latitude : null,
-                longitude: coordinates ? coordinates.longitude : null,
+                latitude: latitude,
+                longitude: longitude,
                 description: suggestion.description || '',
                 contact_name: suggestion.contact_name || suggestion.contact_person || suggestion.contactPerson || suggestion.sender_name || suggestion.sender || '',
                 contact_phone: suggestion.contact_phone || suggestion.contactPhone || suggestion.phone || suggestion.whatsapp || suggestion.telefon || '',
@@ -2160,6 +2169,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const contact_phone = document.getElementById('add-contact-phone').value.trim();
         const google_maps_link = document.getElementById('add-google-maps-link').value.trim();
         const address = document.getElementById('add-address').value.trim();
+        const latVal = document.getElementById('add-latitude')?.value.trim();
+        const lngVal = document.getElementById('add-longitude')?.value.trim();
+        const latitude = latVal ? parseFloat(latVal) : null;
+        const longitude = lngVal ? parseFloat(lngVal) : null;
         let description = document.getElementById('add-description').value.trim();
         const isLadiesSuitable = document.getElementById('add-ladies').value === 'yes';
 
@@ -2245,6 +2258,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 // Program Sync
                 const logo_url = document.getElementById('add-program-logo-url')?.value.trim() || '';
                 const organization_id = document.getElementById('add-org-select')?.value || null;
+
+                // Add coordinates to suggestion data for sync
+                sData.latitude = latitude;
+                sData.longitude = longitude;
+
                 const syncRes = await syncSuggestionToProgram(sData, 'admin_manual', logo_url, organization_id);
                 if (!syncRes || !syncRes.success) throw new Error(syncRes?.error || "Programa aktarım hatası");
                 programId = syncRes.programId;
@@ -4329,13 +4347,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const editLogoProgress = document.getElementById('edit-logo-upload-progress');
         if (editLogoProgress) editLogoProgress.classList.add('hidden');
 
-        updateLogoPreview(
-            item.logo_url,
-            'edit-program-logo-preview-container',
-            'edit-program-logo-preview-img',
-            'edit-program-logo-preview-text',
-            'edit-program-logo-file-name'
-        );
+        // B16.7 - Logo ve Çatı Kurum önizlemesini tazele
+        refreshProgramUmbrellaLogo();
 
         const contactNameInput = document.getElementById('edit-program-contact-name');
         if (contactNameInput) contactNameInput.value = item.contact_name || '';
@@ -4345,6 +4358,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const mapsInput = document.getElementById('edit-program-google-maps-link');
         if (mapsInput) mapsInput.value = item.google_maps_link || '';
+
+        const latInput = document.getElementById('edit-program-latitude');
+        if (latInput) latInput.value = item.latitude || '';
+
+        const lngInput = document.getElementById('edit-program-longitude');
+        if (lngInput) lngInput.value = item.longitude || '';
 
         const addressInput = document.getElementById('edit-program-address');
         if (addressInput) addressInput.value = item.address || '';
@@ -4832,9 +4851,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const address = document.getElementById('edit-program-address').value.trim();
         const description = document.getElementById('edit-program-description').value.trim();
 
-        // B16.1G - Koordinat Çözümleme Mantığı
-        let latitude = currentEditProgram.latitude;
-        let longitude = currentEditProgram.longitude;
+        // B16.1G - Koordinat Çözümleme Mantığı (Manual inputs have priority)
+        const latVal = document.getElementById('edit-program-latitude')?.value.trim();
+        const lngVal = document.getElementById('edit-program-longitude')?.value.trim();
+        let latitude = latVal ? parseFloat(latVal) : null;
+        let longitude = lngVal ? parseFloat(lngVal) : null;
 
         const isLocationChanged =
             venue_name !== (currentEditProgram.venue_name || '') ||
@@ -6226,15 +6247,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     const logoInput = document.getElementById('edit-program-logo-url');
                     if (logoInput) {
-                        logoInput.value = org.logo_url || '';
-                        updateLogoPreview(
-                            org.logo_url,
-                            'edit-program-logo-preview-container',
-                            'edit-program-logo-preview-img',
-                            'edit-program-logo-preview-text',
-                            'edit-program-logo-file-name'
-                        );
+                        // Eğer mevcut logo URL boşsa kurumunkini bas
+                        if (!logoInput.value.trim()) {
+                            logoInput.value = org.logo_url || '';
+                        }
                     }
+
+                    refreshProgramUmbrellaLogo();
 
                     // B16.2O1 - Social Info (Informational)
                     if (statusEl) {
@@ -6263,6 +6282,80 @@ document.addEventListener('DOMContentLoaded', () => {
                     updateLogoPreview('', 'edit-program-logo-preview-container', 'edit-program-logo-preview-img', 'edit-program-logo-preview-text', 'edit-program-logo-file-name');
                 }
                 if (statusEl) statusEl.classList.add('hidden');
+            }
+        });
+    }
+
+    /**
+     * B16.7 - Çatı kurum logosunu yeniler.
+     * Program düzenleme modalı açıldığında, kurum değiştiğinde veya
+     * Google fotoğrafı kaydedildiğinde preview'ın kaybolmasını engellemek için kullanılır.
+     */
+    function refreshProgramUmbrellaLogo() {
+        const orgSelect = document.getElementById('edit-program-org-select');
+        if (!orgSelect) return;
+        const orgId = orgSelect.value;
+        const logoInput = document.getElementById('edit-program-logo-url');
+
+        let logoUrl = logoInput ? logoInput.value.trim() : '';
+
+        if (orgId && !logoUrl) {
+            const org = activeOrganizations.find(o => o.id === orgId);
+            if (org && org.logo_url) {
+                logoUrl = org.logo_url;
+                if (logoInput) logoInput.value = logoUrl;
+            }
+        }
+
+        updateLogoPreview(
+            logoUrl,
+            'edit-program-logo-preview-container',
+            'edit-program-logo-preview-img',
+            'edit-program-logo-preview-text',
+            'edit-program-logo-file-name'
+        );
+    }
+
+    /**
+     * B16.7 - Google Maps linkinden koordinatları otomatik dolduran listenerları başlatır.
+     */
+    function initCoordinateAutofillListeners() {
+        const setups = [
+            { linkId: 'edit-program-google-maps-link', latId: 'edit-program-latitude', lngId: 'edit-program-longitude' },
+            { linkId: 'add-google-maps-link', latId: 'add-latitude', lngId: 'add-longitude' }
+        ];
+
+        setups.forEach(setup => {
+            const linkInput = document.getElementById(setup.linkId);
+            const latInput = document.getElementById(setup.latId);
+            const lngInput = document.getElementById(setup.lngId);
+
+            if (linkInput && latInput && lngInput) {
+                const handleAutofill = () => {
+                    const url = linkInput.value.trim();
+                    if (!url) return;
+
+                    // Sadece lat ve lng ikisi birden boşsa doldur (KURAL)
+                    const currentLat = latInput.value.trim();
+                    const currentLng = lngInput.value.trim();
+
+                    if (currentLat === '' && currentLng === '') {
+                        const coords = extractLatLngFromGoogleMapsLink(url);
+                        if (coords && coords.latitude && coords.longitude) {
+                            // Validasyon: lat -90..90, lng -180..180
+                            if (coords.latitude >= -90 && coords.latitude <= 90 &&
+                                coords.longitude >= -180 && coords.longitude <= 180) {
+                                latInput.value = coords.latitude;
+                                lngInput.value = coords.longitude;
+                                showToast("Koordinatlar linkten otomatik dolduruldu.", "success");
+                            }
+                        }
+                    }
+                };
+
+                linkInput.addEventListener('blur', handleAutofill);
+                // Yapıştırma (paste) sonrası tetiklenmesi için küçük bir gecikme
+                linkInput.addEventListener('paste', () => setTimeout(handleAutofill, 100));
             }
         });
     }
@@ -7233,8 +7326,8 @@ document.addEventListener('DOMContentLoaded', () => {
             };
         }
         
-        // Pattern 3: standard query param q=lat,lng or sll=lat,lng or ll=lat,lng
-        const patternQuery = /[?&](?:q|ll|sll)=(-?\d+\.\d+),(-?\d+\.\d+)/;
+        // Pattern 3: standard query param q=lat,lng or sll=lat,lng or ll=lat,lng or query=lat,lng
+        const patternQuery = /[?&](?:q|ll|sll|query)=(-?\d+\.\d+),(-?\d+\.\d+)/;
         const matchQuery = link.match(patternQuery);
         if (matchQuery && matchQuery.length >= 3) {
             return {
@@ -8982,11 +9075,15 @@ out center tags;`;
         // 19. Source
         const source = item.source || 'admin_manual';
 
+        // 20. Coordinates
+        const latitude = item.latitude || null;
+        const longitude = item.longitude || null;
+
         const fields = [
             'program_name', 'venue_name', 'city', 'district', 'day', 'time',
             'teacher', 'organization', 'organization_id', 'women_friendly',
-            'address', 'google_maps_link', 'description', 'contact_name',
-            'contact_phone', 'photo_url', 'logo_url', 'status', 'source'
+            'address', 'google_maps_link', 'latitude', 'longitude', 'description',
+            'contact_name', 'contact_phone', 'photo_url', 'logo_url', 'status', 'source'
         ];
 
         const values = [
@@ -9002,6 +9099,8 @@ out center tags;`;
             women_friendly ? 'true' : 'false',
             escapeSqlString(address),
             escapeSqlString(google_maps_link),
+            latitude !== null ? latitude : 'NULL',
+            longitude !== null ? longitude : 'NULL',
             escapeSqlString(description),
             escapeSqlString(contact_name),
             escapeSqlString(contact_phone),
@@ -9074,6 +9173,8 @@ out center tags;`;
                     women_friendly: document.getElementById('edit-program-ladies')?.value === 'true',
                     address: document.getElementById('edit-program-address')?.value.trim() || '',
                     google_maps_link: document.getElementById('edit-program-google-maps-link')?.value.trim() || '',
+                    latitude: parseFloat(document.getElementById('edit-program-latitude')?.value) || null,
+                    longitude: parseFloat(document.getElementById('edit-program-longitude')?.value) || null,
                     description: document.getElementById('edit-program-description')?.value.trim() || '',
                     contact_name: document.getElementById('edit-program-contact-name')?.value.trim() || '',
                     contact_phone: document.getElementById('edit-program-contact-phone')?.value.trim() || '',
@@ -9178,6 +9279,7 @@ out center tags;`;
     initLogoUploadListeners();
     initOrganizationListeners();
     initDistrictWarningListeners();
+    initCoordinateAutofillListeners(); // B16.7 - Google Maps Link to Coordinates
     initOrgListeners();
     initMosqueListeners();
     initSqlExport();
@@ -12250,6 +12352,12 @@ out center tags;`;
             }
 
             renderEntityGallery(type);
+
+            // B16.7 - Eğer program ise çatı kurum logosunun kaybolmadığından emin ol
+            if (type === 'program') {
+                refreshProgramUmbrellaLogo();
+            }
+
             document.getElementById(config.discoveryArea).classList.add('hidden');
             showToast("Google fotoğrafı galeriye eklendi.", "success");
 
