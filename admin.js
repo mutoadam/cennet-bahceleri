@@ -8521,51 +8521,47 @@ area["ISO3166-2"="TR-${plate}"]->.province;
 );
 out center tags;`;
 
-        const endpoints = [
-            'https://overpass.kumi.systems/api/interpreter',
-            'https://lz4.overpass-api.de/api/interpreter',
-            'https://overpass-api.de/api/interpreter'
-        ];
-
         let elements = [];
         let success = false;
-        let lastError = null;
         let successfulEndpoint = '';
+        let errorMessage = 'OSM servisi geçici olarak yanıt vermiyor. Lütfen biraz sonra tekrar deneyin.';
 
-        for (const endpoint of endpoints) {
-            try {
-                console.log(`OSM Fetching places of worship in ${city} / ${district} via ${endpoint}...`);
-                const response = await fetch(endpoint, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: 'data=' + encodeURIComponent(query)
-                });
-                if (response.ok) {
-                    const data = await response.json();
-                    elements = data.elements || [];
-                    success = true;
-                    successfulEndpoint = endpoint;
-                    console.log(`Successfully fetched from ${endpoint}. Elements count: ${elements.length}`);
-                    break;
-                } else {
-                    throw new Error(`HTTP Error: ${response.status} ${response.statusText}`);
-                }
-            } catch (e) {
-                console.warn(`Failed to fetch from ${endpoint}:`, e);
-                lastError = e;
+        console.log(`[OSM Client] Proxy isteği başlatıldı: /.netlify/functions/overpass-proxy (${city} / ${district})...`);
+
+        try {
+            const response = await fetch('/.netlify/functions/overpass-proxy', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ query: query })
+            });
+
+            console.log(`[OSM Client] Proxy yanıt verdi, HTTP status: ${response.status}`);
+
+            const result = await response.json().catch(() => null);
+
+            if (response.ok && result && result.ok && result.data) {
+                elements = result.data.elements || [];
+                success = true;
+                successfulEndpoint = result.endpoint || '/.netlify/functions/overpass-proxy';
+                console.log(`[OSM Client] Proxy üzerinden başarılı yanıt alındı (${successfulEndpoint}). Raw eleman sayısı: ${elements.length}`);
+            } else if (result && result.error === 'query_error') {
+                errorMessage = result.message || 'Geçersiz Overpass sorgusu hatası.';
+                console.warn(`[OSM Client] Query hatası: ${errorMessage}`);
+            } else if (result && result.message) {
+                errorMessage = result.message;
+                console.warn(`[OSM Client] Servis hatası: ${errorMessage}`);
+            } else {
+                errorMessage = `OSM servisi geçici olarak yanıt vermiyor (HTTP ${response.status}).`;
             }
+        } catch (e) {
+            console.error("[OSM Client] Proxy isteği ağ hatası veya bağlantı kopukluğu:", e);
+            errorMessage = "OSM servisi geçici olarak yanıt vermiyor (Ağ bağlantı hatası).";
         }
 
         if (!success) {
-            console.error("All Overpass API endpoints failed:", lastError);
-            let errorMsg = "OSM verisi şu anda alınamadı. Lütfen biraz sonra tekrar deneyin.";
-            if (lastError && lastError instanceof TypeError && lastError.message === "Failed to fetch") {
-                errorMsg = "OSM verisi şu anda alınamadı (CORS engeli veya bağlantı sorunu). Lütfen biraz sonra tekrar deneyin.";
-                console.warn("Overpass API CORS veya bağlantı hatası oluştu. Tarayıcıdan doğrudan Overpass API çağrısı CORS politikaları nedeniyle engellenmiş olabilir.");
-            }
-            showToast(errorMsg, "error");
+            showToast(errorMessage, "error");
             document.getElementById('osm-loader')?.classList.add('hidden');
             if (fetchBtn) {
                 fetchBtn.disabled = false;
