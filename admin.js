@@ -334,6 +334,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (isAdmin) {
                 document.body.classList.remove('logged-out');
+                // Şifre Değiştir butonunu göster
+                document.getElementById('change-password-btn')?.classList.remove('hidden');
                 // Verileri sadece bir kez yükle
                 if (!isDataLoaded) {
                     isDataLoaded = true;
@@ -383,6 +385,9 @@ document.addEventListener('DOMContentLoaded', () => {
     function showLoginForm() {
         document.body.classList.add('logged-out');
         isDataLoaded = false;
+
+        // Şifre Değiştir butonunu gizle
+        document.getElementById('change-password-btn')?.classList.add('hidden');
 
         // Formu resetle
         const loginForm = document.getElementById('login-form-el');
@@ -1031,6 +1036,99 @@ document.addEventListener('DOMContentLoaded', () => {
             document.body.style.overflow = "";
         }
         exitEditMode();
+    }
+
+    function openChangePasswordModal() {
+        const modal = document.getElementById('change-password-modal');
+        if (modal) {
+            modal.classList.remove('hidden');
+            document.body.style.overflow = "hidden";
+        }
+    }
+
+    function closeChangePasswordModal() {
+        const modal = document.getElementById('change-password-modal');
+        if (modal) {
+            modal.classList.add('hidden');
+            document.body.style.overflow = "";
+        }
+        // Şifre alanlarını temizle
+        const pass1 = document.getElementById('new-password');
+        const pass2 = document.getElementById('new-password-confirm');
+        if (pass1) pass1.value = '';
+        if (pass2) pass2.value = '';
+    }
+
+    async function handlePasswordChange() {
+        if (!supabaseClient) return;
+
+        const pass1El = document.getElementById('new-password');
+        const pass2El = document.getElementById('new-password-confirm');
+        const newPass = pass1El ? pass1El.value : '';
+        const confirmPass = pass2El ? pass2El.value : '';
+        const saveBtn = document.getElementById('password-modal-btn-save');
+
+        if (!newPass || !confirmPass) {
+            showToast("Lütfen tüm alanları doldurun.", "error");
+            return;
+        }
+
+        if (newPass !== confirmPass) {
+            showToast("Şifreler eşleşmiyor.", "error");
+            return;
+        }
+
+        if (newPass.length < 10) {
+            showToast("Şifre en az 10 karakter olmalıdır.", "error");
+            return;
+        }
+
+        // Programatik yetki doğrulaması
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (!session) {
+            showToast("Oturumunuz sonlanmış. Lütfen tekrar giriş yapın.", "error");
+            showLoginForm();
+            return;
+        }
+
+        const isAdmin = await verifyAdminAccess();
+        if (!isAdmin) {
+            showToast("Bu işlem için yetkiniz bulunmuyor.", "error");
+            await supabaseClient.auth.signOut();
+            return;
+        }
+
+        // UI Kilitleme
+        if (saveBtn) {
+            saveBtn.disabled = true;
+            saveBtn.classList.add('disabled');
+            saveBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Güncelleniyor...';
+        }
+
+        try {
+            const { error } = await supabaseClient.auth.updateUser({ password: newPass });
+
+            if (error) {
+                console.error("Şifre güncelleme hatası:", error.message);
+                showToast("Şifre güncellenemedi: " + error.message, "error");
+            } else {
+                showToast("Şifreniz güncellendi. Yeni şifrenizle tekrar giriş yapın.", "success");
+                closeChangePasswordModal();
+                // Güvenlik için çıkış yap
+                setTimeout(async () => {
+                    await supabaseClient.auth.signOut();
+                }, 1500);
+            }
+        } catch (err) {
+            console.error("handlePasswordChange exception:", err);
+            showToast("Bir hata oluştu.", "error");
+        } finally {
+            if (saveBtn) {
+                saveBtn.disabled = false;
+                saveBtn.classList.remove('disabled');
+                saveBtn.innerHTML = 'Şifreyi Güncelle';
+            }
+        }
     }
 
     /**
@@ -7485,6 +7583,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // CAMII KONUM YÖNETİMİ İŞLEVLERİ (Faz 2 - H-M1)
     // ==========================================================
     let mosquesListCache = [];
+    let mosqueCurrentPage = 1;
+    const mosquePageSize = 100;
+    let mosqueTotalFilteredCount = 0;
+    let mosqueSearchDebounceTimer = null;
+    let mosqueLastRequestId = 0;
+    let osmDeduplicationCache = [];
 
     function extractLatLngFromGoogleMapsLink(link) {
         if (!link) return null;
@@ -7768,10 +7872,34 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('mosque-google-discovery-area').classList.add('hidden');
     }
 
-    async function loadMosques() {
+    async function loadMosqueStats() {
+        if (!supabaseClient) return;
+        try {
+            const [totalRes, activeRes, inactiveRes] = await Promise.all([
+                supabaseClient.from('mosque_locations').select('*', { count: 'exact', head: true }),
+                supabaseClient.from('mosque_locations').select('*', { count: 'exact', head: true }).eq('status', 'active'),
+                supabaseClient.from('mosque_locations').select('*', { count: 'exact', head: true }).eq('status', 'inactive')
+            ]);
+
+            const totalVal = document.getElementById('stats-total-mosques-val');
+            const activeVal = document.getElementById('stats-active-mosques-val');
+            const passiveVal = document.getElementById('stats-passive-mosques-val');
+
+            if (totalVal) totalVal.textContent = totalRes.count || '0';
+            if (activeVal) activeVal.textContent = activeRes.count || '0';
+            if (passiveVal) passiveVal.textContent = inactiveRes.count || '0';
+        } catch (err) {
+            console.error("Cami istatistikleri yüklenemedi:", err);
+        }
+    }
+
+    async function loadMosques(page = 1) {
         if (!supabaseClient) {
             if (!initSupabase()) return;
         }
+
+        mosqueCurrentPage = page;
+        const requestId = ++mosqueLastRequestId;
 
         // Populate city filter if empty (New B16.1B)
         const citySelect = document.getElementById('mosques-filter-city');
@@ -7786,18 +7914,65 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         showMosquesLoader();
+        loadMosqueStats();
 
         try {
-            const { data, error } = await supabaseClient
-                .from('mosque_locations')
-                .select('*')
-                .order('mosque_name', { ascending: true });
+            const searchVal = (document.getElementById('mosques-filter-search')?.value || '').trim();
+            const cityVal = document.getElementById('mosques-filter-city')?.value || '';
+            const districtVal = document.getElementById('mosques-filter-district')?.value || '';
+            const statusVal = document.getElementById('mosques-filter-status')?.value || '';
+            const verificationVal = document.getElementById('mosques-filter-verification')?.value || '';
+            const unnamedVal = document.getElementById('mosques-filter-unnamed')?.value || 'hide';
+            const sortVal = document.getElementById('mosques-filter-sort')?.value || 'az';
+            const googleVal = document.getElementById('mosques-filter-google')?.value || '';
+
+            let query = supabaseClient.from('mosque_locations').select('*', { count: 'exact' });
+
+            // Apply Filters Server-Side
+            if (cityVal) query = query.eq('city', cityVal);
+            if (districtVal) query = query.eq('district', districtVal);
+            if (statusVal) query = query.eq('status', statusVal);
+            if (verificationVal) query = query.eq('verification_status', verificationVal);
+
+            if (unnamedVal === 'hide') {
+                query = query.not('mosque_name', 'ilike', '%isimsiz%').not('mosque_name', 'ilike', '%adsız%');
+            } else if (unnamedVal === 'show_only') {
+                query = query.or('mosque_name.ilike.%isimsiz%,mosque_name.ilike.%adsız%');
+            }
+
+            if (googleVal === 'missing') {
+                query = query.or('google_place_id.is.null,latitude.is.null,longitude.is.null');
+            } else if (googleVal === 'matched') {
+                query = query.not('google_place_id', 'is', null).not('latitude', 'is', null).not('longitude', 'is', null);
+            }
+
+            if (searchVal) {
+                query = query.or(`mosque_name.ilike.%${searchVal}%,district.ilike.%${searchVal}%,neighborhood.ilike.%${searchVal}%,address.ilike.%${searchVal}%`);
+            }
+
+            // Sorting
+            if (sortVal === 'az') query = query.order('mosque_name', { ascending: true });
+            else if (sortVal === 'za') query = query.order('mosque_name', { ascending: false });
+            else if (sortVal === 'district') query = query.order('district', { ascending: true }).order('mosque_name', { ascending: true });
+            else if (sortVal === 'newest') query = query.order('created_at', { ascending: false });
+            else if (sortVal === 'oldest') query = query.order('created_at', { ascending: true });
+
+            // Pagination
+            const from = (page - 1) * mosquePageSize;
+            const to = from + mosquePageSize - 1;
+            query = query.range(from, to);
+
+            const { data, error, count } = await query;
+
+            if (requestId !== mosqueLastRequestId) return; // Stale request
 
             if (error) throw error;
 
             mosquesListCache = data || [];
-            updateMosqueStats(mosquesListCache);
-            applyMosqueFilters();
+            mosqueTotalFilteredCount = count || 0;
+
+            renderMosques(mosquesListCache);
+            renderMosquePagination();
 
         } catch (error) {
             console.error("Cami konumları yüklenirken hata:", error);
@@ -7842,18 +8017,107 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         }
     }
 
-    function updateMosqueStats(mosques) {
-        const totalCount = mosques.length;
-        const activeCount = mosques.filter(m => m.status === 'active').length;
-        const passiveCount = mosques.filter(m => m.status === 'inactive').length;
+    function renderMosquePagination() {
+        const container = document.getElementById('mosque-pagination-container');
+        if (!container) return;
 
-        const totalVal = document.getElementById('stats-total-mosques-val');
-        const activeVal = document.getElementById('stats-active-mosques-val');
-        const passiveVal = document.getElementById('stats-passive-mosques-val');
+        const totalPages = Math.ceil(mosqueTotalFilteredCount / mosquePageSize);
+        const hasNext = mosqueCurrentPage < totalPages;
+        const hasPrev = mosqueCurrentPage > 1;
 
-        if (totalVal) totalVal.textContent = totalCount;
-        if (activeVal) activeVal.textContent = activeCount;
-        if (passiveVal) passiveVal.textContent = passiveCount;
+        container.innerHTML = `
+            <div class="pagination-wrapper" style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px; padding: 16px; background: white; border-radius: 8px; border: 1px solid var(--md-outline);">
+                <button class="btn btn-secondary btn-sm" onclick="window.changeMosquePage(${mosqueCurrentPage - 1})" ${!hasPrev ? 'disabled' : ''} style="min-width: 100px;">
+                    <i class="fa-solid fa-chevron-left"></i> Önceki
+                </button>
+                <span style="font-weight: 600; font-size: 14px; color: var(--md-on-surface-variant);">
+                    Sayfa ${mosqueCurrentPage} / ${totalPages || 1} <small style="font-weight: 400; margin-left: 4px;">(${mosqueTotalFilteredCount} cami)</small>
+                </span>
+                <button class="btn btn-secondary btn-sm" onclick="window.changeMosquePage(${mosqueCurrentPage + 1})" ${!hasNext ? 'disabled' : ''} style="min-width: 100px;">
+                    Sonraki <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        `;
+    }
+
+    window.changeMosquePage = function(page) {
+        loadMosques(page);
+        document.getElementById('mosques-tab-content')?.scrollIntoView({ behavior: 'smooth' });
+    };
+
+    async function populateOsmDeduplicationCache() {
+        if (!supabaseClient) return;
+        try {
+            console.log("OSM Deduplication Cache dolduruluyor...");
+            const { data, error } = await supabaseClient
+                .from('mosque_locations')
+                .select('id, mosque_name, city, district, latitude, longitude, osm_id, osm_type, google_place_id');
+
+            if (error) throw error;
+            osmDeduplicationCache = data || [];
+            console.log(`OSM Deduplication Cache: ${osmDeduplicationCache.length} kayıt yüklendi.`);
+        } catch (err) {
+            console.error("OSM Deduplication Cache hatası:", err);
+        }
+    }
+
+    function renderMosquePagination() {
+        const container = document.getElementById('mosque-pagination-container');
+        if (!container) return;
+
+        const totalPages = Math.ceil(mosqueTotalFilteredCount / mosquePageSize);
+        const hasNext = mosqueCurrentPage < totalPages;
+        const hasPrev = mosqueCurrentPage > 1;
+
+        container.innerHTML = `
+            <div class="pagination-wrapper" style="display: flex; justify-content: center; align-items: center; gap: 16px; margin-top: 24px; padding: 16px; background: white; border-radius: 8px; border: 1px solid var(--md-outline);">
+                <button class="btn btn-secondary btn-sm" onclick="window.changeMosquePage(${mosqueCurrentPage - 1})" ${!hasPrev ? 'disabled' : ''} style="min-width: 100px;">
+                    <i class="fa-solid fa-chevron-left"></i> Önceki
+                </button>
+                <span style="font-weight: 600; font-size: 14px; color: var(--md-on-surface-variant);">
+                    Sayfa ${mosqueCurrentPage} / ${totalPages || 1} <small style="font-weight: 400; margin-left: 4px;">(${mosqueTotalFilteredCount} cami)</small>
+                </span>
+                <button class="btn btn-secondary btn-sm" onclick="window.changeMosquePage(${mosqueCurrentPage + 1})" ${!hasNext ? 'disabled' : ''} style="min-width: 100px;">
+                    Sonraki <i class="fa-solid fa-chevron-right"></i>
+                </button>
+            </div>
+        `;
+    }
+
+    window.changeMosquePage = function(page) {
+        loadMosques(page);
+        document.getElementById('mosques-tab-content')?.scrollIntoView({ behavior: 'smooth' });
+    };
+                if (errorMessage) errorMessage.innerHTML = `<code>mosque_locations</code> tablosu veritabanınızda bulunamadı.<br>Lütfen aşağıdaki SQL'i Supabase SQL Editor üzerinde çalıştırıp tekrar deneyin:`;
+                if (sqlSuggestion) {
+                    sqlSuggestion.innerHTML = `CREATE TABLE IF NOT EXISTS public.mosque_locations (
+    id bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+    mosque_name text NOT NULL,
+    city text NOT NULL DEFAULT 'Sakarya',
+    district text NOT NULL,
+    neighborhood text,
+    address text,
+    google_maps_link text,
+    latitude double precision NOT NULL,
+    longitude double precision NOT NULL,
+    status text NOT NULL DEFAULT 'active',
+    created_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL,
+    updated_at timestamp with time zone DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- RLS Etkinleştirme
+ALTER TABLE public.mosque_locations ENABLE ROW LEVEL SECURITY;
+
+-- Politikalar (Policies)
+CREATE POLICY "Public Read Access" ON public.mosque_locations FOR SELECT USING (true);
+CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (true);`;
+                    sqlSuggestion.classList.remove('hidden');
+                }
+            } else {
+                if (errorMessage) errorMessage.textContent = "Bağlantı hatası veya yetki yetersizliği. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.";
+                if (sqlSuggestion) sqlSuggestion.classList.add('hidden');
+            }
+        }
     }
 
     function isMosqueUnnamed(m) {
@@ -7887,102 +8151,7 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
                 districtSelect.appendChild(option);
             });
         }
-        applyMosqueFilters();
-    }
-
-    function applyMosqueFilters() {
-        const searchVal = (document.getElementById('mosques-filter-search')?.value || '').trim().toLocaleLowerCase('tr-TR');
-        const cityVal = document.getElementById('mosques-filter-city')?.value || '';
-        const districtVal = document.getElementById('mosques-filter-district')?.value || '';
-        const statusVal = document.getElementById('mosques-filter-status')?.value || '';
-        const verificationVal = document.getElementById('mosques-filter-verification')?.value || '';
-        const unnamedVal = document.getElementById('mosques-filter-unnamed')?.value || 'hide';
-        const sortVal = document.getElementById('mosques-filter-sort')?.value || 'az';
-        const googleVal = document.getElementById('mosques-filter-google')?.value || '';
-
-        let filtered = [...mosquesListCache];
-
-        // 0. City filter (Empty city treated as Sakarya for legacy support)
-        if (cityVal) {
-            filtered = filtered.filter(m => {
-                const itemCity = (m.city || '').trim() || 'Sakarya';
-                return itemCity === cityVal;
-            });
-        }
-
-        // 1. District filter
-        if (districtVal) {
-            filtered = filtered.filter(m => (m.district || '').toLocaleLowerCase('tr-TR') === districtVal.toLocaleLowerCase('tr-TR'));
-        }
-
-        // 2. Status filter
-        if (statusVal) {
-            filtered = filtered.filter(m => m.status === statusVal);
-        }
-
-        // 3. Verification filter
-        if (verificationVal) {
-            filtered = filtered.filter(m => getVerificationStatus(m) === verificationVal);
-        }
-
-        // 4. Unnamed filter
-        if (unnamedVal === 'hide') {
-            filtered = filtered.filter(m => !isMosqueUnnamed(m));
-        }
-
-        // 4.5. Google matching filter
-        if (googleVal) {
-            if (googleVal === 'missing') {
-                filtered = filtered.filter(m => !m.google_place_id || !m.latitude || !m.longitude);
-            } else if (googleVal === 'matched') {
-                filtered = filtered.filter(m => m.google_place_id && m.latitude && m.longitude);
-            }
-        }
-
-        // 5. Search query filter
-        if (searchVal) {
-            filtered = filtered.filter(m => {
-                const name = (m.mosque_name || '').toLocaleLowerCase('tr-TR');
-                const dist = (m.district || '').toLocaleLowerCase('tr-TR');
-                const neigh = (m.neighborhood || '').toLocaleLowerCase('tr-TR');
-                const addr = (m.address || '').toLocaleLowerCase('tr-TR');
-                return name.includes(searchVal) || dist.includes(searchVal) || neigh.includes(searchVal) || addr.includes(searchVal);
-            });
-        }
-
-        // 4. Sorting
-        if (sortVal === 'az') {
-            filtered.sort((a, b) => (a.mosque_name || '').localeCompare(b.mosque_name || '', 'tr'));
-        } else if (sortVal === 'za') {
-            filtered.sort((a, b) => (b.mosque_name || '').localeCompare(a.mosque_name || '', 'tr'));
-        } else if (sortVal === 'district') {
-            filtered.sort((a, b) => {
-                const distCompare = (a.district || '').localeCompare(b.district || '', 'tr');
-                if (distCompare !== 0) return distCompare;
-                return (a.mosque_name || '').localeCompare(b.mosque_name || '', 'tr');
-            });
-        } else if (sortVal === 'newest') {
-            filtered.sort((a, b) => {
-                const idA = a.id || 0;
-                const idB = b.id || 0;
-                // If created_at is available, use it, otherwise fall back to id comparison
-                if (a.created_at && b.created_at) {
-                    return new Date(b.created_at) - new Date(a.created_at);
-                }
-                return idB - idA;
-            });
-        } else if (sortVal === 'oldest') {
-            filtered.sort((a, b) => {
-                const idA = a.id || 0;
-                const idB = b.id || 0;
-                if (a.created_at && b.created_at) {
-                    return new Date(a.created_at) - new Date(b.created_at);
-                }
-                return idA - idB;
-            });
-        }
-
-        renderMosques(filtered);
+        loadMosques(1);
     }
 
     function renderMosques(mosques) {
@@ -8423,7 +8592,9 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
             document.getElementById('osm-selection-summary').textContent = '';
         }
         osmResults = [];
-        
+
+        populateOsmDeduplicationCache(); // Pre-fetch deduplication data
+
         document.getElementById('osm-modal').classList.remove('hidden');
         document.body.style.overflow = "hidden";
     }
@@ -8842,8 +9013,8 @@ out center tags;`;
             const index = osmResults.indexOf(item);
             const tr = document.createElement('tr');
             
-            // Check duplicate
-            const isDuplicateInDb = mosquesListCache.some(existing => {
+            // Strict duplicate check against Deduplication Cache (Global)
+            const isDuplicateInDb = osmDeduplicationCache.some(existing => {
                 const sameNameAndDistrict = trNormalize(existing.mosque_name) === trNormalize(item.mosque_name) &&
                     trNormalize(existing.district) === trNormalize(item.district);
                 const sameLocation = isCloseLocation(existing.latitude, existing.longitude, item.latitude, item.longitude);
@@ -8931,7 +9102,7 @@ out center tags;`;
         // Update summary stats card (A-18-7 Hotfix)
         const unnamedCount = osmResults.filter(item => item.isUnnamed).length;
         const registeredCount = osmResults.filter(item => {
-            return mosquesListCache.some(existing => {
+            return osmDeduplicationCache.some(existing => {
                 const sameNameAndDistrict = trNormalize(existing.mosque_name) === trNormalize(item.mosque_name) &&
                     trNormalize(existing.district) === trNormalize(item.district);
                 const sameLocation = isCloseLocation(existing.latitude, existing.longitude, item.latitude, item.longitude);
@@ -9051,8 +9222,8 @@ out center tags;`;
             const item = osmResults[index];
             if (!item) continue;
 
-            // Strict duplicate check against cached live list
-            const isDuplicate = mosquesListCache.some(existing => {
+            // Strict duplicate check against Deduplication Cache (Global)
+            const isDuplicate = osmDeduplicationCache.some(existing => {
                 const sameNameAndDistrict = trNormalize(existing.mosque_name) === trNormalize(item.mosque_name) &&
                     trNormalize(existing.district) === trNormalize(item.district);
                 const sameLocation = isCloseLocation(existing.latitude, existing.longitude, item.latitude, item.longitude);
@@ -9095,7 +9266,7 @@ out center tags;`;
             }
         }
 
-        await loadMosques();
+        await loadMosques(mosqueCurrentPage);
 
         if (approveBtn) {
             approveBtn.disabled = false;
@@ -9142,8 +9313,8 @@ out center tags;`;
             tr.querySelector('td:last-child').innerHTML = `<i class="fa-solid fa-spinner fa-spin" style="color: var(--md-primary); font-size: 16px;"></i>`;
         }
 
-        // Strict duplicate check against cached live list
-        const isDuplicate = mosquesListCache.some(existing => {
+        // Strict duplicate check against Deduplication Cache (Global)
+        const isDuplicate = osmDeduplicationCache.some(existing => {
             const sameNameAndDistrict = trNormalize(existing.mosque_name) === trNormalize(item.mosque_name) &&
                 trNormalize(existing.district) === trNormalize(item.district);
             const sameLocation = isCloseLocation(existing.latitude, existing.longitude, item.latitude, item.longitude);
@@ -9186,7 +9357,7 @@ out center tags;`;
             
             // Remove the processed item from osmResults
             osmResults.splice(index, 1);
-            await loadMosques();
+            await loadMosques(mosqueCurrentPage);
             renderOsmPreview();
         } catch (err) {
             console.error("OSM cami kaydedilemedi:", err);
@@ -9261,14 +9432,19 @@ out center tags;`;
         document.getElementById('mosques-retry-btn')?.addEventListener('click', loadMosques);
 
         // Filters
-        document.getElementById('mosques-filter-search')?.addEventListener('input', applyMosqueFilters);
+        document.getElementById('mosques-filter-search')?.addEventListener('input', () => {
+            if (mosqueSearchDebounceTimer) clearTimeout(mosqueSearchDebounceTimer);
+            mosqueSearchDebounceTimer = setTimeout(() => {
+                loadMosques(1);
+            }, 300);
+        });
         document.getElementById('mosques-filter-city')?.addEventListener('change', updateMosqueDistrictFilterOptions);
-        document.getElementById('mosques-filter-district')?.addEventListener('change', applyMosqueFilters);
-        document.getElementById('mosques-filter-status')?.addEventListener('change', applyMosqueFilters);
-        document.getElementById('mosques-filter-verification')?.addEventListener('change', applyMosqueFilters);
-        document.getElementById('mosques-filter-unnamed')?.addEventListener('change', applyMosqueFilters);
-        document.getElementById('mosques-filter-sort')?.addEventListener('change', applyMosqueFilters);
-        document.getElementById('mosques-filter-google')?.addEventListener('change', applyMosqueFilters);
+        document.getElementById('mosques-filter-district')?.addEventListener('change', () => loadMosques(1));
+        document.getElementById('mosques-filter-status')?.addEventListener('change', () => loadMosques(1));
+        document.getElementById('mosques-filter-verification')?.addEventListener('change', () => loadMosques(1));
+        document.getElementById('mosques-filter-unnamed')?.addEventListener('change', () => loadMosques(1));
+        document.getElementById('mosques-filter-sort')?.addEventListener('change', () => loadMosques(1));
+        document.getElementById('mosques-filter-google')?.addEventListener('change', () => loadMosques(1));
 
         // Clear Filters Button
         document.getElementById('mosques-clear-filters-btn')?.addEventListener('click', () => {
@@ -9290,7 +9466,7 @@ out center tags;`;
             if (sortField) sortField.value = 'az';
             if (googleField) googleField.value = '';
 
-            applyMosqueFilters();
+            loadMosques(1);
         });
 
         // Google Maps parsing
@@ -9632,6 +9808,19 @@ out center tags;`;
                 }
             });
         }
+
+        // --- Şifre Değiştirme Listeners ---
+        document.getElementById('change-password-btn')?.addEventListener('click', openChangePasswordModal);
+        document.getElementById('password-modal-close-top')?.addEventListener('click', closeChangePasswordModal);
+        document.getElementById('password-modal-btn-cancel')?.addEventListener('click', closeChangePasswordModal);
+        document.getElementById('password-modal-btn-save')?.addEventListener('click', handlePasswordChange);
+
+        // Arka plana tıklayarak modalı kapatma
+        document.getElementById('change-password-modal')?.addEventListener('click', (e) => {
+            if (e.target.id === 'change-password-modal') {
+                closeChangePasswordModal();
+            }
+        });
     }
 
     // Initial Load

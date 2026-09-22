@@ -73,6 +73,9 @@
             </div>
             <div class="header-badge" style="display: flex; align-items: center; gap: 12px;">
                 <span class="badge badge-primary">Faz 2 - Iskele Sürümü</span>
+                <button id="change-password-btn" class="btn btn-secondary btn-sm hidden" style="background-color: var(--md-secondary-container); color: var(--md-secondary); border-color: var(--md-outline); min-height: 38px;">
+                    <i class="fa-solid fa-key"></i> Şifre Değiştir
+                </button>
                 <button id="logout-btn" class="btn btn-secondary btn-sm" style="background-color: var(--md-error-container); color: var(--md-error); border-color: rgba(186, 26, 26, 0.2); min-height: 38px;">
                     <i class="fa-solid fa-right-from-bracket"></i> Çıkış Yap
                 </button>
@@ -609,6 +612,9 @@
                 <div id="mosques-list" class="suggestions-list grid-list">
                     <!-- Mosque cards will be injected here dynamically -->
                 </div>
+
+                <!-- Pagination Container -->
+                <div id="mosque-pagination-container"></div>
             </section>
         </div>
 
@@ -2643,6 +2649,41 @@
                 <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
                     <button id="tomb-modal-btn-cancel" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Vazgeç</button>
                     <button id="tomb-modal-btn-save" class="btn btn-action btn-save" style="min-height: 40px; padding: 8px 16px;">Kaydet</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Change Password Modal -->
+    <div id="change-password-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 450px;">
+            <div class="modal-header">
+                <div class="modal-title-area">
+                    <i class="fa-solid fa-key"></i>
+                    <div>
+                        <h3>Şifre Değiştir</h3>
+                    </div>
+                </div>
+                <button id="password-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="change-password-form" onsubmit="return false;">
+                    <div class="form-group">
+                        <label for="new-password"><i class="fa-solid fa-lock"></i> Yeni Şifre</label>
+                        <input type="password" id="new-password" class="form-control" required placeholder="Minimum 10 karakter" autocomplete="new-password">
+                    </div>
+                    <div class="form-group" style="margin-top: 16px;">
+                        <label for="new-password-confirm"><i class="fa-solid fa-lock"></i> Yeni Şifre (Tekrar)</label>
+                        <input type="password" id="new-password-confirm" class="form-control" required placeholder="Yeni şifreyi tekrar girin" autocomplete="new-password">
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
+                    <button id="password-modal-btn-cancel" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Vazgeç</button>
+                    <button id="password-modal-btn-save" class="btn btn-action btn-save" style="min-height: 40px; padding: 8px 16px;">Şifreyi Güncelle</button>
                 </div>
             </div>
         </div>
