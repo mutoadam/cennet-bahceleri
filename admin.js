@@ -8395,6 +8395,24 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
         return Math.abs(lat1 - lat2) < threshold && Math.abs(lon1 - lon2) < threshold;
     }
 
+    function getDistanceMeters(lat1, lon1, lat2, lon2) {
+        if (lat1 === lat2 && lon1 === lon2) return 0;
+        const R = 6371000;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+    function normalizeMosqueName(str) {
+        if (!str) return '';
+        let norm = trNormalize(str);
+        return norm.replace(/camii$/, 'cami').replace(/mescidi$/, 'mescit');
+    }
+
     function openOsmModal() {
         document.getElementById('osm-preview-section')?.classList.add('hidden');
         document.getElementById('osm-empty')?.classList.add('hidden');
@@ -8465,17 +8483,32 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
             return;
         }
 
-        // District muslim places of worship query
-        const query = `[out:json][timeout:25];
-// Sınırları bul
+        // District places of worship query (A, B, C groups restricted to area.province)
+        const query = `[out:json][timeout:30];
+// Türkiye il sınırını bul
 area["ISO3166-2"="TR-${plate}"]->.province;
-// Seçilen ilçeyi bul
-area["name"="${district}"](area.province)->.searchArea;
-// Sınırlar içindeki Müslüman ibadethanelerini seç
+// Seçilen ilçeyi idari sınır olarak SADECE province sınırları içinden ara
 (
+  area["boundary"="administrative"]["admin_level"="6"]["name"="${district}"](area.province);
+  area["boundary"="administrative"]["name"="${district}"](area.province);
+  area["name"="${district}"](area.province);
+)->.searchArea;
+// Sınırlar içindeki ibadethaneleri seç
+(
+  // Grup A: amenity=place_of_worship + religion=muslim
   node["amenity"="place_of_worship"]["religion"="muslim"](area.searchArea);
   way["amenity"="place_of_worship"]["religion"="muslim"](area.searchArea);
   relation["amenity"="place_of_worship"]["religion"="muslim"](area.searchArea);
+
+  // Grup B: building=mosque (religion şartı yok)
+  node["building"="mosque"](area.searchArea);
+  way["building"="mosque"](area.searchArea);
+  relation["building"="mosque"](area.searchArea);
+
+  // Grup C: amenity=place_of_worship + name (cami, camii, mescit, mescidi, mosque)
+  node["amenity"="place_of_worship"]["name"~"cami|camii|mescit|mescidi|mosque",i](area.searchArea);
+  way["amenity"="place_of_worship"]["name"~"cami|camii|mescit|mescidi|mosque",i](area.searchArea);
+  relation["amenity"="place_of_worship"]["name"~"cami|camii|mescit|mescidi|mosque",i](area.searchArea);
 );
 out center tags;`;
 
@@ -8492,7 +8525,7 @@ out center tags;`;
 
         for (const endpoint of endpoints) {
             try {
-                console.log(`OSM Fetching muslim places of worship in ${district} via ${endpoint}...`);
+                console.log(`OSM Fetching places of worship in ${city} / ${district} via ${endpoint}...`);
                 const response = await fetch(endpoint, {
                     method: 'POST',
                     headers: {
@@ -8542,22 +8575,35 @@ out center tags;`;
         }
 
         if (elements.length === 0) {
-            showToast(`${district} için OSM cami kaydı bulunamadı.`, "warning");
+            showToast(`${city} - ${district} için OSM cami kaydı bulunamadı.`, "warning");
             document.getElementById('osm-empty')?.classList.remove('hidden');
             const emptyTitle = document.querySelector('#osm-empty h4');
             const emptyDesc = document.querySelector('#osm-empty p');
             if (emptyTitle) {
-                emptyTitle.textContent = `${district} için OSM cami kaydı bulunamadı.`;
+                emptyTitle.textContent = `${city} - ${district} için OSM cami kaydı bulunamadı.`;
             }
             if (emptyDesc) {
-                emptyDesc.textContent = `Overpass API üzerinde Sakarya ili ${district} ilçesi sınırları içerisinde hiçbir cami kaydı bulunamadı.`;
+                emptyDesc.textContent = `Overpass API üzerinde ${city} ili ${district} ilçesi sınırları içerisinde hiçbir cami kaydı bulunamadı.`;
             }
             return;
         }
 
+        // 1. Kesin OSM type+id tekilleştirme
+        const seenOsmKeys = new Set();
+        const uniqueElements = [];
+        for (const el of elements) {
+            const key = `${el.type}_${el.id}`;
+            if (!seenOsmKeys.has(key)) {
+                seenOsmKeys.add(key);
+                uniqueElements.push(el);
+            }
+        }
+
         let skippedCount = 0;
+        const currentDistricts = (typeof TURKEY_LOCATION_DATA !== 'undefined' && TURKEY_LOCATION_DATA[city]) ? TURKEY_LOCATION_DATA[city] : SAKARYA_DISTRICTS;
+
         // Map and parse results
-        const mappedResults = elements.map(el => {
+        const mappedResults = uniqueElements.map(el => {
             let lat = null;
             let lon = null;
             if (el.type === 'node') {
@@ -8589,7 +8635,7 @@ out center tags;`;
             const rawDistrict = el.tags?.['addr:district'] || el.tags?.['addr:subdistrict'] || el.tags?.['addr:city'] || el.tags?.['is_in:district'] || "Bilinmiyor";
             let resolvedDistrict = "Bilinmiyor";
             const rawDistrictLower = rawDistrict.trim().toLocaleLowerCase('tr-TR');
-            for (const dist of SAKARYA_DISTRICTS) {
+            for (const dist of currentDistricts) {
                 const distLower = dist.toLocaleLowerCase('tr-TR');
                 if (rawDistrictLower.includes(distLower)) {
                     resolvedDistrict = dist;
@@ -8629,8 +8675,9 @@ out center tags;`;
             const google_maps_link = `https://www.google.com/maps?q=${lat},${lon}`;
 
             return {
+                osm_key: `${el.type}_${el.id}`,
                 mosque_name,
-                city: 'Sakarya',
+                city: city,
                 district: resolvedDistrict,
                 neighborhood,
                 address: address,
@@ -8643,11 +8690,59 @@ out center tags;`;
         }).filter(item => item !== null);
 
         // Filter results by selected district in the dropdown
-        osmResults = mappedResults.filter(item => {
+        const districtFiltered = mappedResults.filter(item => {
             return trNormalize(item.district) === trNormalize(district);
         });
 
-        // Set raw and skipped count for dynamic stats (A-18-7 Hotfix)
+        // 2. Hassas Spatial & Name Deduplication
+        const finalUniqueResults = [];
+        for (const cand of districtFiltered) {
+            let isDuplicate = false;
+            const candNormName = normalizeMosqueName(cand.mosque_name);
+
+            for (let i = 0; i < finalUniqueResults.length; i++) {
+                const existing = finalUniqueResults[i];
+                const distMeters = getDistanceMeters(cand.latitude, cand.longitude, existing.latitude, existing.longitude);
+                const existingNormName = normalizeMosqueName(existing.mosque_name);
+
+                if (cand.isUnnamed === existing.isUnnamed) {
+                    if (!cand.isUnnamed) {
+                        // İkisi de isimli: Aynı normalize isim AND Mesafe <= 50m ise duplicate
+                        if (candNormName === existingNormName && distMeters <= 50) {
+                            isDuplicate = true;
+                            break;
+                        }
+                        // Farklı isimli iki kayıt sadece yakın oldukları için ASLA birleştirilmez!
+                    } else {
+                        // İkisi de isimsiz: Mesafe <= 10m ise duplicate
+                        if (distMeters <= 10) {
+                            isDuplicate = true;
+                            break;
+                        }
+                    }
+                } else {
+                    // Biri isimsiz, biri isimli: Yalnızca Mesafe <= 10m ise isimli olan tercih edilir
+                    if (distMeters <= 10) {
+                        if (existing.isUnnamed && !cand.isUnnamed) {
+                            finalUniqueResults[i] = cand; // İsimsiz olan yerine isimli olanı koy
+                            isDuplicate = true;
+                            break;
+                        } else if (!existing.isUnnamed && cand.isUnnamed) {
+                            isDuplicate = true; // İsimsiz adayı atla
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (!isDuplicate) {
+                finalUniqueResults.push(cand);
+            }
+        }
+
+        osmResults = finalUniqueResults;
+
+        // Set raw and skipped count for dynamic stats
         osmRawCount = elements.length;
         osmSkippedCount = skippedCount;
 
@@ -8662,29 +8757,29 @@ out center tags;`;
         }).length;
         const visibleIfHideUnnamed = osmResults.filter(item => !item.isUnnamed).length;
 
-        // Diagnostics console logs (A-18-7 Hotfix)
-        console.log("---- OVERPASS API INTEGRATION DIAGNOSTICS (A-18-7) ----");
+        // Diagnostics console logs
+        console.log("---- OVERPASS API INTEGRATION DIAGNOSTICS ----");
         console.log(`1. Kullanılan endpoint: ${successfulEndpoint}`);
-        console.log(`2. Seçilen ilçe: ${district}`);
+        console.log(`2. Seçilen il / ilçe: ${city} / ${district}`);
         console.log(`3. Final Overpass query:\n${query}`);
         console.log(`4. Raw gelen element sayısı: ${elements.length}`);
         console.log(`5. Koordinatsız atlanan kayıt sayısı: ${skippedCount}`);
         console.log(`6. İsimsiz kayıt sayısı: ${unnamedCount}`);
         console.log(`7. Duplicate / sistemde kayıtlı sayısı: ${registeredCount}`);
-        console.log(`8. Önizlemeye alınan toplam kayıt sayısı: ${osmResults.length}`);
+        console.log(`8. OSM'de ${osmResults.length} benzersiz cami bulundu.`);
         console.log(`9. İsimsizleri gizle açıkken görünen kayıt sayısı: ${visibleIfHideUnnamed}`);
         console.log("----------------------------------------------");
 
         if (osmResults.length === 0) {
-            showToast("Sakarya için OSM cami kaydı bulunamadı.", "warning");
+            showToast(`${city} - ${district} için OSM cami kaydı bulunamadı.`, "warning");
             document.getElementById('osm-empty')?.classList.remove('hidden');
             const emptyTitle = document.querySelector('#osm-empty h4');
             const emptyDesc = document.querySelector('#osm-empty p');
             if (emptyTitle) {
-                emptyTitle.textContent = `${district} ilçesi için OSM cami kaydı bulunamadı.`;
+                emptyTitle.textContent = `${city} - ${district} ilçesi için OSM cami kaydı bulunamadı.`;
             }
             if (emptyDesc) {
-                emptyDesc.textContent = "Overpass API üzerinde bu ilçeyle ilişkili cami kaydı bulunamadı.";
+                emptyDesc.textContent = "Overpass API üzerinde bu ilçeyle ilişkili benzersiz cami kaydı bulunamadı.";
             }
             return;
         }
