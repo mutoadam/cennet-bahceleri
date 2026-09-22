@@ -8483,18 +8483,27 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
             return;
         }
 
-        // District places of worship query (A, B, C groups restricted to area.province)
+        // District places of worship query (A, B, C groups restricted to area.province via rel map_to_area)
         const query = `[out:json][timeout:30];
 // Türkiye il sınırını bul
 area["ISO3166-2"="TR-${plate}"]->.province;
-// Seçilen ilçeyi idari sınır olarak SADECE province sınırları içinden ara
+
+// İlçe relation'ını öncelikle admin_level=6, yoksa boundary=administrative ile province içinden ara
 (
-  area["boundary"="administrative"]["admin_level"="6"]["name"="${district}"](area.province);
-  area["boundary"="administrative"]["name"="${district}"](area.province);
+  rel(area.province)["boundary"="administrative"]["admin_level"="6"]["name"="${district}"];
+  rel(area.province)["boundary"="administrative"]["name"="${district}"];
+)->.districtRel;
+
+// districtRel'i alana dönüştür, yoksa ilçe adı ile area ara
+(
+  .districtRel map_to_area;
   area["name"="${district}"](area.province);
 )->.searchArea;
-// Sınırlar içindeki ibadethaneleri seç
+
+// Çıktı için hem ilçe relation'ını hem de cami gruplarını ekle
 (
+  .districtRel;
+
   // Grup A: amenity=place_of_worship + religion=muslim
   node["amenity"="place_of_worship"]["religion"="muslim"](area.searchArea);
   way["amenity"="place_of_worship"]["religion"="muslim"](area.searchArea);
@@ -8574,7 +8583,35 @@ out center tags;`;
             fetchBtn.innerHTML = '<i class="fa-solid fa-magnifying-glass"></i> Overpass ile Camileri Bul';
         }
 
-        if (elements.length === 0) {
+        // Check if district relation was found in Overpass elements
+        const provinceFound = success; // Plate TR-${plate} query executed
+        const districtRelElement = elements.find(el =>
+            el.type === 'relation' &&
+            el.tags?.boundary === 'administrative' &&
+            (trNormalize(el.tags?.name) === trNormalize(district) || el.tags?.admin_level === '6')
+        );
+        const districtRelFound = !!districtRelElement;
+
+        // Filter out the district boundary relation from mosque candidate elements
+        const mosqueElements = elements.filter(el => el !== districtRelElement);
+        const searchAreaCreated = districtRelFound || mosqueElements.length > 0;
+
+        if (!districtRelFound && mosqueElements.length === 0) {
+            console.warn(`[OSM Boundary Error] ${city} / ${district} için OSM ilçe sınırı çözümlenemedi.`);
+            showToast("OSM ilçe sınırı çözümlenemedi.", "error");
+            document.getElementById('osm-empty')?.classList.remove('hidden');
+            const emptyTitle = document.querySelector('#osm-empty h4');
+            const emptyDesc = document.querySelector('#osm-empty p');
+            if (emptyTitle) {
+                emptyTitle.textContent = "OSM ilçe sınırı çözümlenemedi.";
+            }
+            if (emptyDesc) {
+                emptyDesc.textContent = `Overpass API üzerinde ${city} ili ${district} ilçesi için idari sınır (relation/area) kaydı çözümlenemedi.`;
+            }
+            return;
+        }
+
+        if (mosqueElements.length === 0) {
             showToast(`${city} - ${district} için OSM cami kaydı bulunamadı.`, "warning");
             document.getElementById('osm-empty')?.classList.remove('hidden');
             const emptyTitle = document.querySelector('#osm-empty h4');
@@ -8591,7 +8628,7 @@ out center tags;`;
         // 1. Kesin OSM type+id tekilleştirme
         const seenOsmKeys = new Set();
         const uniqueElements = [];
-        for (const el of elements) {
+        for (const el of mosqueElements) {
             const key = `${el.type}_${el.id}`;
             if (!seenOsmKeys.has(key)) {
                 seenOsmKeys.add(key);
@@ -8743,7 +8780,7 @@ out center tags;`;
         osmResults = finalUniqueResults;
 
         // Set raw and skipped count for dynamic stats
-        osmRawCount = elements.length;
+        osmRawCount = mosqueElements.length;
         osmSkippedCount = skippedCount;
 
         const unnamedCount = osmResults.filter(item => item.isUnnamed).length;
@@ -8760,14 +8797,17 @@ out center tags;`;
         // Diagnostics console logs
         console.log("---- OVERPASS API INTEGRATION DIAGNOSTICS ----");
         console.log(`1. Kullanılan endpoint: ${successfulEndpoint}`);
-        console.log(`2. Seçilen il / ilçe: ${city} / ${district}`);
-        console.log(`3. Final Overpass query:\n${query}`);
-        console.log(`4. Raw gelen element sayısı: ${elements.length}`);
-        console.log(`5. Koordinatsız atlanan kayıt sayısı: ${skippedCount}`);
-        console.log(`6. İsimsiz kayıt sayısı: ${unnamedCount}`);
-        console.log(`7. Duplicate / sistemde kayıtlı sayısı: ${registeredCount}`);
-        console.log(`8. OSM'de ${osmResults.length} benzersiz cami bulundu.`);
-        console.log(`9. İsimsizleri gizle açıkken görünen kayıt sayısı: ${visibleIfHideUnnamed}`);
+        console.log(`2. Seçilen il / ilçe: ${city} / ${district} (Plaka: TR-${plate})`);
+        console.log(`3. Province bulundu mu: ${provinceFound ? "EVET" : "HAYIR"}`);
+        console.log(`4. District relation bulundu mu: ${districtRelFound ? "EVET" : "HAYIR"}`);
+        console.log(`5. SearchArea oluştu mu: ${searchAreaCreated ? "EVET" : "HAYIR"}`);
+        console.log(`6. Final Overpass query:\n${query}`);
+        console.log(`7. Raw gelen element sayısı: ${mosqueElements.length}`);
+        console.log(`8. Koordinatsız atlanan kayıt sayısı: ${skippedCount}`);
+        console.log(`9. İsimsiz kayıt sayısı: ${unnamedCount}`);
+        console.log(`10. Duplicate / sistemde kayıtlı sayısı: ${registeredCount}`);
+        console.log(`11. OSM'de ${osmResults.length} benzersiz cami bulundu (Unique Count: ${osmResults.length}).`);
+        console.log(`12. İsimsizleri gizle açıkken görünen kayıt sayısı: ${visibleIfHideUnnamed}`);
         console.log("----------------------------------------------");
 
         if (osmResults.length === 0) {
