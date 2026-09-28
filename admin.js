@@ -756,6 +756,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 day: suggestion.day || '',
                 time: suggestion.time || '',
                 teacher: suggestion.teacher || suggestion.speaker || suggestion.hoca || suggestion.lecturer || '',
+                speaker_role: suggestion.speaker_role || null,
+                event_date: suggestion.event_date || null,
                 organization: suggestion.organization || suggestion.institution || suggestion.association || suggestion.community || suggestion.cemaat || suggestion.dernek || suggestion.kurum || '',
                 organization_id: organization_id,
                 women_friendly: women_friendly,
@@ -2262,6 +2264,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const teacher = document.getElementById('add-teacher').value.trim();
+        const speaker_role = document.getElementById('add-speaker-role')?.value.trim() || null;
+        const event_date = document.getElementById('add-event-date')?.value.trim() || null;
         const organization = document.getElementById('add-organization').value.trim();
         const contact_name = document.getElementById('add-contact-name').value.trim();
         const contact_phone = document.getElementById('add-contact-phone').value.trim();
@@ -2327,7 +2331,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     contact_name,
                     contact_phone,
                     description,
-                    status: 'pending'
+                    status: 'pending',
+                    speaker_role: speaker_role || null,
+                    event_date: event_date || null
                 };
 
                 // Kolon uyumluluğu kontrolü ve payload temizliği (B16.1C Hotfix: Don't guess if schema unknown)
@@ -2498,6 +2504,12 @@ document.addEventListener('DOMContentLoaded', () => {
     // ==========================================================
     // Programlar (Programs) H2 Custom Implementation
     // ==========================================================
+
+    function isProgramExpired(eventDateStr) {
+        if (!eventDateStr) return false;
+        const istanbulToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Istanbul' });
+        return eventDateStr < istanbulToday;
+    }
 
     function getSourceBadge(source) {
         let label = 'KAYNAK YOK';
@@ -3568,6 +3580,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     ladiesMarkup = `<span class="category-badge" style="background-color: #fce4ec; color: #c2185b; border-color: rgba(194, 24, 91, 0.2);"><i class="fa-solid fa-person-dress"></i> Hanımlara Uygun</span>`;
                 }
 
+                let expiredBadgeMarkup = '';
+                if (isProgramExpired(item.event_date)) {
+                    expiredBadgeMarkup = `<span class="category-badge" style="background-color: #ffebee; color: #c62828; border-color: rgba(198, 40, 40, 0.2);"><i class="fa-solid fa-calendar-xmark"></i> Süresi Doldu</span>`;
+                }
+
+                let eventDateMarkup = '';
+                if (item.event_date) {
+                    eventDateMarkup = `<div class="detail-item" title="Tarih: ${escapeHtml(item.event_date)}"><span class="detail-label">📅 Tarih:</span> <span class="detail-value">${escapeHtml(item.event_date)}</span></div>`;
+                }
+
+                let speakerRoleMarkup = '';
+                if (item.speaker_role) {
+                    speakerRoleMarkup = ` <span style="font-size: 11px; background: #e8f5e9; color: #2e7d32; padding: 1px 6px; border-radius: 4px; margin-left: 4px;">${escapeHtml(item.speaker_role)}</span>`;
+                }
+
                 let batchMarkup = '';
                 if (item.import_batch_id) {
                     batchMarkup = `<span class="batch-label" style="font-size: 10px; margin-left: 6px;">Batch: ${escapeHtml(item.import_batch_id)}</span>`;
@@ -3591,6 +3618,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <input type="checkbox" class="program-item-checkbox bulk-checkbox" data-id="${item.id}" style="margin-right: 4px; cursor: pointer; width: 16px; height: 16px;">
                             <span class="${sourceBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(sourceBadge.label)}</span>
                             <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
+                            ${expiredBadgeMarkup}
                             ${batchMarkup}
                             ${ladiesMarkup}
                         </div>
@@ -3611,8 +3639,9 @@ document.addEventListener('DOMContentLoaded', () => {
                         </div>
                         <div class="detail-item" title="${escapeHtml(item.teacher || '-')}">
                             <span class="detail-label">👤 Hoca:</span>
-                            <span class="detail-value">${escapeHtml(item.teacher || '-')}</span>
+                            <span class="detail-value">${escapeHtml(item.teacher || '-')}${speakerRoleMarkup}</span>
                         </div>
+                        ${eventDateMarkup}
                         <div class="detail-item" title="${escapeHtml(orgDisplayName)}">
                             <span class="detail-label">🏢 Kurum / Dernek:</span>
                             <span class="detail-value">${escapeHtml(orgDisplayName)}</span>
@@ -4549,6 +4578,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const teacherInput = document.getElementById('edit-program-teacher');
         if (teacherInput) teacherInput.value = item.teacher || '';
 
+        const speakerRoleInput = document.getElementById('edit-program-speaker-role');
+        if (speakerRoleInput) speakerRoleInput.value = item.speaker_role || '';
+
+        const eventDateInput = document.getElementById('edit-program-event-date');
+        if (eventDateInput) eventDateInput.value = item.event_date || '';
+
         const orgInput = document.getElementById('edit-program-organization');
         if (orgInput) orgInput.value = item.organization || '';
 
@@ -5102,6 +5137,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         const teacher = document.getElementById('edit-program-teacher').value.trim();
+        const speaker_role = document.getElementById('edit-program-speaker-role')?.value.trim() || null;
+        const event_date = document.getElementById('edit-program-event-date')?.value.trim() || null;
         const organization = document.getElementById('edit-program-organization').value.trim();
         const organization_id = document.getElementById('edit-program-org-select')?.value || null;
         const women_friendly = document.getElementById('edit-program-ladies').value === 'true';
@@ -5182,6 +5219,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 day,
                 time,
                 teacher,
+                speaker_role,
+                event_date,
                 organization,
                 organization_id,
                 women_friendly,
