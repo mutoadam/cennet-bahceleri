@@ -43,6 +43,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // Yeni Program Ekle Modalı - Çoklu Fotoğraf State (B12.2A3.3C)
     let selectedProgramAddPhotos = [];
     let pendingManualProgramCreation = null; // { suggestionId, programId, photosCompleted: boolean, metadataPaths: string[] }
+    let pendingGooglePhotoSelection = null; // { placeId, photo, photoIndex }
 
     // Keşfet İçerikleri CMS Altyapısı v2 State Değişkenleri
     let loadedDiscoverArticles = [];
@@ -733,9 +734,12 @@ document.addEventListener('DOMContentLoaded', () => {
             // 5. Construct programs payload
             let latitude = suggestion.latitude || suggestion.lat || null;
             let longitude = suggestion.longitude || suggestion.lng || null;
+            let coordinates = null;
 
-            if (latitude === null || longitude === null) {
-                const coordinates = await resolveProgramCoordinates(
+            if (latitude !== null && longitude !== null) {
+                coordinates = { latitude, longitude };
+            } else if (latitude === null || longitude === null) {
+                coordinates = await resolveProgramCoordinates(
                     suggestion.city || 'Sakarya',
                     suggestion.district || '',
                     suggestion.venue_name || '',
@@ -2131,12 +2135,14 @@ document.addEventListener('DOMContentLoaded', () => {
         if (force || !pendingManualProgramCreation) {
             clearProgramAddPhotosSelection();
             pendingManualProgramCreation = null;
+            pendingGooglePhotoSelection = null;
         }
     }
 
     addProgramBtn?.addEventListener('click', () => {
         // Reset the pending context completely when opening a new form
         pendingManualProgramCreation = null;
+        pendingGooglePhotoSelection = null;
 
         if (addForm) {
             addForm.reset();
@@ -2370,6 +2376,46 @@ document.addEventListener('DOMContentLoaded', () => {
                 const syncRes = await syncSuggestionToProgram(sData, 'admin_manual', logo_url, organization_id);
                 if (!syncRes || !syncRes.success) throw new Error(syncRes?.error || "Programa aktarım hatası");
                 programId = syncRes.programId;
+
+                // Process pending Google photo selection if any (Add Program Mode)
+                if (pendingGooglePhotoSelection && programId) {
+                    try {
+                        const imageId = crypto.randomUUID();
+                        const baseUrl = window.CENNET_CONFIG.SUPABASE_URL.replace(/\/$/, "");
+                        const proxyUrl = `${baseUrl}/functions/v1/google-places-proxy/program-photo?program_image_id=${imageId}`;
+                        const attribution = (pendingGooglePhotoSelection.photo.authorAttributions || []).map(a => a.displayName).join(', ');
+
+                        const googlePhotoPayload = {
+                            id: imageId,
+                            program_id: programId,
+                            source_type: 'GOOGLE_PLACES',
+                            google_place_id: pendingGooglePhotoSelection.placeId,
+                            google_photo_name: pendingGooglePhotoSelection.photo.name,
+                            google_photo_index: pendingGooglePhotoSelection.photoIndex,
+                            google_author_attribution: attribution,
+                            photo_url: proxyUrl,
+                            image_attribution: attribution,
+                            sort_order: 0,
+                            is_cover: true,
+                            created_at: new Date().toISOString()
+                        };
+
+                        const { error: gPhotoErr } = await supabaseClient
+                            .from('program_photos')
+                            .insert(googlePhotoPayload);
+
+                        if (!gPhotoErr) {
+                            await supabaseClient
+                                .from('programs')
+                                .update({ photo_url: proxyUrl, updated_at: new Date().toISOString() })
+                                .eq('id', programId);
+                        }
+                    } catch (gpErr) {
+                        console.error("Google photo sync error during manual program creation:", gpErr);
+                    } finally {
+                        pendingGooglePhotoSelection = null;
+                    }
+                }
 
                 pendingManualProgramCreation = { suggestionId, programId, photosCompleted: false, metadataPaths: [] };
             }
@@ -12930,7 +12976,28 @@ out center tags;`;
         else if (type === 'program') { entity = currentEditProgram; gallery = loadedProgramGallery; }
 
         const config = GALLERY_CONFIGS[type];
-        if (!entity) return;
+        if (!entity) {
+            if (type === 'program') {
+                pendingGooglePhotoSelection = { placeId, photo, photoIndex };
+
+                const proxyPreviewUrl = `${window.CENNET_CONFIG.SUPABASE_URL}/functions/v1/google-places-proxy/photo-preview?name=${encodeURIComponent(photo.name)}`;
+                const addPreviewContainer = document.getElementById('add-photo-preview-container');
+                const addPreviewImg = document.getElementById('add-photo-preview-img');
+                const addUrlInput = document.getElementById('add-photo-url');
+
+                if (addPreviewImg) addPreviewImg.src = proxyPreviewUrl;
+                if (addPreviewContainer) addPreviewContainer.classList.remove('hidden');
+                if (addUrlInput) {
+                    addUrlInput.value = `[Google Fotoğraf: ${photo.name}]`;
+                    addUrlInput.disabled = true;
+                }
+
+                document.getElementById(config.discoveryArea).classList.add('hidden');
+                showToast("Google fotoğrafı seçildi. Kaydet tuşuna bastığınızda eklenecektir.", "success");
+                return;
+            }
+            return;
+        }
 
         const loader = document.getElementById(config.loader);
         if (loader) loader.classList.remove('hidden');
