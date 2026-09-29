@@ -231,3 +231,275 @@ Production vaaz program importu = 0.
 Admin ayrı bölüm/batch işi de henüz yapılmadı.
 Bu yalnız yarın uygulanacak gereksinim olarak checkpoint'e eklendi.
 
+
+---
+
+# CHECKPOINT UPDATE — 2026-09-30 / VENUE MATCHING
+
+## AŞAMA 2B — FINAL RAW VERIFIED
+
+Final RAW output:
+
+C:\Users\PC\Desktop\cennet-vaaz-2026-q4-stage\run_HOME_FINAL_RAW_2026-09-29T21-14-00\
+
+Exact verified totals:
+
+- Page 2 Public: 40
+- Page 3 Public: 85
+  - Cuma: 77
+  - Hafta İçi: 8
+- Page 4 Public: 94
+  - Cuma: 90
+  - Hafta İçi: 4
+- Page 4 Manual: 1
+- Page 5 Public: 118
+- Page 5 Manual: 13
+- Page 6 Public: 77
+- Page 7 Public: 14
+- Page 8 Public: 13
+
+Final type totals:
+
+- Cuma Vaazı: 416
+- Cumartesi Vaazı: 13
+- Hafta İçi Vaazı / İrşad: 12
+- PUBLIC TOTAL: 441
+- MANUAL/CLOSED: 14
+- TOTAL NON-MILITARY: 455
+
+Other exact checks:
+
+- event_date NULL: 12
+- district NULL: 0
+- teacher NULL: 0
+- venue NULL: 0
+- duplicate count: 0
+
+No production DB writes were performed.
+
+---
+
+## AŞAMA 2C-1 — FIRST VENUE MATCH
+
+Production public.mosque_locations exact total:
+
+- 1278
+
+Initial match:
+
+- PUBLIC: 441
+- EXACT: 27
+- NORMALIZED: 0
+- CANDIDATE: 0
+- UNMATCHED: 414
+
+Output:
+
+C:\Users\PC\Desktop\cennet-vaaz-2026-q4-stage\run_HOME_VENUE_MATCH_2026-09-29T21-51-32\
+
+Initial matcher was found to be too strict / structurally incorrect.
+
+---
+
+## AŞAMA 2C-2A — VENUE AUDIT
+
+Output:
+
+C:\Users\PC\Desktop\cennet-vaaz-2026-q4-stage\run_HOME_VENUE_AUDIT_2026-09-29T23-00-09\
+
+Findings:
+
+- Source unique venue count: 416
+- Safe-normalized unique count: 416
+- Production mosque_locations: 1278
+- mosque_locations.district semantics: MIXED
+- Known venue lookup: 10 found / 0 not found
+
+Important:
+
+Source PDF official district and mosque_locations.district cannot be treated as strict identical geographic levels.
+
+District hard-filter must NOT be used.
+
+---
+
+## AŞAMA 2C-2B — MATCHER CALIBRATION
+
+Output:
+
+C:\Users\PC\Desktop\cennet-vaaz-2026-q4-stage\run_HOME_MATCHER_CALIBRATION_2026-09-29T23-08-02\
+
+Spot 25:
+
+- OBVIOUS_MATCH: 5
+- AMBIGUOUS: 12
+- NO_CREDIBLE_MATCH: 8
+
+Known positive controls:
+
+- Safe auto-match: 10/10
+- Ambiguous: 0
+- Missed: 0
+
+False-positive negative controls:
+
+- Correctly rejected: 20/20
+- False accepted: 0
+
+Approved conceptual match classes:
+
+- EXACT
+- NORMALIZED_SAFE
+- HIGH_CONFIDENCE
+- AMBIGUOUS
+- NO_MATCH
+
+Similarity score alone must never determine a match.
+
+---
+
+## AŞAMA 2C-3 — FINAL VENUE MATCH ATTEMPT
+
+Output:
+
+C:\Users\PC\Desktop\cennet-vaaz-2026-q4-stage\run_HOME_FINAL_MATCH_2026-09-30T00-55-36\
+
+Exact program-row totals:
+
+- PUBLIC: 441
+- EXACT: 27
+- NORMALIZED_SAFE: 0
+- HIGH_CONFIDENCE: 0
+- AMBIGUOUS: 12
+- NO_MATCH: 402
+
+Sum = 441
+
+Unique venue total:
+
+- 416
+- EXACT: 27
+- NORMALIZED_SAFE: 0
+- HIGH_CONFIDENCE: 0
+- AMBIGUOUS: 12
+- NO_MATCH: 377
+
+Coordinate totals:
+
+- Latitude filled: 14
+- Longitude filled: 14
+- Lat + lng both filled: 14
+- Uncoordinated: 427
+
+PUBLIC_READY:
+
+- 14
+
+PUBLIC_MANUAL_MATCH_REVIEW:
+
+- 427
+
+---
+
+## CUMA / 10 KM READINESS
+
+Cuma total:
+
+- 416
+
+Cuma match:
+
+- EXACT: 25
+- NORMALIZED_SAFE: 0
+- HIGH_CONFIDENCE: 0
+- AMBIGUOUS: 12
+- NO_MATCH: 379
+
+Coordinates:
+
+- Coordinated: 12
+- Uncoordinated: 404
+
+10 KM coordinate coverage:
+
+- 12 / 416
+- 2.88%
+
+This is NOT sufficient for production 10 KM behavior yet.
+
+DO NOT import yet.
+DO NOT create 10 KM RPC yet.
+
+---
+
+## IMPORTANT OPEN ISSUE
+
+There is a mismatch requiring audit:
+
+- EXACT program matches: 27
+- Coordinated programs: 14
+
+Therefore 13 EXACT-labelled program rows currently do not have usable latitude/longitude.
+
+Before any further matcher application or production import, determine whether this is caused by:
+
+1. mosque_locations records themselves having NULL coordinates,
+2. matcher failing to transfer coordinates,
+3. a mixture of both.
+
+Also determine why HIGH_CONFIDENCE = 0 despite production mosque_locations containing 1278 records and all 10 known positive-control venues being found.
+
+---
+
+## NEXT STEP
+
+Next exact task:
+
+AŞAMA 2C-3A — MATCH FAILURE AUDIT
+
+Goals:
+
+1. Audit the 13 EXACT-but-uncoordinated records.
+2. Determine DB-coordinate-missing vs matcher-transfer-bug exact counts.
+3. Audit at least 60 real NO_MATCH records against production mosque_locations.
+4. Inspect source-vs-DB naming differences.
+5. Explain HIGH_CONFIDENCE = 0 with exact rejection counts.
+6. Calculate mosque_locations overall coordinate coverage.
+7. Do not change match status.
+8. Do not apply coordinates.
+9. Do not import programs.
+10. Do not create 10 KM RPC.
+
+Production DB writes remain forbidden until this audit is complete.
+
+---
+
+## SOURCE PDF IDENTITY LOCK
+
+Canonical source PDF on HOME PC:
+
+C:\Users\PC\Downloads\vaizler listesi(1).pdf
+
+SHA256:
+
+0AF584DA1A9E31EB0E91AA8544951FC22ADBFACA07B791223BBE2A0BB6A847E8
+
+RULE FOR WORK PC:
+
+The work-PC PDF must NOT be trusted by filename alone.
+
+Before using it, calculate SHA256 with Get-FileHash.
+
+Only if the WORK-PC PDF SHA256 is exactly:
+
+0AF584DA1A9E31EB0E91AA8544951FC22ADBFACA07B791223BBE2A0BB6A847E8
+
+may it be treated as the same canonical source PDF.
+
+If hash differs:
+STOP.
+Do not extract/rebuild vaaz data from that PDF.
+
+IMPORTANT:
+The verified HOME staging chain remains authoritative.
+Do not regenerate AŞAMA 2B / venue outputs on the work PC merely because the PDF exists there.
