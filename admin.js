@@ -3223,6 +3223,53 @@ document.addEventListener('DOMContentLoaded', () => {
                 daySelect.value = '';
             }
         }
+
+        // Teacher filter population
+        const teacherSelect = document.getElementById('filter-teacher');
+        if (teacherSelect) {
+            const currentSelected = teacherSelect.value;
+            teacherSelect.innerHTML = '<option value="">Tüm Hocalar</option>';
+            const uniqueTeachers = [...new Set(programs.map(p => (p.teacher || '').trim()).filter(Boolean))];
+            uniqueTeachers.sort((a, b) => a.localeCompare(b, 'tr'));
+            uniqueTeachers.forEach(t => {
+                const opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                teacherSelect.appendChild(opt);
+            });
+            if (uniqueTeachers.includes(currentSelected)) {
+                teacherSelect.value = currentSelected;
+            } else {
+                teacherSelect.value = '';
+            }
+        }
+
+        // Program Type filter population
+        const programTypeSelect = document.getElementById('filter-program-type');
+        if (programTypeSelect) {
+            const currentSelected = programTypeSelect.value;
+            programTypeSelect.innerHTML = '<option value="">Tüm Türler</option>';
+            let typesList = [];
+            if (typeof activeProgramTypes !== 'undefined' && Array.isArray(activeProgramTypes) && activeProgramTypes.length > 0) {
+                typesList = activeProgramTypes.map(t => (t.name || '').trim()).filter(Boolean);
+            }
+            if (typesList.length === 0) {
+                typesList = [...new Set(programs.map(p => (p.program_name || p.program_type || '').trim()).filter(Boolean))];
+            }
+            const uniqueTypes = [...new Set(typesList)];
+            uniqueTypes.sort((a, b) => a.localeCompare(b, 'tr'));
+            uniqueTypes.forEach(pt => {
+                const opt = document.createElement('option');
+                opt.value = pt;
+                opt.textContent = pt;
+                programTypeSelect.appendChild(opt);
+            });
+            if (uniqueTypes.includes(currentSelected)) {
+                programTypeSelect.value = currentSelected;
+            } else {
+                programTypeSelect.value = '';
+            }
+        }
     }
 
     // Dynamic district filter update based on selected city (B16.1A)
@@ -3393,6 +3440,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedSource = isTrashBinView ? '' : (document.getElementById('filter-source')?.value || '');
         const selectedBatch = isTrashBinView ? '' : (document.getElementById('filter-batch')?.value || '');
         const selectedOrg = isTrashBinView ? '' : (document.getElementById('filter-org')?.value || '');
+        const selectedTeacher = isTrashBinView ? '' : (document.getElementById('filter-teacher')?.value || '');
+        const selectedProgramType = isTrashBinView ? '' : (document.getElementById('filter-program-type')?.value || '');
 
         const filtered = loadedPrograms.filter(item => {
             // 0. City filter (Empty city treated as Sakarya for legacy support)
@@ -3476,6 +3525,20 @@ document.addEventListener('DOMContentLoaded', () => {
                         return false;
                     }
                 } else {
+                    return false;
+                }
+            }
+
+            // 8. Teacher filter
+            if (selectedTeacher && (item.teacher || '').trim() !== selectedTeacher) {
+                return false;
+            }
+
+            // 9. Program Type filter
+            if (selectedProgramType) {
+                const pName = (item.program_name || '').trim();
+                const pType = (item.program_type || '').trim();
+                if (pName !== selectedProgramType && pType !== selectedProgramType) {
                     return false;
                 }
             }
@@ -4145,7 +4208,9 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('filter-status')?.addEventListener('change', applyFilters);
         document.getElementById('filter-source')?.addEventListener('change', applyFilters);
         document.getElementById('filter-org')?.addEventListener('change', applyFilters);
-        
+        document.getElementById('filter-teacher')?.addEventListener('change', applyFilters);
+        document.getElementById('filter-program-type')?.addEventListener('change', applyFilters);
+
         document.getElementById('filter-clear-btn')?.addEventListener('click', () => {
             const searchInput = document.getElementById('filter-search');
             if (searchInput) searchInput.value = '';
@@ -4167,6 +4232,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const orgSelect = document.getElementById('filter-org');
             if (orgSelect) orgSelect.value = '';
+
+            const teacherSelect = document.getElementById('filter-teacher');
+            if (teacherSelect) teacherSelect.value = '';
+
+            const programTypeSelect = document.getElementById('filter-program-type');
+            if (programTypeSelect) programTypeSelect.value = '';
 
             applyFilters();
         });
