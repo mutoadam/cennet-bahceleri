@@ -104,6 +104,9 @@
             <button id="main-tab-tombs" class="main-tab-btn">
                 <i class="fa-solid fa-monument"></i> Türbeler
             </button>
+            <button id="main-tab-muftuluk" class="main-tab-btn">
+                <i class="fa-solid fa-scroll"></i> Müftülük Vaaz Programları
+            </button>
         </div>
 
         <!-- Öneriler (Suggestions) Sekmesi İçeriği -->
@@ -1010,6 +1013,149 @@
 
                 <div id="tombs-list" class="suggestions-list grid-list">
                     <!-- Türbe kartları buraya JS ile dolacak -->
+                </div>
+            </section>
+        </div>
+
+        <!-- Müftülük Vaaz Programları Sekmesi İçeriği -->
+        <div id="muftuluk-tab-content" class="hidden">
+            <section class="page-title-section">
+                <div class="page-title-container">
+                    <h2>Müftülük Vaaz Programları Yönetim Paneli</h2>
+                    <p class="section-desc">Sakarya İl Müftülüğü 2026 Q4 vaaz programlarının batch ve tarih bazlı kontrollü yönetim ekranı.</p>
+                </div>
+            </section>
+
+            <!-- İstatistik Kartları Grid Yapısı -->
+            <section class="stats-grid">
+                <div class="stats-card card-total" style="border-left: 6px solid var(--md-primary);">
+                    <div class="stats-icon" style="background-color: var(--md-primary-container); color: var(--md-primary);"><i class="fa-solid fa-scroll"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Toplam Müftülük Kaydı</span>
+                        <h3 id="stats-muftuluk-total-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-approved">
+                    <div class="stats-icon"><i class="fa-solid fa-mosque"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Cuma Vaazları</span>
+                        <h3 id="stats-muftuluk-cuma-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-total" style="border-left: 6px solid #1976d2;">
+                    <div class="stats-icon" style="background-color: #e3f2fd; color: #1976d2;"><i class="fa-solid fa-calendar-day"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Cumartesi Vaazları</span>
+                        <h3 id="stats-muftuluk-cumartesi-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-approved" style="border-left: 6px solid #388e3c;">
+                    <div class="stats-icon" style="background-color: #e8f5e9; color: #388e3c;"><i class="fa-solid fa-calendar-week"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Hafta İçi Vaazları</span>
+                        <h3 id="stats-muftuluk-haftaici-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-rejected" style="border-left: 6px solid var(--md-warning);">
+                    <div class="stats-icon" style="background-color: var(--md-warning-container); color: var(--md-warning);"><i class="fa-solid fa-file-pen"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Manual / İnceleme</span>
+                        <h3 id="stats-muftuluk-manual-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-total" style="border-left: 6px solid var(--md-secondary);">
+                    <div class="stats-icon" style="background-color: var(--md-secondary-container); color: var(--md-secondary);"><i class="fa-solid fa-layer-group"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Batch Sayısı</span>
+                        <h3 id="stats-muftuluk-batch-count-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Tabs Section (Batch Hızlı Filtre Butonları) -->
+            <div class="admin-tabs-container" id="muftuluk-batch-tabs">
+                <button class="tab-btn active" data-muftuluk-batch="all">
+                    <i class="fa-solid fa-layer-group"></i> Tümü
+                </button>
+                <button class="tab-btn" data-muftuluk-batch="sakarya_muftuluk_2026_q4_cuma">
+                    <i class="fa-solid fa-mosque"></i> Cuma Vaazları
+                </button>
+                <button class="tab-btn" data-muftuluk-batch="sakarya_muftuluk_2026_q4_cumartesi">
+                    <i class="fa-solid fa-calendar-day"></i> Cumartesi Vaazları
+                </button>
+                <button class="tab-btn" data-muftuluk-batch="sakarya_muftuluk_2026_q4_haftaici">
+                    <i class="fa-solid fa-calendar-week"></i> Hafta İçi Vaazları
+                </button>
+                <button class="tab-btn" data-muftuluk-batch="sakarya_muftuluk_2026_q4_manual">
+                    <i class="fa-solid fa-clipboard-question"></i> İnceleme Gerekenler
+                </button>
+            </div>
+
+            <!-- Filtre ve Arama Paneli -->
+            <div class="filter-panel" id="muftuluk-filter-panel">
+                <div class="filter-row" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                    <div class="filter-group search-group" style="flex: 2; min-width: 220px;">
+                        <label for="muftuluk-filter-search"><i class="fa-solid fa-magnifying-glass"></i> Arama</label>
+                        <input type="text" id="muftuluk-filter-search" class="form-control" placeholder="Program, hoca, unvan, mekan, vaaz konusu...">
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 160px;">
+                        <label for="muftuluk-filter-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
+                        <select id="muftuluk-filter-district" class="form-control">
+                            <option value="">Tüm İlçeler</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 160px;">
+                        <label for="muftuluk-filter-status"><i class="fa-solid fa-circle-info"></i> Durum</label>
+                        <select id="muftuluk-filter-status" class="form-control">
+                            <option value="">Tüm Durumlar</option>
+                            <option value="active">Aktif (Devam Ediyor)</option>
+                            <option value="inactive">Pasif (Ara Verildi)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex-shrink: 0;">
+                        <button id="muftuluk-clear-filters-btn" class="btn btn-secondary" style="height: 40px; border: 1px solid var(--md-outline); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-filter-circle-xmark"></i> Temizle
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Müftülük Vaaz Programları List Section -->
+            <section class="suggestions-section">
+                <div class="section-header">
+                    <div class="header-title-wrapper">
+                        <h3>Müftülük Vaaz Programları Listesi</h3>
+                        <p class="subtitle-text" id="muftuluk-count-text">0 program içinden 0 kayıt gösteriliyor.</p>
+                    </div>
+                    <button id="muftuluk-refresh-btn" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-rotate"></i> Yenile
+                    </button>
+                </div>
+
+                <!-- Loader -->
+                <div id="muftuluk-loader" class="state-container hidden">
+                    <div class="spinner"></div>
+                    <p>Müftülük vaaz programları yükleniyor, lütfen bekleyin...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="muftuluk-error-container" class="state-container state-error hidden">
+                    <i class="fa-solid fa-triangle-exclamation state-icon"></i>
+                    <h4>Veriler yüklenirken bir hata oluştu.</h4>
+                    <p>Lütfen internet bağlantınızı ve Supabase veritabanı bağlantınızı kontrol edin.</p>
+                    <button id="muftuluk-retry-btn" class="btn btn-primary" style="margin-top: 15px;">Tekrar Dene</button>
+                </div>
+
+                <!-- Empty State -->
+                <div id="muftuluk-empty-container" class="state-container state-empty hidden">
+                    <i class="fa-solid fa-scroll state-icon"></i>
+                    <h4>Şu anda bu filtreye uygun Müftülük programı bulunmuyor.</h4>
+                    <p>Filtreleri temizleyerek tüm kayıtları listeleyebilirsiniz.</p>
+                </div>
+
+                <!-- Table Container -->
+                <div id="muftuluk-table-container" class="programs-list-table-wrapper">
+                    <!-- Tablo dinamik olarak JS tarafında oluşturulacak -->
                 </div>
             </section>
         </div>

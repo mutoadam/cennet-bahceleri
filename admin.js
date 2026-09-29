@@ -4180,6 +4180,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabMosques = document.getElementById('main-tab-mosques');
         const tabDiscover = document.getElementById('main-tab-discover');
         const tabTombs = document.getElementById('main-tab-tombs');
+        const tabMuftuluk = document.getElementById('main-tab-muftuluk');
 
         const suggestionsContent = document.getElementById('suggestions-tab-content');
         const programsContent = document.getElementById('programs-tab-content');
@@ -4187,9 +4188,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const mosquesContent = document.getElementById('mosques-tab-content');
         const discoverContent = document.getElementById('discover-tab-content');
         const tombsContent = document.getElementById('tombs-tab-content');
+        const muftulukContent = document.getElementById('muftuluk-tab-content');
 
-        const allTabs = [tabSuggestions, tabPrograms, tabOrganizations, tabMosques, tabDiscover, tabTombs].filter(Boolean);
-        const allContents = [suggestionsContent, programsContent, organizationsContent, mosquesContent, discoverContent, tombsContent].filter(Boolean);
+        const allTabs = [tabSuggestions, tabPrograms, tabOrganizations, tabMosques, tabDiscover, tabTombs, tabMuftuluk].filter(Boolean);
+        const allContents = [suggestionsContent, programsContent, organizationsContent, mosquesContent, discoverContent, tombsContent, muftulukContent].filter(Boolean);
 
         function switchTab(activeTab, activeContent) {
             allTabs.forEach(tab => tab.classList.remove('active'));
@@ -4237,6 +4239,14 @@ document.addEventListener('DOMContentLoaded', () => {
             tabTombs.addEventListener('click', () => {
                 switchTab(tabTombs, tombsContent);
                 loadTombs();
+            });
+        }
+
+        if (tabMuftuluk) {
+            tabMuftuluk.addEventListener('click', async () => {
+                switchTab(tabMuftuluk, muftulukContent);
+                await loadProgramTypes();
+                loadMuftulukPrograms();
             });
         }
     }
@@ -13298,6 +13308,340 @@ out center tags;`;
     }
 
     document.getElementById('batch-publish-btn')?.addEventListener('click', handleBatch01BulkPublish);
+
+    // ==========================================================
+    // MÜFTÜLÜK VAAZ PROGRAMLARI YÖNETİM MODÜLÜ (2026 Q4)
+    // ==========================================================
+
+    let loadedMuftulukPrograms = [];
+    let currentMuftulukBatchFilter = 'all';
+    let isMuftulukEventsBound = false;
+
+    async function loadMuftulukPrograms() {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        showMuftulukLoader();
+
+        try {
+            console.log("Fetching Sakarya Müftülüğü records from public.programs...");
+            const { data: programsData, error: fetchError } = await supabaseClient
+                .from('programs')
+                .select('*')
+                .like('source', 'sakarya_muftuluk_2026_q4%')
+                .order('event_date', { ascending: true });
+
+            if (fetchError) throw fetchError;
+
+            loadedMuftulukPrograms = programsData || [];
+            processMuftulukPrograms(loadedMuftulukPrograms);
+            bindMuftulukEvents();
+        } catch (error) {
+            console.error('Müftülük programları yüklenirken hata oluştu:', error);
+            showMuftulukError();
+        }
+    }
+
+    function processMuftulukPrograms(programs) {
+        // Compute Counters strictly within source LIKE 'sakarya_muftuluk_2026_q4%'
+        const totalCount = programs.length;
+        const cumaCount = programs.filter(p => p.import_batch_id === 'sakarya_muftuluk_2026_q4_cuma').length;
+        const cumartesiCount = programs.filter(p => p.import_batch_id === 'sakarya_muftuluk_2026_q4_cumartesi').length;
+        const haftaiciCount = programs.filter(p => p.import_batch_id === 'sakarya_muftuluk_2026_q4_haftaici').length;
+        const manualCount = programs.filter(p => p.import_batch_id === 'sakarya_muftuluk_2026_q4_manual').length;
+
+        // Unique Batch Count
+        const uniqueBatches = [...new Set(programs.map(p => p.import_batch_id).filter(Boolean))];
+        const batchCount = uniqueBatches.length;
+
+        const elTotal = document.getElementById('stats-muftuluk-total-val');
+        const elCuma = document.getElementById('stats-muftuluk-cuma-val');
+        const elCumartesi = document.getElementById('stats-muftuluk-cumartesi-val');
+        const elHaftaici = document.getElementById('stats-muftuluk-haftaici-val');
+        const elManual = document.getElementById('stats-muftuluk-manual-val');
+        const elBatch = document.getElementById('stats-muftuluk-batch-count-val');
+
+        if (elTotal) elTotal.textContent = totalCount;
+        if (elCuma) elCuma.textContent = cumaCount;
+        if (elCumartesi) elCumartesi.textContent = cumartesiCount;
+        if (elHaftaici) elHaftaici.textContent = haftaiciCount;
+        if (elManual) elManual.textContent = manualCount;
+        if (elBatch) elBatch.textContent = batchCount;
+
+        populateMuftulukDistrictFilter(programs);
+        applyMuftulukFilters();
+    }
+
+    function populateMuftulukDistrictFilter(programs) {
+        const districtSelect = document.getElementById('muftuluk-filter-district');
+        if (!districtSelect) return;
+
+        const currentValue = districtSelect.value;
+        const uniqueDistricts = [...new Set(programs.map(p => (p.district || '').trim()).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'tr'));
+
+        districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
+        uniqueDistricts.forEach(d => {
+            const opt = document.createElement('option');
+            opt.value = d;
+            opt.textContent = d;
+            districtSelect.appendChild(opt);
+        });
+
+        if (currentValue && uniqueDistricts.includes(currentValue)) {
+            districtSelect.value = currentValue;
+        }
+    }
+
+    function applyMuftulukFilters() {
+        const searchInput = document.getElementById('muftuluk-filter-search');
+        const districtSelect = document.getElementById('muftuluk-filter-district');
+        const statusSelect = document.getElementById('muftuluk-filter-status');
+
+        const query = (searchInput?.value || '').toLowerCase().trim();
+        const selectedDistrict = (districtSelect?.value || '').trim();
+        const selectedStatus = (statusSelect?.value || '').trim();
+
+        const filtered = loadedMuftulukPrograms.filter(item => {
+            // 1. Batch filter
+            if (currentMuftulukBatchFilter !== 'all') {
+                if (item.import_batch_id !== currentMuftulukBatchFilter) return false;
+            }
+
+            // 2. District filter
+            if (selectedDistrict) {
+                if ((item.district || '').trim() !== selectedDistrict) return false;
+            }
+
+            // 3. Status filter
+            if (selectedStatus) {
+                if ((item.status || '').toLowerCase() !== selectedStatus.toLowerCase()) return false;
+            }
+
+            // 4. Text Search
+            if (query) {
+                const name = (item.program_name || '').toLowerCase();
+                const teacher = (item.teacher || '').toLowerCase();
+                const role = (item.speaker_role || '').toLowerCase();
+                const venue = (item.venue_name || '').toLowerCase();
+                const desc = (item.description || '').toLowerCase();
+
+                const matches = name.includes(query) || teacher.includes(query) || role.includes(query) || venue.includes(query) || desc.includes(query);
+                if (!matches) return false;
+            }
+
+            return true;
+        });
+
+        const countText = document.getElementById('muftuluk-count-text');
+        if (countText) {
+            countText.textContent = `${loadedMuftulukPrograms.length} program içinden ${filtered.length} kayıt gösteriliyor.`;
+        }
+
+        renderMuftulukProgramsTable(filtered);
+    }
+
+    function getMuftulukDateStatusBadge(eventDateStr) {
+        if (!eventDateStr) {
+            return '<span class="date-status-badge date-status-continuous"><i class="fa-solid fa-infinity"></i> Sürekli</span>';
+        }
+
+        const istanbulToday = new Date().toLocaleDateString('en-CA', { timeZone: 'Europe/Istanbul' });
+
+        if (eventDateStr < istanbulToday) {
+            return '<span class="date-status-badge date-status-expired"><i class="fa-solid fa-circle-xmark"></i> Süresi Doldu</span>';
+        } else if (eventDateStr === istanbulToday) {
+            return '<span class="date-status-badge date-status-today"><i class="fa-solid fa-circle-check"></i> Güncel</span>';
+        } else {
+            return '<span class="date-status-badge date-status-future"><i class="fa-solid fa-calendar-day"></i> Gelecek</span>';
+        }
+    }
+
+    function getMuftulukBatchBadge(batchId) {
+        if (!batchId) return '-';
+        if (batchId === 'sakarya_muftuluk_2026_q4_cuma') {
+            return '<span class="muftuluk-batch-badge batch-cuma"><i class="fa-solid fa-mosque"></i> Cuma Batch</span>';
+        } else if (batchId === 'sakarya_muftuluk_2026_q4_cumartesi') {
+            return '<span class="muftuluk-batch-badge batch-cumartesi"><i class="fa-solid fa-calendar-day"></i> Cumartesi Batch</span>';
+        } else if (batchId === 'sakarya_muftuluk_2026_q4_haftaici') {
+            return '<span class="muftuluk-batch-badge batch-haftaici"><i class="fa-solid fa-calendar-week"></i> Hafta İçi Batch</span>';
+        } else if (batchId === 'sakarya_muftuluk_2026_q4_manual') {
+            return '<span class="muftuluk-batch-badge batch-manual"><i class="fa-solid fa-clipboard-question"></i> Manual Batch</span>';
+        }
+        return `<span class="muftuluk-batch-badge" style="background:#eee; color:#333;">${escapeHtml(batchId)}</span>`;
+    }
+
+    function getMuftulukProgramTypeName(item) {
+        // Use existing program_type_id / program_types mapping logic
+        if (activeProgramTypes && Array.isArray(activeProgramTypes)) {
+            const pt = activeProgramTypes.find(t => t.id === item.program_type_id || t.id === item.program_type);
+            if (pt) return pt.name || pt.title || pt.type_name || 'Vaaz Programı';
+        }
+        if (item.import_batch_id === 'sakarya_muftuluk_2026_q4_cuma') return 'Cuma Vaazı';
+        if (item.import_batch_id === 'sakarya_muftuluk_2026_q4_cumartesi') return 'Cumartesi Vaazı';
+        if (item.import_batch_id === 'sakarya_muftuluk_2026_q4_haftaici') return 'Hafta İçi Vaazı';
+        return 'Müftülük Vaazı';
+    }
+
+    function renderMuftulukProgramsTable(programs) {
+        const tableContainer = document.getElementById('muftuluk-table-container');
+        if (!tableContainer) return;
+
+        hideMuftulukStates();
+
+        if (programs.length === 0) {
+            showMuftulukEmpty();
+            return;
+        }
+
+        let tableHtml = `
+            <div class="programs-table-responsive">
+                <table class="muftuluk-admin-table">
+                    <thead>
+                        <tr>
+                            <th>Program Adı</th>
+                            <th>Program Türü</th>
+                            <th>Tarih</th>
+                            <th>Cami / Mekan</th>
+                            <th>İlçe</th>
+                            <th>Hoca</th>
+                            <th>Hoca Unvanı</th>
+                            <th>Vaaz Konusu</th>
+                            <th>Batch</th>
+                            <th>Kaynak</th>
+                            <th>Durum</th>
+                            <th>Süre Durumu</th>
+                            <th>İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        programs.forEach(item => {
+            const dateStatusBadge = getMuftulukDateStatusBadge(item.event_date);
+            const batchBadge = getMuftulukBatchBadge(item.import_batch_id);
+            const programType = getMuftulukProgramTypeName(item);
+            const isMissingLocation = (item.latitude === null || item.longitude === null);
+
+            let statusBadge = '<span class="status-badge status-approved">🟢 Aktif</span>';
+            if ((item.status || '').toLowerCase() === 'inactive' || (item.status || '').toLowerCase() === 'passive') {
+                statusBadge = '<span class="status-badge status-rejected">🌙 Pasif</span>';
+            }
+
+            tableHtml += `
+                <tr>
+                    <td class="table-program-name">
+                        <strong>${escapeHtml(item.program_name || 'Vaaz Programı')}</strong>
+                        ${isMissingLocation ? '<br><span class="missing-location-badge"><i class="fa-solid fa-triangle-exclamation"></i> Eksik Konum</span>' : ''}
+                    </td>
+                    <td><span style="font-size: 11px; background: #e8f5e9; color: #2e7d32; padding: 2px 6px; border-radius: 4px; font-weight: 600;">${escapeHtml(programType)}</span></td>
+                    <td>${item.event_date ? escapeHtml(item.event_date) : '<span style="color:#888;">Düzenli</span>'}</td>
+                    <td class="table-venue-name">${escapeHtml(item.venue_name || '-')}</td>
+                    <td><strong>${escapeHtml(item.district || '-')}</strong></td>
+                    <td>${escapeHtml(item.teacher || '-')}</td>
+                    <td>${item.speaker_role ? `<span style="font-size:11px; background:#f0f4c3; color:#33691e; padding:1px 5px; border-radius:3px;">${escapeHtml(item.speaker_role)}</span>` : '-'}</td>
+                    <td style="max-width: 200px; font-size: 12px; color: #555;" title="${escapeHtml(item.description || '')}">
+                        ${escapeHtml(item.description || '-')}
+                    </td>
+                    <td>${batchBadge}</td>
+                    <td><span style="font-size: 10px; background: #e0f2f1; color: #004d40; padding: 2px 6px; border-radius: 4px;">${escapeHtml(item.source || '-')}</span></td>
+                    <td>${statusBadge}</td>
+                    <td>${dateStatusBadge}</td>
+                    <td>
+                        <div class="table-actions">
+                            <button class="btn-action btn-table-edit" title="Düzenle" onclick="openProgramEditModal('${item.id}')">
+                                <i class="fa-solid fa-pen-to-square"></i>
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHtml += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        tableContainer.innerHTML = tableHtml;
+    }
+
+    function showMuftulukLoader() {
+        document.getElementById('muftuluk-loader')?.classList.remove('hidden');
+        document.getElementById('muftuluk-error-container')?.classList.add('hidden');
+        document.getElementById('muftuluk-empty-container')?.classList.add('hidden');
+        const container = document.getElementById('muftuluk-table-container');
+        if (container) container.innerHTML = '';
+    }
+
+    function showMuftulukError() {
+        document.getElementById('muftuluk-loader')?.classList.add('hidden');
+        document.getElementById('muftuluk-error-container')?.classList.remove('hidden');
+        document.getElementById('muftuluk-empty-container')?.classList.add('hidden');
+        const container = document.getElementById('muftuluk-table-container');
+        if (container) container.innerHTML = '';
+    }
+
+    function showMuftulukEmpty() {
+        document.getElementById('muftuluk-loader')?.classList.add('hidden');
+        document.getElementById('muftuluk-error-container')?.classList.add('hidden');
+        document.getElementById('muftuluk-empty-container')?.classList.remove('hidden');
+        const container = document.getElementById('muftuluk-table-container');
+        if (container) container.innerHTML = '';
+    }
+
+    function hideMuftulukStates() {
+        document.getElementById('muftuluk-loader')?.classList.add('hidden');
+        document.getElementById('muftuluk-error-container')?.classList.add('hidden');
+        document.getElementById('muftuluk-empty-container')?.classList.add('hidden');
+    }
+
+    function bindMuftulukEvents() {
+        if (isMuftulukEventsBound) return;
+        isMuftulukEventsBound = true;
+
+        // Batch Tab Buttons
+        const batchTabs = document.querySelectorAll('#muftuluk-batch-tabs .tab-btn');
+        batchTabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                batchTabs.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                currentMuftulukBatchFilter = btn.getAttribute('data-muftuluk-batch') || 'all';
+                applyMuftulukFilters();
+            });
+        });
+
+        // Search Box & Selects
+        document.getElementById('muftuluk-filter-search')?.addEventListener('input', applyMuftulukFilters);
+        document.getElementById('muftuluk-filter-district')?.addEventListener('change', applyMuftulukFilters);
+        document.getElementById('muftuluk-filter-status')?.addEventListener('change', applyMuftulukFilters);
+
+        // Clear Filters Button
+        document.getElementById('muftuluk-clear-filters-btn')?.addEventListener('click', () => {
+            const searchInput = document.getElementById('muftuluk-filter-search');
+            const districtSelect = document.getElementById('muftuluk-filter-district');
+            const statusSelect = document.getElementById('muftuluk-filter-status');
+
+            if (searchInput) searchInput.value = '';
+            if (districtSelect) districtSelect.value = '';
+            if (statusSelect) statusSelect.value = '';
+
+            // Reset Batch tabs to 'all'
+            currentMuftulukBatchFilter = 'all';
+            batchTabs.forEach(b => {
+                if (b.getAttribute('data-muftuluk-batch') === 'all') b.classList.add('active');
+                else b.classList.remove('active');
+            });
+
+            applyMuftulukFilters();
+        });
+
+        // Refresh & Retry Buttons
+        document.getElementById('muftuluk-refresh-btn')?.addEventListener('click', loadMuftulukPrograms);
+        document.getElementById('muftuluk-retry-btn')?.addEventListener('click', loadMuftulukPrograms);
+    }
 
     // Expose Tomb functions globally
     window.openTombModal = openTombModal;
