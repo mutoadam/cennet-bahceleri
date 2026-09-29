@@ -13323,6 +13323,20 @@ out center tags;`;
         }
     }
 
+    function initTombFilterOptions() {
+        const citySelect = document.getElementById('tombs-filter-city');
+        if (citySelect && typeof TURKEY_LOCATION_DATA !== 'undefined') {
+            citySelect.innerHTML = '<option value="">Tüm İller</option>';
+            const cities = Object.keys(TURKEY_LOCATION_DATA).sort((a, b) => a.localeCompare(b, 'tr'));
+            cities.forEach(city => {
+                const opt = document.createElement('option');
+                opt.value = city;
+                opt.textContent = city;
+                citySelect.appendChild(opt);
+            });
+        }
+    }
+
     function initTombListeners() {
         // Tab elements
         document.getElementById('add-tomb-btn')?.addEventListener('click', () => openTombModal());
