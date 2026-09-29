@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTabStatus = 'pending';
     let allLoadedSuggestions = [];
     let loadedPrograms = [];
+    let loadedProgramsPhotosMap = new Set();
     let isTrashBinView = false;
     let knownColumns = null; // B16.1C Hotfix: Set to null to force real schema detection
     let activeOrganizations = [];
@@ -3128,6 +3129,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 .select('*')
                 .order('created_at', { ascending: false });
 
+            let programsToProcess = programsData;
             if (fetchError) {
                 console.warn("created_at sorting failed, trying program_name sorting:", fetchError);
                 const { data: altProgramsData, error: altFetchError } = await supabaseClient
@@ -3136,10 +3138,29 @@ document.addEventListener('DOMContentLoaded', () => {
                     .order('program_name', { ascending: true });
                 
                 if (altFetchError) throw altFetchError;
-                processPrograms(altProgramsData);
-            } else {
-                processPrograms(programsData);
+                programsToProcess = altProgramsData;
             }
+
+            // Fetch photo existence map from program_photos
+            loadedProgramsPhotosMap.clear();
+            try {
+                const programIds = (programsToProcess || []).map(p => p.id).filter(Boolean);
+                if (programIds.length > 0) {
+                    const { data: photoRecords, error: photoErr } = await supabaseClient
+                        .from('program_photos')
+                        .select('program_id')
+                        .in('program_id', programIds);
+                    if (!photoErr && photoRecords) {
+                        photoRecords.forEach(r => {
+                            if (r.program_id) loadedProgramsPhotosMap.add(r.program_id);
+                        });
+                    }
+                }
+            } catch (e) {
+                console.warn("Failed to batch load program_photos mapping:", e);
+            }
+
+            processPrograms(programsToProcess);
         } catch (error) {
             console.error('Programlar yüklenirken hata oluştu:', error);
             showProgramsError();
@@ -3442,6 +3463,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedOrg = isTrashBinView ? '' : (document.getElementById('filter-org')?.value || '');
         const selectedTeacher = isTrashBinView ? '' : (document.getElementById('filter-teacher')?.value || '');
         const selectedProgramType = isTrashBinView ? '' : (document.getElementById('filter-program-type')?.value || '');
+        const selectedPhotoStatus = isTrashBinView ? '' : (document.getElementById('filter-photo-status')?.value || '');
 
         const filtered = loadedPrograms.filter(item => {
             // 0. City filter (Empty city treated as Sakarya for legacy support)
@@ -3539,6 +3561,15 @@ document.addEventListener('DOMContentLoaded', () => {
                 const pName = (item.program_name || '').trim();
                 const pType = (item.program_type || '').trim();
                 if (pName !== selectedProgramType && pType !== selectedProgramType) {
+                    return false;
+                }
+            }
+
+            // 10. Photo Status filter
+            if (selectedPhotoStatus === 'missing') {
+                const hasUrl = item.photo_url && item.photo_url.trim() !== '';
+                const hasGalleryPhotos = loadedProgramsPhotosMap.has(item.id);
+                if (hasUrl || hasGalleryPhotos) {
                     return false;
                 }
             }
@@ -3694,6 +3725,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     expiredBadgeMarkup = `<span class="category-badge" style="background-color: #ffebee; color: #c62828; border-color: rgba(198, 40, 40, 0.2);"><i class="fa-solid fa-calendar-xmark"></i> Süresi Doldu</span>`;
                 }
 
+                let photoAnomalyBadge = '';
+                const hasNoPhotoUrl = !item.photo_url || item.photo_url.trim() === '';
+                const hasGalleryPhotos = loadedProgramsPhotosMap.has(item.id);
+                if (hasNoPhotoUrl && hasGalleryPhotos) {
+                    photoAnomalyBadge = `<span class="missing-cover-badge" title="Programın kapak fotoğrafı (photo_url) eksik ancak program_photos tablosunda fotoğrafları mevcut"><i class="fa-solid fa-triangle-exclamation"></i> Kapak Eksik / Fotoğraf Var</span>`;
+                }
+
                 let eventDateMarkup = '';
                 if (item.event_date) {
                     eventDateMarkup = `<div class="detail-item" title="Tarih: ${escapeHtml(item.event_date)}"><span class="detail-label">📅 Tarih:</span> <span class="detail-value">${escapeHtml(item.event_date)}</span></div>`;
@@ -3728,6 +3766,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="${sourceBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(sourceBadge.label)}</span>
                             <span class="${statusBadge.badgeClass}" style="font-size: 11px; padding: 2px 8px;">${escapeHtml(statusBadge.label)}</span>
                             ${expiredBadgeMarkup}
+                            ${photoAnomalyBadge}
                             ${batchMarkup}
                             ${ladiesMarkup}
                         </div>
@@ -4210,6 +4249,7 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('filter-org')?.addEventListener('change', applyFilters);
         document.getElementById('filter-teacher')?.addEventListener('change', applyFilters);
         document.getElementById('filter-program-type')?.addEventListener('change', applyFilters);
+        document.getElementById('filter-photo-status')?.addEventListener('change', applyFilters);
 
         document.getElementById('filter-clear-btn')?.addEventListener('click', () => {
             const searchInput = document.getElementById('filter-search');
@@ -4238,6 +4278,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const programTypeSelect = document.getElementById('filter-program-type');
             if (programTypeSelect) programTypeSelect.value = '';
+
+            const photoStatusSelect = document.getElementById('filter-photo-status');
+            if (photoStatusSelect) photoStatusSelect.value = '';
 
             applyFilters();
         });
