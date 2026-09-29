@@ -1,4 +1,4 @@
-﻿-- Migration: B20.3 - Add event fields to suggestions
+-- Migration: B20.3 - Add event fields to suggestions
 -- Production'da manuel uygulanan event_date ve speaker_role kolonlarini repo history'sine tasir.
 
 BEGIN;
