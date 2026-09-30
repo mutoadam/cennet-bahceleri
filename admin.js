@@ -31,7 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let currentTabStatus = 'pending';
     let allLoadedSuggestions = [];
     let loadedPrograms = [];
-    let loadedProgramsPhotosMap = new Set();
+    let loadedProgramsPhotosMap = new Map();
     let isTrashBinView = false;
     let knownColumns = null; // B16.1C Hotfix: Set to null to force real schema detection
     let activeOrganizations = [];
@@ -3141,18 +3141,23 @@ document.addEventListener('DOMContentLoaded', () => {
                 programsToProcess = altProgramsData;
             }
 
-            // Fetch photo existence map from program_photos
+            // Fetch photo existence and fallback URL map from program_photos
             loadedProgramsPhotosMap.clear();
             try {
                 const programIds = (programsToProcess || []).map(p => p.id).filter(Boolean);
                 if (programIds.length > 0) {
                     const { data: photoRecords, error: photoErr } = await supabaseClient
                         .from('program_photos')
-                        .select('program_id')
+                        .select('program_id, photo_url')
                         .in('program_id', programIds);
                     if (!photoErr && photoRecords) {
                         photoRecords.forEach(r => {
-                            if (r.program_id) loadedProgramsPhotosMap.add(r.program_id);
+                            if (r.program_id && r.photo_url) {
+                                const key = String(r.program_id);
+                                if (!loadedProgramsPhotosMap.has(key)) {
+                                    loadedProgramsPhotosMap.set(key, r.photo_url);
+                                }
+                            }
                         });
                     }
                 }
@@ -3568,7 +3573,7 @@ document.addEventListener('DOMContentLoaded', () => {
             // 10. Photo Status filter
             if (selectedPhotoStatus === 'missing') {
                 const hasUrl = item.photo_url && item.photo_url.trim() !== '';
-                const hasGalleryPhotos = loadedProgramsPhotosMap.has(item.id);
+                const hasGalleryPhotos = loadedProgramsPhotosMap.has(String(item.id));
                 if (hasUrl || hasGalleryPhotos) {
                     return false;
                 }
@@ -3707,10 +3712,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 let photoMarkup = '';
-                if (item.photo_url) {
+                const displayPhotoUrl = item.photo_url || loadedProgramsPhotosMap.get(String(item.id));
+                if (displayPhotoUrl) {
                     photoMarkup = `
                         <div class="suggestion-photo-preview">
-                            <img src="${item.photo_url}" alt="Program Fotoğrafı" onerror="this.style.display='none';">
+                            <img src="${escapeHtml(displayPhotoUrl)}" alt="Program Fotoğrafı" onerror="this.style.display='none';">
                         </div>
                     `;
                 }
@@ -3727,7 +3733,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 let photoAnomalyBadge = '';
                 const hasNoPhotoUrl = !item.photo_url || item.photo_url.trim() === '';
-                const hasGalleryPhotos = loadedProgramsPhotosMap.has(item.id);
+                const hasGalleryPhotos = loadedProgramsPhotosMap.has(String(item.id));
                 if (hasNoPhotoUrl && hasGalleryPhotos) {
                     photoAnomalyBadge = `<span class="missing-cover-badge" title="Programın kapak fotoğrafı (photo_url) eksik ancak program_photos tablosunda fotoğrafları mevcut"><i class="fa-solid fa-triangle-exclamation"></i> Kapak Eksik / Fotoğraf Var</span>`;
                 }
@@ -4032,7 +4038,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 if (isCompact) {
                     // Render Row for Compact View (B12.2A3.3B3A)
-                    const photoUrl = item.photo_url || '';
+                    const photoUrl = item.photo_url || loadedProgramsPhotosMap.get(String(item.id)) || '';
                     let photoCellHtml = '';
                     if (photoUrl) {
                         photoCellHtml = `
