@@ -503,3 +503,114 @@ Do not extract/rebuild vaaz data from that PDF.
 IMPORTANT:
 The verified HOME staging chain remains authoritative.
 Do not regenerate AŞAMA 2B / venue outputs on the work PC merely because the PDF exists there.
+
+---
+
+## CHECKPOINT UPDATE — 2026-09-30 / AŞAMA 2C-3D INTERRUPTED
+
+AŞAMA 2C-3D Classification Delta Audit başlatıldı ancak coding model:
+
+RESOURCE_EXHAUSTED
+
+hatası nedeniyle tamamlanamadı.
+
+Bu nedenle AŞAMA 2C-3D için henüz güvenilir final sonuç YOKTUR.
+
+Son doğrulanmış durum AŞAMA 2C-3C'dir.
+
+### AŞAMA 2C-3C VERIFIED
+
+PUBLIC:
+441
+
+Match classes:
+
+- EXACT: 22
+- NORMALIZED_SAFE: 0
+- HIGH_CONFIDENCE: 0
+- AMBIGUOUS: 14
+- NO_MATCH: 405
+
+Coordinates:
+
+- Coordinated: 22
+- Uncoordinated: 419
+
+PUBLIC_READY:
+22
+
+PUBLIC_MANUAL_REVIEW:
+419
+
+### CUMA
+
+Total:
+416
+
+- EXACT: 20
+- AMBIGUOUS: 13
+- NO_MATCH: 383
+
+Coordinates:
+
+- Coordinated: 20
+- Uncoordinated: 396
+
+10 KM coordinate coverage:
+4.81%
+
+### TRANSFER BUG VALIDATION
+
+3 MATCHER_TRANSFER_BUG kaydı staging tarafında başarıyla koordinat aldı:
+
+3 / 3 FIXED
+
+### RECLASSIFICATIONS
+
+prog_exact_5:
+EXACT -> AMBIGUOUS
+
+prog_exact_8:
+EXACT -> AMBIGUOUS
+
+### OPEN ISSUE
+
+Önceki EXACT:
+
+27
+
+Yeni EXACT:
+
+22
+
+Bilinen intentional loss:
+
+2 kayıt
+
+- prog_exact_5
+- prog_exact_8
+
+Bu nedenle 3 ek EXACT kaybının nedeni henüz kesinleşmemiştir.
+
+AŞAMA 2C-3D'nin amacı:
+
+- old/new 441 kayıt transition matrix üretmek
+- EXACT -> başka sınıf geçen tüm kayıtları bulmak
+- beklenmeyen EXACT kayıplarının root cause'unu belirlemek
+- NO_MATCH 402 -> 405 artışını açıklamak
+- AMBIGUOUS 12 -> 14 artışını doğrulamak
+- coordinate 14 -> 22 artışını kayıt bazında doğrulamak
+
+### NEXT STEP ON HOME PC
+
+AŞAMA 2C-3D – CLASSIFICATION DELTA AUDIT
+
+yeniden çalıştırılacak.
+
+Bu audit tamamlanmadan:
+
+- production import YOK
+- 419 kayıt admin review queue YOK
+- mosque_locations coordinate update YOK
+- 10 KM RPC YOK
+- matcher final kabulü YOK
