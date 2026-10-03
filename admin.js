@@ -2047,6 +2047,32 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('edit-time-type')?.addEventListener('change', () => handleTimeTypeChange('edit-'));
     document.getElementById('edit-program-time-type')?.addEventListener('change', () => handleTimeTypeChange('edit-program-'));
     document.getElementById('add-time-type')?.addEventListener('change', () => handleTimeTypeChange('add-'));
+    document.getElementById('bulk-time-type')?.addEventListener('change', () => handleTimeTypeChange('bulk-time-'));
+
+    // Bulk Time Update Modal Listeners
+    document.getElementById('bulk-time-modal-close-top')?.addEventListener('click', closeBulkTimeModal);
+    document.getElementById('bulk-time-cancel-btn')?.addEventListener('click', closeBulkTimeModal);
+    document.getElementById('bulk-time-ok-btn')?.addEventListener('click', async () => {
+        if (selectedProgramIds.size === 0) return;
+
+        const timeType = document.getElementById('bulk-time-type')?.value || '';
+        const timeDetail = document.getElementById('bulk-time-detail')?.value.trim() || '';
+        let newTime = timeType;
+        if (timeType === "Sabit Saat" || timeType === "Diğer") {
+            newTime = timeDetail;
+        }
+
+        if (!newTime) {
+            showToast("Lütfen geçerli bir vakit veya saat giriniz.", "error");
+            return;
+        }
+
+        const count = selectedProgramIds.size;
+        const confirmed = confirm(`Seçili ${count} programın vakti "${newTime}" olarak değiştirilecek. Devam edilsin mi?`);
+        if (!confirmed) return;
+
+        await handleBulkTimeUpdate(newTime);
+    });
 
     populateDaySelect('add-day');
     handleTimeTypeChange('add-');
@@ -3403,6 +3429,106 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!confirmed) return;
             await handleBulkStatusUpdate('inactive');
         });
+
+        document.getElementById('bulk-time-btn')?.addEventListener('click', () => {
+            if (selectedProgramIds.size === 0) return;
+            const countSpan = document.getElementById('bulk-time-count-info');
+            if (countSpan) {
+                countSpan.textContent = `${selectedProgramIds.size} program seçili`;
+            }
+            populateBulkTimeOptions();
+            const bulkSelect = document.getElementById('bulk-time-type');
+            if (bulkSelect) bulkSelect.value = 'Akşam Sonrası';
+            handleTimeTypeChange('bulk-time-');
+
+            const modal = document.getElementById('bulk-time-modal');
+            if (modal) modal.classList.remove('hidden');
+        });
+    }
+
+    function populateBulkTimeOptions() {
+        const sourceSelect = document.getElementById('edit-program-time-type');
+        const bulkSelect = document.getElementById('bulk-time-type');
+        if (sourceSelect && bulkSelect) {
+            bulkSelect.innerHTML = '';
+            bulkSelect.innerHTML = sourceSelect.innerHTML;
+        }
+    }
+
+    function closeBulkTimeModal() {
+        const modal = document.getElementById('bulk-time-modal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    async function handleBulkTimeUpdate(newTime) {
+        if (!supabaseClient) {
+            if (!initSupabase()) return;
+        }
+
+        const idsArray = Array.from(selectedProgramIds);
+        const count = idsArray.length;
+
+        const okBtn = document.getElementById('bulk-time-ok-btn');
+        const cancelBtn = document.getElementById('bulk-time-cancel-btn');
+        const closeTopBtn = document.getElementById('bulk-time-modal-close-top');
+
+        if (okBtn) {
+            okBtn.disabled = true;
+            okBtn.classList.add('disabled');
+            okBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Güncelleniyor...';
+        }
+        if (cancelBtn) {
+            cancelBtn.disabled = true;
+            cancelBtn.classList.add('disabled');
+        }
+        if (closeTopBtn) closeTopBtn.disabled = true;
+
+        try {
+            console.log(`Updating ${count} programs time to ${newTime}...`);
+            const { error } = await supabaseClient
+                .from('programs')
+                .update({ time: newTime, updated_at: new Date().toISOString() })
+                .in('id', idsArray);
+
+            if (error) {
+                const isColumnMissing = (error.code === '42703') || (error.message && error.message.includes('updated_at'));
+                if (!isColumnMissing) {
+                    throw error;
+                }
+                console.warn("Bulk time update with updated_at failed (column missing), trying time only:", error);
+                const retryRes = await supabaseClient
+                    .from('programs')
+                    .update({ time: newTime })
+                    .in('id', idsArray);
+                if (retryRes.error) throw retryRes.error;
+            }
+
+            showToast(`${count} programın vakti başarıyla güncellendi.`, "success");
+            closeBulkTimeModal();
+            selectedProgramIds.clear();
+            const headerCheckbox = document.getElementById('header-bulk-checkbox');
+            if (headerCheckbox) {
+                headerCheckbox.checked = false;
+                headerCheckbox.indeterminate = false;
+            }
+            await loadPrograms();
+
+        } catch (error) {
+            console.error('Toplu vakit güncelleme hatası:', error);
+            showToast("Toplu vakit güncellemesi sırasında hata oluştu.", "error");
+        } finally {
+            if (okBtn) {
+                okBtn.disabled = false;
+                okBtn.classList.remove('disabled');
+                okBtn.textContent = 'Vakti Güncelle';
+            }
+            if (cancelBtn) {
+                cancelBtn.disabled = false;
+                cancelBtn.classList.remove('disabled');
+            }
+            if (closeTopBtn) closeTopBtn.disabled = false;
+            updateBulkActionsUI();
+        }
     }
 
     async function handleBulkStatusUpdate(newStatus) {

@@ -379,6 +379,9 @@
                             <button id="bulk-pause-btn" class="btn btn-secondary btn-sm">
                                 <i class="fa-solid fa-moon"></i> Ara Ver
                             </button>
+                            <button id="bulk-time-btn" class="btn btn-secondary btn-sm" style="background: var(--md-secondary, #625b71); color: white;">
+                                <i class="fa-regular fa-clock"></i> Vakti Değiştir
+                            </button>
                             <button id="bulk-clear-btn" class="btn btn-outline btn-sm">
                                 <i class="fa-solid fa-xmark"></i> Seçimi Temizle
                             </button>
@@ -1975,6 +1978,44 @@
                             <i class="fa-solid fa-ban"></i> Vazgeç
                         </button>
                     </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Time Update Modal (Toplu Vakit Değiştirme Modalı) -->
+    <div id="bulk-time-modal" class="modal-overlay hidden">
+        <div class="modal-card" style="max-width: 500px;">
+            <div class="modal-header" style="background-color: var(--md-primary);">
+                <div class="modal-title-area">
+                    <i class="fa-regular fa-clock" style="color: var(--md-secondary);"></i>
+                    <div>
+                        <h3>Program Vaktini Değiştir</h3>
+                    </div>
+                </div>
+                <button id="bulk-time-modal-close-top" class="modal-close-btn" aria-label="Kapat">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 24px;">
+                <p id="bulk-time-count-info" style="font-size: 15px; font-weight: 600; color: var(--md-primary); margin-bottom: 16px;">
+                    0 program seçili
+                </p>
+                <div class="form-group">
+                    <label for="bulk-time-type"><i class="fa-regular fa-clock"></i> Yeni Vakit Türü *</label>
+                    <select id="bulk-time-type" class="form-control" required>
+                        <!-- Populated dynamically from edit-program-time-type -->
+                    </select>
+                </div>
+                <div class="form-group full-width" id="bulk-time-detail-group" style="margin-top: 16px;">
+                    <label for="bulk-time-detail" id="bulk-time-detail-label">Saat / Açıklama</label>
+                    <input type="text" id="bulk-time-detail" class="form-control" placeholder="Örn: 19:30">
+                </div>
+            </div>
+            <div class="modal-footer" style="padding: 16px 24px;">
+                <div class="modal-footer-container" style="display: flex; justify-content: flex-end; gap: 12px; width: 100%;">
+                    <button id="bulk-time-cancel-btn" class="btn btn-action btn-cancel" style="min-height: 40px; padding: 8px 16px;">Vazgeç</button>
+                    <button id="bulk-time-ok-btn" class="btn btn-action btn-approve" style="min-height: 40px; padding: 8px 16px; background-color: var(--md-primary);">Vakti Güncelle</button>
                 </div>
             </div>
         </div>
