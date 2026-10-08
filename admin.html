@@ -1134,6 +1134,14 @@
                             <option value="inactive">Pasif (Ara Verildi)</option>
                         </select>
                     </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="muftuluk-filter-start-date"><i class="fa-solid fa-calendar-days"></i> Başlangıç Tarihi</label>
+                        <input type="date" id="muftuluk-filter-start-date" class="form-control">
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 150px;">
+                        <label for="muftuluk-filter-end-date"><i class="fa-solid fa-calendar-days"></i> Bitiş Tarihi</label>
+                        <input type="date" id="muftuluk-filter-end-date" class="form-control">
+                    </div>
                     <div class="filter-group" style="flex-shrink: 0;">
                         <button id="muftuluk-clear-filters-btn" class="btn btn-secondary" style="height: 40px; border: 1px solid var(--md-outline); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
                             <i class="fa-solid fa-filter-circle-xmark"></i> Temizle
@@ -1152,6 +1160,32 @@
                     <button id="muftuluk-refresh-btn" class="btn btn-secondary btn-sm">
                         <i class="fa-solid fa-rotate"></i> Yenile
                     </button>
+                </div>
+
+                <!-- Müftülük Bulk Actions Bar -->
+                <div id="muftuluk-bulk-actions-bar" class="bulk-actions-bar hidden" style="margin: 16px 0; background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                    <div class="bulk-selection-info" style="display: flex; align-items: center; gap: 12px;">
+                        <input type="checkbox" id="muftuluk-header-bulk-checkbox" class="bulk-checkbox">
+                        <span id="muftuluk-bulk-selection-count" style="font-weight: 600; color: #333;">0 program seçildi</span>
+                        <button id="muftuluk-select-all-filtered-btn" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 8px;">Filtrelenmiş Tümünü Seç</button>
+                    </div>
+                    <div class="bulk-action-buttons" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button id="muftuluk-bulk-active-btn" class="btn btn-primary btn-sm" style="background: #2e7d32; color: white;">
+                            <i class="fa-solid fa-play"></i> Devam Ettir
+                        </button>
+                        <button id="muftuluk-bulk-pause-btn" class="btn btn-secondary btn-sm" style="background: #e65100; color: white;">
+                            <i class="fa-solid fa-moon"></i> Ara Ver
+                        </button>
+                        <button id="muftuluk-bulk-pause-cuma-btn" class="btn btn-secondary btn-sm" style="background: #0277bd; color: white;">
+                            <i class="fa-solid fa-mosque"></i> Tüm Cuma Vaazlarına Ara Ver
+                        </button>
+                        <button id="muftuluk-bulk-delete-btn" class="btn btn-danger btn-sm" style="background: #c62828; color: white;">
+                            <i class="fa-solid fa-trash"></i> Seçilenleri Sil
+                        </button>
+                        <button id="muftuluk-bulk-clear-btn" class="btn btn-outline btn-sm">
+                            <i class="fa-solid fa-xmark"></i> Seçimi Temizle
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Loader -->
