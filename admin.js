@@ -14483,6 +14483,22 @@ out center tags;`;
 
         tableContainer.innerHTML = tableHtml;
         bindZikirCheckboxEvents();
+        bindZikirTableRowEvents();
+    }
+
+    function bindZikirTableRowEvents() {
+        document.querySelectorAll('.btn-inspect-program').forEach(btn => {
+            btn.onclick = (e) => {
+                e.stopPropagation();
+                const id = btn.getAttribute('data-id');
+                const prog = loadedZikirPrograms.find(p => p.id === id);
+                if (prog) {
+                    openProgramEditModal(prog);
+                } else {
+                    showToast('Program kaydı bulunamadı.', 'warning');
+                }
+            };
+        });
     }
 
     function renderInstagramTrackingView(programs) {
