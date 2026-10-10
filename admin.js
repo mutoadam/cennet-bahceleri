@@ -14166,6 +14166,24 @@ out center tags;`;
         return false;
     }
 
+    function normalizeCityName(cityStr) {
+        if (!cityStr) return '';
+        return cityStr
+            .toString()
+            .trim()
+            .replace(/İ/g, 'i')
+            .replace(/I/g, 'ı')
+            .toLocaleLowerCase('tr')
+            .replace(/i̇/g, 'i')
+            .replace(/ı/g, 'i')
+            .trim();
+    }
+
+    function isIstanbulCity(cityStr) {
+        const norm = normalizeCityName(cityStr);
+        return norm === 'istanbul' || norm === 'i̇stanbul' || norm === 'istanbül';
+    }
+
     async function loadVenueCommunications() {
         if (!supabaseClient) return;
         try {
@@ -14178,7 +14196,7 @@ out center tags;`;
             }
             venueCommunicationsMap.clear();
             (data || []).forEach(comm => {
-                const key = `${(comm.city || 'istanbul').toLowerCase().trim()}|${(comm.district || '').toLowerCase().trim()}|${(comm.venue_name || '').toLowerCase().trim()}`;
+                const key = `${normalizeCityName(comm.city || 'istanbul')}|${normalizeCityName(comm.district)}|${normalizeCityName(comm.venue_name)}`;
                 venueCommunicationsMap.set(key, comm);
             });
         } catch (e) {
@@ -14316,12 +14334,13 @@ out center tags;`;
                 if (batch.includes('2026_01') || batch.includes('2026_02') || batch.includes('2026_03')) return false;
             }
 
-            if (cityVal && (item.city || 'istanbul').toLowerCase() !== cityVal.toLowerCase()) return false;
+            if (cityVal && normalizeCityName(item.city) !== normalizeCityName(cityVal)) return false;
             if (districtVal && (item.district || '').toLowerCase() !== districtVal.toLowerCase()) return false;
             if (statusVal && (item.status || 'active').toLowerCase() !== statusVal.toLowerCase()) return false;
 
             if (commStatusVal) {
-                const venueKey = `${(item.city || 'istanbul').toLowerCase().trim()}|${(item.district || '').toLowerCase().trim()}|${(item.location || item.venue || '').toLowerCase().trim()}`;
+                const venue = item.venue_name || item.location || item.venue || '';
+                const venueKey = `${normalizeCityName(item.city || 'istanbul')}|${normalizeCityName(item.district)}|${normalizeCityName(venue)}`;
                 const comm = venueCommunicationsMap.get(venueKey);
                 const itemCommStatus = comm ? comm.message_status : 'not_messaged';
                 if (itemCommStatus !== commStatusVal) return false;
@@ -14350,12 +14369,13 @@ out center tags;`;
         const total = loadedZikirPrograms.length;
         const active = loadedZikirPrograms.filter(p => (p.status || 'active').toLowerCase() === 'active').length;
         const inactive = loadedZikirPrograms.filter(p => (p.status || 'active').toLowerCase() === 'inactive').length;
-        const istanbulCount = loadedZikirPrograms.filter(p => (p.city || 'istanbul').toLowerCase() === 'istanbul').length;
+        const istanbulCount = loadedZikirPrograms.filter(p => isIstanbulCity(p.city)).length;
         const otherCount = total - istanbulCount;
 
         let pendingCount = 0;
         loadedZikirPrograms.forEach(p => {
-            const key = `${(p.city || 'istanbul').toLowerCase().trim()}|${(p.district || '').toLowerCase().trim()}|${(p.location || p.venue || '').toLowerCase().trim()}`;
+            const venue = p.venue_name || p.location || p.venue || '';
+            const key = `${normalizeCityName(p.city || 'istanbul')}|${normalizeCityName(p.district)}|${normalizeCityName(venue)}`;
             const comm = venueCommunicationsMap.get(key);
             if (!comm || comm.confirmation_status !== 'confirmed') {
                 pendingCount++;
