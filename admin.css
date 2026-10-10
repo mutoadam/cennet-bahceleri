@@ -3598,3 +3598,52 @@ body:not(.logged-out) #admin-login-screen {
 .comm-schedule-changed { background-color: #f3e5f5; color: #7b1fa2; border: 1px solid #e1bee7; }
 .comm-ended { background-color: #ffebee; color: #c62828; border: 1px solid #ffcdd2; }
 .comm-account-not-found { background-color: #eceff1; color: #37474f; border: 1px solid #cfd8dc; }
+
+/* Zikir Tablo Responsive ve Kolon Genişlikleri Dengeleme */
+.programs-list-table-wrapper .table-responsive,
+#zikir-table-container .table-responsive {
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border: 1px solid var(--md-outline, #e0e0e0);
+    border-radius: 8px;
+    background: #fff;
+}
+
+.zikir-admin-table {
+    width: 100%;
+    min-width: 980px;
+    border-collapse: collapse;
+    font-size: 13px;
+    text-align: left;
+}
+
+.zikir-admin-table th,
+.zikir-admin-table td {
+    padding: 12px 14px;
+    border-bottom: 1px solid var(--md-outline, #e0e0e0);
+    vertical-align: middle;
+}
+
+/* Sütun Genişlik Kontrolleri */
+.zikir-admin-table th:nth-child(1),
+.zikir-admin-table td:nth-child(1) { width: 130px; min-width: 130px; }
+.zikir-admin-table th:nth-child(2),
+.zikir-admin-table td:nth-child(2) { width: 180px; min-width: 160px; }
+.zikir-admin-table th:nth-child(3),
+.zikir-admin-table td:nth-child(3) { width: 220px; min-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zikir-admin-table th:nth-child(4),
+.zikir-admin-table td:nth-child(4) { width: 160px; min-width: 150px; }
+.zikir-admin-table th:nth-child(5),
+.zikir-admin-table td:nth-child(5) { width: 170px; min-width: 160px; }
+.zikir-admin-table th:nth-child(6),
+.zikir-admin-table td:nth-child(6) { width: 150px; min-width: 140px; }
+.zikir-admin-table th:nth-child(7),
+.zikir-admin-table td:nth-child(7) { width: 110px; min-width: 110px; text-align: right; white-space: nowrap; }
+
+.btn-save-venue-comm {
+    white-space: nowrap !important;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
