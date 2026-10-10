@@ -14411,7 +14411,8 @@ out center tags;`;
             const status = (item.status || 'active').toLowerCase();
             const city = item.city || 'İstanbul';
             const district = item.district || '-';
-            const venue = item.location || item.venue || '-';
+            const venue = item.venue_name || item.location || item.venue || '';
+            const venueDisplay = venue ? escapeHtml(venue) : '<span style="color:var(--md-error); font-style:italic;">Mekân Adı Belirtilmemiş</span>';
             const title = item.program_name || item.title || 'Zikir Programı';
             const dayTime = `${item.day || '-'} | ${item.time || '-'}`;
             const batchId = item.import_batch_id || item.source || 'Genel';
@@ -14421,7 +14422,7 @@ out center tags;`;
             else if (batchId.includes('2026_02')) batchBadgeClass = 'batch-zikir-02';
             else if (batchId.includes('2026_03')) batchBadgeClass = 'batch-zikir-03';
 
-            const venueKey = `${city.toLowerCase().trim()}|${district.toLowerCase().trim()}|${venue.toLowerCase().trim()}`;
+            const venueKey = `${city.toLowerCase().trim()}|${district.toLowerCase().trim()}|${(venue || '').toLowerCase().trim()}`;
             const comm = venueCommunicationsMap.get(venueKey);
             const commStatus = comm ? comm.message_status : 'not_messaged';
             const commLabel = getCommStatusLabel(commStatus);
@@ -14433,7 +14434,7 @@ out center tags;`;
                         <input type="checkbox" class="zikir-item-checkbox" data-id="${escapeHtml(item.id)}" ${isChecked ? 'checked' : ''}>
                     </td>
                     <td><strong>${escapeHtml(city)}</strong> / ${escapeHtml(district)}</td>
-                    <td><strong>${escapeHtml(venue)}</strong></td>
+                    <td>${venueDisplay}</td>
                     <td>${escapeHtml(title)}</td>
                     <td>${escapeHtml(dayTime)}</td>
                     <td><span class="zikir-batch-badge ${batchBadgeClass}">${escapeHtml(batchId)}</span></td>
@@ -14478,16 +14479,17 @@ out center tags;`;
         programs.forEach(item => {
             const city = item.city || 'İstanbul';
             const district = item.district || 'Merkez';
-            const venue = item.location || item.venue || 'Bilinmeyen Mekân';
-            const key = `${city.toLowerCase().trim()}|${district.toLowerCase().trim()}|${venue.toLowerCase().trim()}`;
+            const venueName = (item.venue_name || item.location || item.venue || '').trim();
+            const key = venueName ? `${city.toLowerCase().trim()}|${district.toLowerCase().trim()}|${venueName.toLowerCase()}` : `${city.toLowerCase().trim()}|${district.toLowerCase().trim()}|unnamed_${item.id}`;
 
             if (!venueMap.has(key)) {
                 venueMap.set(key, {
                     city,
                     district,
-                    venueName: venue,
+                    venueName: venueName,
                     programs: [],
-                    key
+                    key,
+                    isUnnamed: !venueName
                 });
             }
             venueMap.get(key).programs.push(item);
@@ -14518,20 +14520,24 @@ out center tags;`;
             const notes = comm.notes || '';
 
             const summaries = vData.programs.map(p => `${p.day || '-'} · ${p.time || '-'}`).join(' | ');
+            const venueDisplay = vData.venueName ? `<strong>${escapeHtml(vData.venueName)}</strong>` : '<span style="color:var(--md-error); font-style:italic; font-weight:600;">Mekân Adı Belirtilmemiş</span>';
+            const actionCell = vData.isUnnamed
+                ? '<span style="color:var(--md-error); font-size:11px; font-weight:600;">Mekân eşleştirmesi gerekli</span>'
+                : `<button class="btn btn-primary btn-sm btn-save-venue-comm" data-venue-key="${escapeHtml(vKey)}" title="Kalıcı Kaydet" style="background: #2e7d32; color: white;"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>`;
 
             tableHtml += `
                 <tr data-venue-key="${escapeHtml(vKey)}">
                     <td><strong>${escapeHtml(vData.city)}</strong> / ${escapeHtml(vData.district)}</td>
-                    <td><strong>${escapeHtml(vData.venueName)}</strong></td>
-                    <td style="font-size: 11.5px; color: #555; max-width: 220px;">${escapeHtml(summaries)}</td>
+                    <td>${venueDisplay}</td>
+                    <td style="font-size: 11.5px; color: #555; max-width: 220px; white-space: nowrap; overflow-x: auto;">${escapeHtml(summaries)}</td>
                     <td>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <input type="text" class="form-control ig-username-input" value="${escapeHtml(igUsername)}" placeholder="@kullaniciadi" style="height: 32px; font-size: 12px; width: 130px;" />
+                            <input type="text" class="form-control ig-username-input" value="${escapeHtml(igUsername)}" placeholder="@kullaniciadi" style="height: 32px; font-size: 12px; width: 130px;" ${vData.isUnnamed ? 'disabled' : ''} />
                             ${igLink ? `<a href="${escapeHtml(igLink)}" target="_blank" class="btn btn-secondary btn-sm" title="Instagram Profilini Aç" style="padding: 4px 8px;"><i class="fa-brands fa-instagram" style="color: #E1306C;"></i></a>` : ''}
                         </div>
                     </td>
                     <td>
-                        <select class="form-control comm-status-select" style="height: 32px; font-size: 12px; width: 150px;">
+                        <select class="form-control comm-status-select" style="height: 32px; font-size: 12px; width: 150px;" ${vData.isUnnamed ? 'disabled' : ''}>
                             <option value="not_messaged" ${msgStatus === 'not_messaged' ? 'selected' : ''}>Henüz mesaj atılmadı</option>
                             <option value="message_sent" ${msgStatus === 'message_sent' ? 'selected' : ''}>Mesaj gönderildi</option>
                             <option value="awaiting_reply" ${msgStatus === 'awaiting_reply' ? 'selected' : ''}>Cevap bekleniyor</option>
@@ -14542,12 +14548,10 @@ out center tags;`;
                         </select>
                     </td>
                     <td>
-                        <input type="text" class="form-control venue-notes-input" value="${escapeHtml(notes)}" placeholder="Not ekle..." style="height: 32px; font-size: 12px; width: 140px;" />
+                        <input type="text" class="form-control venue-notes-input" value="${escapeHtml(notes)}" placeholder="Not ekle..." style="height: 32px; font-size: 12px; width: 140px;" ${vData.isUnnamed ? 'disabled' : ''} />
                     </td>
                     <td style="text-align: right; white-space: nowrap;">
-                        <button class="btn btn-primary btn-sm btn-save-venue-comm" data-venue-key="${escapeHtml(vKey)}" title="Kalıcı Kaydet" style="background: #2e7d32; color: white;">
-                            <i class="fa-solid fa-floppy-disk"></i> Kaydet
-                        </button>
+                        ${actionCell}
                     </td>
                 </tr>
             `;
