@@ -107,6 +107,9 @@
             <button id="main-tab-muftuluk" class="main-tab-btn">
                 <i class="fa-solid fa-scroll"></i> Müftülük Vaaz Programları
             </button>
+            <button id="main-tab-zikir" class="main-tab-btn">
+                <i class="fa-solid fa-heart"></i> Zikir Halkaları
+            </button>
         </div>
 
         <!-- Öneriler (Suggestions) Sekmesi İçeriği -->
@@ -1215,6 +1218,204 @@
                 </div>
             </section>
         </div>
+
+        <!-- Zikir Halkaları Sekmesi İçeriği -->
+        <div id="zikir-tab-content" class="hidden">
+            <section class="page-title-section">
+                <div class="page-title-container">
+                    <h2>Zikir Halkaları Yönetim Paneli (Türkiye Geneli)</h2>
+                    <p class="section-desc">İstanbul, Ankara, Kayseri, Sakarya ve diğer illerdeki tüm zikir halkaları, batch'ler, Instagram iletişim ve teyit durumları merkezi yönetim ekranı.</p>
+                </div>
+            </section>
+
+            <!-- İstatistik Kartları Grid Yapısı -->
+            <section class="stats-grid">
+                <div class="stats-card card-total" style="border-left: 6px solid #e91e63;">
+                    <div class="stats-icon" style="background-color: #fce4ec; color: #e91e63;"><i class="fa-solid fa-heart"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Toplam Zikir Programı</span>
+                        <h3 id="stats-zikir-total-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-approved">
+                    <div class="stats-icon"><i class="fa-solid fa-circle-check"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Aktif Zikirler</span>
+                        <h3 id="stats-zikir-active-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-rejected">
+                    <div class="stats-icon"><i class="fa-solid fa-moon"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Pasif (Ara Verilen)</span>
+                        <h3 id="stats-zikir-inactive-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-total" style="border-left: 6px solid #00acc1;">
+                    <div class="stats-icon" style="background-color: #e0f7fa; color: #00acc1;"><i class="fa-solid fa-city"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">İstanbul Kayıtları</span>
+                        <h3 id="stats-zikir-istanbul-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-total" style="border-left: 6px solid #7b1fa2;">
+                    <div class="stats-icon" style="background-color: #f3e5f5; color: #7b1fa2;"><i class="fa-solid fa-map-location-dot"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Diğer İller (Ankara, vb.)</span>
+                        <h3 id="stats-zikir-other-cities-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+                <div class="stats-card card-total" style="border-left: 6px solid #f57c00;">
+                    <div class="stats-icon" style="background-color: #fff3e0; color: #f57c00;"><i class="fa-solid fa-brands fa-instagram"></i></div>
+                    <div class="stats-info">
+                        <span class="stats-label">Teyit Bekleyen / İletişim</span>
+                        <h3 id="stats-zikir-pending-confirmation-val" class="stats-value">-</h3>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Görünüm Seçici Sekmeler (Program Listesi vs. Instagram Takibi) -->
+            <div class="admin-tabs-container" id="zikir-view-mode-tabs" style="margin-bottom: 16px;">
+                <button class="tab-btn active" data-zikir-view="programs">
+                    <i class="fa-solid fa-list-check"></i> Zikir Programları Listesi
+                </button>
+                <button class="tab-btn" data-zikir-view="instagram">
+                    <i class="fa-brands fa-instagram"></i> Instagram ve Teyit Takibi
+                </button>
+            </div>
+
+            <!-- Batch Hızlı Filtre Butonları -->
+            <div class="admin-tabs-container" id="zikir-batch-tabs">
+                <button class="tab-btn active" data-zikir-batch="all">
+                    <i class="fa-solid fa-layer-group"></i> Tüm Zikirler
+                </button>
+                <button class="tab-btn" data-zikir-batch="batch_01">
+                    <i class="fa-solid fa-calendar-days"></i> Batch 01 (İstanbul)
+                </button>
+                <button class="tab-btn" data-zikir-batch="batch_02">
+                    <i class="fa-solid fa-calendar-days"></i> Batch 02
+                </button>
+                <button class="tab-btn" data-zikir-batch="batch_03">
+                    <i class="fa-solid fa-file-circle-plus"></i> Batch 03 (Yeni 25 Kayıt)
+                </button>
+                <button class="tab-btn" data-zikir-batch="other_batches">
+                    <i class="fa-solid fa-box-archive"></i> Diğer Kaynaklar / İller
+                </button>
+            </div>
+
+            <!-- Filtre ve Arama Paneli -->
+            <div class="filter-panel" id="zikir-filter-panel">
+                <div class="filter-row" style="display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-end;">
+                    <div class="filter-group search-group" style="flex: 2; min-width: 220px;">
+                        <label for="zikir-filter-search"><i class="fa-solid fa-magnifying-glass"></i> Arama</label>
+                        <input type="text" id="zikir-filter-search" class="form-control" placeholder="Cami, ilçe, program adı, hoca, açıklama...">
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 140px;">
+                        <label for="zikir-filter-city"><i class="fa-solid fa-city"></i> İl</label>
+                        <select id="zikir-filter-city" class="form-control">
+                            <option value="">Tüm İller</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 140px;">
+                        <label for="zikir-filter-district"><i class="fa-solid fa-location-dot"></i> İlçe</label>
+                        <select id="zikir-filter-district" class="form-control">
+                            <option value="">Tüm İlçeler</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 140px;">
+                        <label for="zikir-filter-status"><i class="fa-solid fa-circle-info"></i> Durum</label>
+                        <select id="zikir-filter-status" class="form-control">
+                            <option value="">Tüm Durumlar</option>
+                            <option value="active">Aktif (Devam Ediyor)</option>
+                            <option value="inactive">Pasif (Ara Verildi)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex: 1; min-width: 140px;">
+                        <label for="zikir-filter-comm-status"><i class="fa-brands fa-instagram"></i> İletişim / Teyit</label>
+                        <select id="zikir-filter-comm-status" class="form-control">
+                            <option value="">Tüm İletişim Durumları</option>
+                            <option value="not_messaged">Henüz mesaj atılmadı</option>
+                            <option value="message_sent">Mesaj gönderildi</option>
+                            <option value="awaiting_reply">Cevap bekleniyor</option>
+                            <option value="confirmed">Program teyit edildi</option>
+                            <option value="schedule_changed">Gün/vakit değişti</option>
+                            <option value="ended">Program sona erdi</option>
+                            <option value="account_not_found">Hesap bulunamadı</option>
+                        </select>
+                    </div>
+                    <div class="filter-group" style="flex-shrink: 0;">
+                        <button id="zikir-clear-filters-btn" class="btn btn-secondary" style="height: 40px; border: 1px solid var(--md-outline); border-radius: 8px; cursor: pointer; display: inline-flex; align-items: center; gap: 8px;">
+                            <i class="fa-solid fa-filter-circle-xmark"></i> Temizle
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Zikir Halkaları List Section -->
+            <section class="suggestions-section">
+                <div class="section-header">
+                    <div class="header-title-wrapper">
+                        <h3 id="zikir-section-title">Zikir Programları Listesi</h3>
+                        <p class="subtitle-text" id="zikir-count-text">0 program içinden 0 kayıt gösteriliyor.</p>
+                    </div>
+                    <button id="zikir-refresh-btn" class="btn btn-secondary btn-sm">
+                        <i class="fa-solid fa-rotate"></i> Yenile
+                    </button>
+                </div>
+
+                <!-- Zikir Bulk Actions Bar -->
+                <div id="zikir-bulk-actions-bar" class="bulk-actions-bar hidden" style="margin: 16px 0; background: #f8f9fa; border: 1px solid #e0e0e0; border-radius: 8px; padding: 12px 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+                    <div class="bulk-selection-info" style="display: flex; align-items: center; gap: 12px;">
+                        <input type="checkbox" id="zikir-header-bulk-checkbox" class="bulk-checkbox">
+                        <span id="zikir-bulk-selection-count" style="font-weight: 600; color: #333;">0 program seçildi</span>
+                        <button id="zikir-select-all-filtered-btn" class="btn btn-secondary btn-sm" style="font-size: 11px; padding: 4px 8px;">Filtrelenmiş Tümünü Seç</button>
+                    </div>
+                    <div class="bulk-action-buttons" style="display: flex; gap: 8px; flex-wrap: wrap;">
+                        <button id="zikir-bulk-active-btn" class="btn btn-primary btn-sm" style="background: #2e7d32; color: white;">
+                            <i class="fa-solid fa-play"></i> Devam Ettir
+                        </button>
+                        <button id="zikir-bulk-pause-btn" class="btn btn-secondary btn-sm" style="background: #e65100; color: white;">
+                            <i class="fa-solid fa-moon"></i> Ara Ver
+                        </button>
+                        <button id="zikir-bulk-activate-batch03-btn" class="btn btn-secondary btn-sm" style="background: #0277bd; color: white;">
+                            <i class="fa-solid fa-bolt"></i> Batch 03 (25 Kayıt) Tümünü Aktifleştir
+                        </button>
+                        <button id="zikir-bulk-delete-btn" class="btn btn-danger btn-sm" style="background: #c62828; color: white;">
+                            <i class="fa-solid fa-trash"></i> Seçilenleri Sil
+                        </button>
+                        <button id="zikir-bulk-clear-btn" class="btn btn-outline btn-sm">
+                            <i class="fa-solid fa-xmark"></i> Seçimi Temizle
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loader -->
+                <div id="zikir-loader" class="state-container hidden">
+                    <div class="spinner"></div>
+                    <p>Zikir halkaları yükleniyor, lütfen bekleyin...</p>
+                </div>
+
+                <!-- Error State -->
+                <div id="zikir-error-container" class="state-container state-error hidden">
+                    <i class="fa-solid fa-triangle-exclamation state-icon"></i>
+                    <h4>Veriler yüklenirken bir hata oluştu.</h4>
+                    <p>Lütfen internet bağlantınızı ve Supabase veritabanı bağlantınızı kontrol edin.</p>
+                    <button id="zikir-retry-btn" class="btn btn-primary" style="margin-top: 15px;">Tekrar Dene</button>
+                </div>
+
+                <!-- Empty State -->
+                <div id="zikir-empty-container" class="state-container state-empty hidden">
+                    <i class="fa-solid fa-heart-crack state-icon"></i>
+                    <h4>Şu anda bu filtreye uygun Zikir programı bulunmuyor.</h4>
+                    <p>Filtreleri temizleyerek tüm zikir halkalarını listeleyebilirsiniz.</p>
+                </div>
+
+                <!-- Table Container (Programs or Instagram Tracking) -->
+                <div id="zikir-table-container" class="programs-list-table-wrapper">
+                    <!-- Tablo dinamik olarak JS tarafında oluşturulacak -->
+                </div>
+            </section>
+        </div>
     </main>
 
     <footer class="admin-footer">
@@ -1717,6 +1918,10 @@
                         <label for="edit-program-contact-phone"><i class="fa-solid fa-phone"></i> Telefon / WhatsApp</label>
                         <input type="text" id="edit-program-contact-phone" class="form-control" placeholder="Örn: 05xx xxx xx xx">
                     </div>
+                    <div class="form-group">
+                        <label for="edit-program-instagram"><i class="fa-brands fa-instagram"></i> Instagram Kullanıcı Adı</label>
+                        <input type="text" id="edit-program-instagram" class="form-control" placeholder="Örn: @kullaniciadi">
+                    </div>
                     <div class="form-group full-width">
                         <label for="edit-program-google-maps-link"><i class="fa-solid fa-map-pin"></i> Google Maps Linki</label>
                         <input type="url" id="edit-program-google-maps-link" class="form-control" placeholder="Örn: https://maps.app.goo.gl/...">
@@ -1979,6 +2184,10 @@
                     <div class="form-group">
                         <label for="add-contact-phone"><i class="fa-solid fa-phone"></i> Telefon / WhatsApp</label>
                         <input type="text" id="add-contact-phone" class="form-control" placeholder="Örn: 05xx xxx xx xx">
+                    </div>
+                    <div class="form-group">
+                        <label for="add-instagram"><i class="fa-brands fa-instagram"></i> Instagram Kullanıcı Adı</label>
+                        <input type="text" id="add-instagram" class="form-control" placeholder="Örn: @kullaniciadi">
                     </div>
                     <div class="form-group full-width">
                         <label for="add-google-maps-link"><i class="fa-solid fa-map-pin"></i> Google Maps Linki</label>

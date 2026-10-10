@@ -4427,6 +4427,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabDiscover = document.getElementById('main-tab-discover');
         const tabTombs = document.getElementById('main-tab-tombs');
         const tabMuftuluk = document.getElementById('main-tab-muftuluk');
+        const tabZikir = document.getElementById('main-tab-zikir');
 
         const suggestionsContent = document.getElementById('suggestions-tab-content');
         const programsContent = document.getElementById('programs-tab-content');
@@ -4435,9 +4436,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const discoverContent = document.getElementById('discover-tab-content');
         const tombsContent = document.getElementById('tombs-tab-content');
         const muftulukContent = document.getElementById('muftuluk-tab-content');
+        const zikirContent = document.getElementById('zikir-tab-content');
 
-        const allTabs = [tabSuggestions, tabPrograms, tabOrganizations, tabMosques, tabDiscover, tabTombs, tabMuftuluk].filter(Boolean);
-        const allContents = [suggestionsContent, programsContent, organizationsContent, mosquesContent, discoverContent, tombsContent, muftulukContent].filter(Boolean);
+        const allTabs = [tabSuggestions, tabPrograms, tabOrganizations, tabMosques, tabDiscover, tabTombs, tabMuftuluk, tabZikir].filter(Boolean);
+        const allContents = [suggestionsContent, programsContent, organizationsContent, mosquesContent, discoverContent, tombsContent, muftulukContent, zikirContent].filter(Boolean);
 
         function switchTab(activeTab, activeContent) {
             allTabs.forEach(tab => tab.classList.remove('active'));
@@ -4493,6 +4495,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 switchTab(tabMuftuluk, muftulukContent);
                 await loadProgramTypes();
                 loadMuftulukPrograms();
+            });
+        }
+
+        if (tabZikir) {
+            tabZikir.addEventListener('click', async () => {
+                switchTab(tabZikir, zikirContent);
+                await loadProgramTypes();
+                loadZikirPrograms();
             });
         }
     }
@@ -14109,6 +14119,803 @@ out center tags;`;
         // Refresh & Retry Buttons
         document.getElementById('muftuluk-refresh-btn')?.addEventListener('click', loadMuftulukPrograms);
         document.getElementById('muftuluk-retry-btn')?.addEventListener('click', loadMuftulukPrograms);
+    }
+
+    // ==========================================================
+    // ZİKİR HALKALARI YÖNETİMİ & İNSTAGRAM TEYİT TAKİBİ (TÜRKİYE GENELİ)
+    // ==========================================================
+
+    let loadedZikirPrograms = [];
+    let currentZikirBatchFilter = 'all';
+    let currentZikirViewMode = 'programs'; // 'programs' or 'instagram'
+    let isZikirEventsBound = false;
+    let selectedZikirIds = new Set();
+    let currentFilteredZikirPrograms = [];
+    let venueCommunicationsMap = new Map(); // key: "city|district|venue_name" -> record
+
+    function isZikirProgram(item) {
+        const batch = (item.import_batch_id || '').toLowerCase();
+        const src = (item.source || '').toLowerCase();
+        const title = (item.program_name || item.title || '').toLowerCase();
+        const desc = (item.description || '').toLowerCase();
+        const cat = (item.category || '').toLowerCase();
+
+        // Explicitly exclude Müftülük Vaazlari or standard chat programs
+        if (batch.includes('muftuluk') || src.includes('muftuluk') || cat.includes('cuma vaazı') || cat.includes('vaaz')) {
+            return false;
+        }
+
+        // Match Zikir batches or zikir keywords in title/category
+        if (batch.includes('zikir_halkalari') || src.includes('zikir') || batch.includes('zikir')) {
+            return true;
+        }
+
+        if (
+            title.includes('zikir') ||
+            title.includes('hacegân') ||
+            title.includes('hacegan') ||
+            title.includes('evrâd') ||
+            title.includes('evrad') ||
+            cat.includes('zikir') ||
+            desc.includes('zikir halkası') ||
+            desc.includes('hatm-i hacegân')
+        ) {
+            return true;
+        }
+
+        return false;
+    }
+
+    async function loadVenueCommunications() {
+        if (!supabaseClient) return;
+        try {
+            const { data, error } = await supabaseClient
+                .from('venue_communications')
+                .select('*');
+            if (error) {
+                console.warn('venue_communications table warning:', error.message);
+                return;
+            }
+            venueCommunicationsMap.clear();
+            (data || []).forEach(comm => {
+                const key = `${(comm.city || 'istanbul').toLowerCase().trim()}|${(comm.district || '').toLowerCase().trim()}|${(comm.venue_name || '').toLowerCase().trim()}`;
+                venueCommunicationsMap.set(key, comm);
+            });
+        } catch (e) {
+            console.warn('loadVenueCommunications exception:', e);
+        }
+    }
+
+    function normalizeInstagramUsername(input) {
+        if (!input) return null;
+        let cleaned = input.trim();
+        if (cleaned.startsWith('@')) {
+            cleaned = cleaned.substring(1);
+        }
+        cleaned = cleaned.replace(/^https?:\/\/(www\.)?instagram\.com\//i, '').replace(/\/$/, '');
+        return cleaned.trim() || null;
+    }
+
+    async function saveVenueCommunication(venueKey, commData) {
+        if (!supabaseClient) return;
+        const parts = (venueKey || '').split('|');
+        const city = (parts[0] || '').trim();
+        const district = (parts[1] || '').trim();
+        const venueName = (parts[2] || '').trim();
+
+        if (!city || !district || !venueName) {
+            showToast('Hata: Eksik mekân bilgisi (İl, İlçe ve Mekân adı zorunludur). Kayıt reddedildi.', 'error');
+            throw new Error('Eksik mekân bilgisi nedeniyle kayıt reddedildi.');
+        }
+
+        const rawIg = commData.instagram_username || '';
+        const normalizedIg = normalizeInstagramUsername(rawIg);
+        const profileLink = normalizedIg ? `https://instagram.com/${normalizedIg}` : null;
+
+        const payload = {
+            city: city,
+            district: district,
+            venue_name: venueName,
+            instagram_username: normalizedIg,
+            instagram_profile_link: profileLink,
+            match_confidence: commData.match_confidence || 'Doğrulanmamış',
+            message_status: commData.message_status || 'not_messaged',
+            confirmation_status: commData.confirmation_status || 'pending',
+            notes: commData.notes || null,
+            last_communication_date: new Date().toISOString()
+        };
+
+        try {
+            const { error } = await supabaseClient
+                .from('venue_communications')
+                .upsert(payload, { onConflict: 'city,district,venue_name' });
+            if (error) throw error;
+            showToast('İletişim bilgisi kaydedildi.', 'success');
+            venueCommunicationsMap.set(venueKey, payload);
+        } catch (e) {
+            console.error('saveVenueCommunication error:', e);
+            showToast('Kayıt başarısız (Tablo migrasyonu gerekebilir): ' + e.message, 'error');
+        }
+    }
+
+    async function loadZikirPrograms() {
+        if (!supabaseClient) return;
+        showZikirLoader();
+        try {
+            await loadVenueCommunications();
+
+            const { data, error } = await supabaseClient
+                .from('programs')
+                .select('*')
+                .order('created_at', { ascending: false });
+
+            if (error) throw error;
+
+            const allPrograms = data || [];
+            loadedZikirPrograms = allPrograms.filter(isZikirProgram);
+
+            populateZikirCityAndDistrictDropdowns(loadedZikirPrograms);
+            hideZikirStates();
+            applyZikirFilters();
+            bindZikirEvents();
+        } catch (error) {
+            console.error('Zikir programları yükleme hatası:', error);
+            showZikirError();
+        }
+    }
+
+    function populateZikirCityAndDistrictDropdowns(programs) {
+        const citySelect = document.getElementById('zikir-filter-city');
+        const districtSelect = document.getElementById('zikir-filter-district');
+
+        if (!citySelect || !districtSelect) return;
+
+        const cities = new Set();
+        const districts = new Set();
+
+        programs.forEach(p => {
+            if (p.city) cities.add(p.city.trim());
+            if (p.district) districts.add(p.district.trim());
+        });
+
+        const currentCity = citySelect.value;
+        const currentDistrict = districtSelect.value;
+
+        citySelect.innerHTML = '<option value="">Tüm İller</option>';
+        Array.from(cities).sort().forEach(c => {
+            citySelect.innerHTML += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
+        });
+        citySelect.value = currentCity;
+
+        districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
+        Array.from(districts).sort().forEach(d => {
+            districtSelect.innerHTML += `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`;
+        });
+        districtSelect.value = currentDistrict;
+    }
+
+    function applyZikirFilters() {
+        const searchVal = (document.getElementById('zikir-filter-search')?.value || '').toLowerCase().trim();
+        const cityVal = document.getElementById('zikir-filter-city')?.value || '';
+        const districtVal = document.getElementById('zikir-filter-district')?.value || '';
+        const statusVal = document.getElementById('zikir-filter-status')?.value || '';
+        const commStatusVal = document.getElementById('zikir-filter-comm-status')?.value || '';
+
+        const filtered = loadedZikirPrograms.filter(item => {
+            if (currentZikirBatchFilter === 'batch_01') {
+                const batch = (item.import_batch_id || item.source || '').toLowerCase();
+                if (!batch.includes('2026_01')) return false;
+            } else if (currentZikirBatchFilter === 'batch_02') {
+                const batch = (item.import_batch_id || item.source || '').toLowerCase();
+                if (!batch.includes('2026_02')) return false;
+            } else if (currentZikirBatchFilter === 'batch_03') {
+                const batch = (item.import_batch_id || item.source || '').toLowerCase();
+                if (!batch.includes('2026_03')) return false;
+            } else if (currentZikirBatchFilter === 'other_batches') {
+                const batch = (item.import_batch_id || item.source || '').toLowerCase();
+                if (batch.includes('2026_01') || batch.includes('2026_02') || batch.includes('2026_03')) return false;
+            }
+
+            if (cityVal && (item.city || 'istanbul').toLowerCase() !== cityVal.toLowerCase()) return false;
+            if (districtVal && (item.district || '').toLowerCase() !== districtVal.toLowerCase()) return false;
+            if (statusVal && (item.status || 'active').toLowerCase() !== statusVal.toLowerCase()) return false;
+
+            if (commStatusVal) {
+                const venueKey = `${(item.city || 'istanbul').toLowerCase().trim()}|${(item.district || '').toLowerCase().trim()}|${(item.location || item.venue || '').toLowerCase().trim()}`;
+                const comm = venueCommunicationsMap.get(venueKey);
+                const itemCommStatus = comm ? comm.message_status : 'not_messaged';
+                if (itemCommStatus !== commStatusVal) return false;
+            }
+
+            if (searchVal) {
+                const text = `${item.program_name || item.title || ''} ${item.location || item.venue || ''} ${item.district || ''} ${item.city || ''} ${item.speaker || ''} ${item.description || ''}`.toLowerCase();
+                if (!text.includes(searchVal)) return false;
+            }
+
+            return true;
+        });
+
+        currentFilteredZikirPrograms = filtered;
+        updateZikirStats(filtered);
+
+        if (currentZikirViewMode === 'instagram') {
+            renderInstagramTrackingView(filtered);
+        } else {
+            renderZikirProgramsTable(filtered);
+        }
+        updateZikirBulkActionsUI(filtered);
+    }
+
+    function updateZikirStats(filtered) {
+        const total = loadedZikirPrograms.length;
+        const active = loadedZikirPrograms.filter(p => (p.status || 'active').toLowerCase() === 'active').length;
+        const inactive = loadedZikirPrograms.filter(p => (p.status || 'active').toLowerCase() === 'inactive').length;
+        const istanbulCount = loadedZikirPrograms.filter(p => (p.city || 'istanbul').toLowerCase() === 'istanbul').length;
+        const otherCount = total - istanbulCount;
+
+        let pendingCount = 0;
+        loadedZikirPrograms.forEach(p => {
+            const key = `${(p.city || 'istanbul').toLowerCase().trim()}|${(p.district || '').toLowerCase().trim()}|${(p.location || p.venue || '').toLowerCase().trim()}`;
+            const comm = venueCommunicationsMap.get(key);
+            if (!comm || comm.confirmation_status !== 'confirmed') {
+                pendingCount++;
+            }
+        });
+
+        document.getElementById('stats-zikir-total-val').textContent = total;
+        document.getElementById('stats-zikir-active-val').textContent = active;
+        document.getElementById('stats-zikir-inactive-val').textContent = inactive;
+        document.getElementById('stats-zikir-istanbul-val').textContent = istanbulCount;
+        document.getElementById('stats-zikir-other-cities-val').textContent = otherCount;
+        document.getElementById('stats-zikir-pending-confirmation-val').textContent = pendingCount;
+
+        const countText = document.getElementById('zikir-count-text');
+        if (countText) {
+            countText.textContent = `${total} toplam zikir programından ${filtered.length} kayıt gösteriliyor.`;
+        }
+    }
+
+    function renderZikirProgramsTable(programs) {
+        const tableContainer = document.getElementById('zikir-table-container');
+        if (!tableContainer) return;
+
+        if (programs.length === 0) {
+            showZikirEmpty();
+            return;
+        }
+        hideZikirStates();
+
+        let tableHtml = `
+            <div class="table-responsive">
+                <table class="zikir-admin-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px; text-align: center;">
+                                <input type="checkbox" id="zikir-header-bulk-checkbox-in-table">
+                            </th>
+                            <th>İl / İlçe</th>
+                            <th>Mekân / Cami</th>
+                            <th>Program Adı</th>
+                            <th>Gün / Vakit</th>
+                            <th>Batch / Kaynak</th>
+                            <th>Durum</th>
+                            <th>Teyit / İletişim</th>
+                            <th style="text-align: right;">İşlemler</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        programs.forEach(item => {
+            const isChecked = selectedZikirIds.has(item.id);
+            const status = (item.status || 'active').toLowerCase();
+            const city = item.city || 'İstanbul';
+            const district = item.district || '-';
+            const venue = item.location || item.venue || '-';
+            const title = item.program_name || item.title || 'Zikir Programı';
+            const dayTime = `${item.day || '-'} | ${item.time || '-'}`;
+            const batchId = item.import_batch_id || item.source || 'Genel';
+
+            let batchBadgeClass = 'batch-zikir-other';
+            if (batchId.includes('2026_01')) batchBadgeClass = 'batch-zikir-01';
+            else if (batchId.includes('2026_02')) batchBadgeClass = 'batch-zikir-02';
+            else if (batchId.includes('2026_03')) batchBadgeClass = 'batch-zikir-03';
+
+            const venueKey = `${city.toLowerCase().trim()}|${district.toLowerCase().trim()}|${venue.toLowerCase().trim()}`;
+            const comm = venueCommunicationsMap.get(venueKey);
+            const commStatus = comm ? comm.message_status : 'not_messaged';
+            const commLabel = getCommStatusLabel(commStatus);
+            const commClass = getCommStatusClass(commStatus);
+
+            tableHtml += `
+                <tr>
+                    <td style="text-align: center;">
+                        <input type="checkbox" class="zikir-item-checkbox" data-id="${escapeHtml(item.id)}" ${isChecked ? 'checked' : ''}>
+                    </td>
+                    <td><strong>${escapeHtml(city)}</strong> / ${escapeHtml(district)}</td>
+                    <td><strong>${escapeHtml(venue)}</strong></td>
+                    <td>${escapeHtml(title)}</td>
+                    <td>${escapeHtml(dayTime)}</td>
+                    <td><span class="zikir-batch-badge ${batchBadgeClass}">${escapeHtml(batchId)}</span></td>
+                    <td>
+                        <span class="date-status-badge ${status === 'active' ? 'date-status-today' : 'date-status-expired'}">
+                            ${status === 'active' ? 'Aktif' : 'Pasif'}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="comm-status-badge ${commClass}">${escapeHtml(commLabel)}</span>
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button class="btn btn-secondary btn-sm btn-inspect-program" data-id="${escapeHtml(item.id)}" title="İncele & Düzenle">
+                            <i class="fa-solid fa-eye"></i>
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHtml += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        tableContainer.innerHTML = tableHtml;
+        bindZikirCheckboxEvents();
+    }
+
+    function renderInstagramTrackingView(programs) {
+        const tableContainer = document.getElementById('zikir-table-container');
+        if (!tableContainer) return;
+
+        if (programs.length === 0) {
+            showZikirEmpty();
+            return;
+        }
+        hideZikirStates();
+
+        const venueMap = new Map();
+        programs.forEach(item => {
+            const city = item.city || 'İstanbul';
+            const district = item.district || 'Merkez';
+            const venue = item.location || item.venue || 'Bilinmeyen Mekân';
+            const key = `${city.toLowerCase().trim()}|${district.toLowerCase().trim()}|${venue.toLowerCase().trim()}`;
+
+            if (!venueMap.has(key)) {
+                venueMap.set(key, {
+                    city,
+                    district,
+                    venueName: venue,
+                    programs: [],
+                    key
+                });
+            }
+            venueMap.get(key).programs.push(item);
+        });
+
+        let tableHtml = `
+            <div class="table-responsive">
+                <table class="zikir-admin-table">
+                    <thead>
+                        <tr>
+                            <th>İl / İlçe</th>
+                            <th>Mekân (Cami / Dernek)</th>
+                            <th>Program Özeti</th>
+                            <th>Instagram Kullanıcı Adı</th>
+                            <th>Mesaj / Teyit Durumu</th>
+                            <th>Notlar</th>
+                            <th style="text-align: right;">Eylem</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        venueMap.forEach((vData, vKey) => {
+            const comm = venueCommunicationsMap.get(vKey) || {};
+            const igUsername = comm.instagram_username || '';
+            const igLink = comm.instagram_profile_link || (igUsername ? `https://instagram.com/${igUsername.replace('@', '')}` : '');
+            const msgStatus = comm.message_status || 'not_messaged';
+            const notes = comm.notes || '';
+
+            const summaries = vData.programs.map(p => `${p.day || '-'} · ${p.time || '-'}`).join(' | ');
+
+            tableHtml += `
+                <tr data-venue-key="${escapeHtml(vKey)}">
+                    <td><strong>${escapeHtml(vData.city)}</strong> / ${escapeHtml(vData.district)}</td>
+                    <td><strong>${escapeHtml(vData.venueName)}</strong></td>
+                    <td style="font-size: 11.5px; color: #555; max-width: 220px;">${escapeHtml(summaries)}</td>
+                    <td>
+                        <div style="display: flex; align-items: center; gap: 6px;">
+                            <input type="text" class="form-control ig-username-input" value="${escapeHtml(igUsername)}" placeholder="@kullaniciadi" style="height: 32px; font-size: 12px; width: 130px;" />
+                            ${igLink ? `<a href="${escapeHtml(igLink)}" target="_blank" class="btn btn-secondary btn-sm" title="Instagram Profilini Aç" style="padding: 4px 8px;"><i class="fa-brands fa-instagram" style="color: #E1306C;"></i></a>` : ''}
+                        </div>
+                    </td>
+                    <td>
+                        <select class="form-control comm-status-select" style="height: 32px; font-size: 12px; width: 150px;">
+                            <option value="not_messaged" ${msgStatus === 'not_messaged' ? 'selected' : ''}>Henüz mesaj atılmadı</option>
+                            <option value="message_sent" ${msgStatus === 'message_sent' ? 'selected' : ''}>Mesaj gönderildi</option>
+                            <option value="awaiting_reply" ${msgStatus === 'awaiting_reply' ? 'selected' : ''}>Cevap bekleniyor</option>
+                            <option value="confirmed" ${msgStatus === 'confirmed' ? 'selected' : ''}>Program teyit edildi</option>
+                            <option value="schedule_changed" ${msgStatus === 'schedule_changed' ? 'selected' : ''}>Gün/vakit değişti</option>
+                            <option value="ended" ${msgStatus === 'ended' ? 'selected' : ''}>Program sona erdi</option>
+                            <option value="account_not_found" ${msgStatus === 'account_not_found' ? 'selected' : ''}>Hesap bulunamadı</option>
+                        </select>
+                    </td>
+                    <td>
+                        <input type="text" class="form-control venue-notes-input" value="${escapeHtml(notes)}" placeholder="Not ekle..." style="height: 32px; font-size: 12px; width: 140px;" />
+                    </td>
+                    <td style="text-align: right; white-space: nowrap;">
+                        <button class="btn btn-primary btn-sm btn-save-venue-comm" data-venue-key="${escapeHtml(vKey)}" title="Kalıcı Kaydet" style="background: #2e7d32; color: white;">
+                            <i class="fa-solid fa-floppy-disk"></i> Kaydet
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        tableHtml += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        tableContainer.innerHTML = tableHtml;
+        bindInstagramTrackingEvents();
+    }
+
+    function getCommStatusLabel(status) {
+        switch (status) {
+            case 'message_sent': return 'Mesaj gönderildi';
+            case 'awaiting_reply': return 'Cevap bekleniyor';
+            case 'confirmed': return 'Teyit edildi';
+            case 'schedule_changed': return 'Vakit değişti';
+            case 'ended': return 'Sona erdi';
+            case 'account_not_found': return 'Hesap yok';
+            default: return 'Henüz atılmadı';
+        }
+    }
+
+    function getCommStatusClass(status) {
+        switch (status) {
+            case 'message_sent': return 'comm-message-sent';
+            case 'awaiting_reply': return 'comm-awaiting-reply';
+            case 'confirmed': return 'comm-confirmed';
+            case 'schedule_changed': return 'comm-schedule-changed';
+            case 'ended': return 'comm-ended';
+            case 'account_not_found': return 'comm-account-not-found';
+            default: return 'comm-not-messaged';
+        }
+    }
+
+    function bindInstagramTrackingEvents() {
+        document.querySelectorAll('.btn-save-venue-comm').forEach(btn => {
+            btn.onclick = async (e) => {
+                const tr = btn.closest('tr');
+                const venueKey = btn.getAttribute('data-venue-key');
+                const igInput = tr.querySelector('.ig-username-input');
+                const statusSelect = tr.querySelector('.comm-status-select');
+                const notesInput = tr.querySelector('.venue-notes-input');
+
+                const username = igInput ? igInput.value.trim() : '';
+                const msgStatus = statusSelect ? statusSelect.value : 'not_messaged';
+                const notes = notesInput ? notesInput.value.trim() : '';
+                const profileLink = username ? `https://instagram.com/${username.replace('@', '')}` : '';
+
+                await saveVenueCommunication(venueKey, {
+                    instagram_username: username,
+                    instagram_profile_link: profileLink,
+                    message_status: msgStatus,
+                    confirmation_status: msgStatus === 'confirmed' ? 'confirmed' : 'pending',
+                    notes: notes
+                });
+                renderInstagramTrackingView(currentFilteredZikirPrograms);
+            };
+        });
+    }
+
+    function updateZikirBulkActionsUI(filtered = currentFilteredZikirPrograms) {
+        const bar = document.getElementById('zikir-bulk-actions-bar');
+        const countSpan = document.getElementById('zikir-bulk-selection-count');
+        const headerCheckbox = document.getElementById('zikir-header-bulk-checkbox');
+
+        if (!bar) return;
+        bar.classList.remove('hidden');
+
+        const selectedCount = selectedZikirIds.size;
+        const filteredCount = filtered.length;
+        const totalCount = loadedZikirPrograms.length;
+
+        if (countSpan) {
+            countSpan.textContent = `${selectedCount} program seçildi (Filtrelenmiş: ${filteredCount}, Toplam: ${totalCount})`;
+        }
+
+        if (headerCheckbox && filtered.length > 0) {
+            const allFilteredSelected = filtered.every(item => selectedZikirIds.has(item.id));
+            const someFilteredSelected = filtered.some(item => selectedZikirIds.has(item.id));
+            headerCheckbox.checked = allFilteredSelected;
+            headerCheckbox.indeterminate = someFilteredSelected && !allFilteredSelected;
+        } else if (headerCheckbox) {
+            headerCheckbox.checked = false;
+            headerCheckbox.indeterminate = false;
+        }
+    }
+
+    function bindZikirCheckboxEvents() {
+        const headerCheckbox = document.getElementById('zikir-header-bulk-checkbox');
+        const headerCheckboxInTable = document.getElementById('zikir-header-bulk-checkbox-in-table');
+
+        [headerCheckbox, headerCheckboxInTable].forEach(chk => {
+            if (!chk) return;
+            chk.onchange = (e) => {
+                const checked = e.target.checked;
+                currentFilteredZikirPrograms.forEach(item => {
+                    if (checked) selectedZikirIds.add(item.id);
+                    else selectedZikirIds.delete(item.id);
+                });
+                renderZikirProgramsTable(currentFilteredZikirPrograms);
+                updateZikirBulkActionsUI();
+            };
+        });
+
+        document.querySelectorAll('.zikir-item-checkbox').forEach(chk => {
+            chk.onchange = (e) => {
+                const id = e.target.getAttribute('data-id');
+                if (e.target.checked) selectedZikirIds.add(id);
+                else selectedZikirIds.delete(id);
+                updateZikirBulkActionsUI();
+            };
+        });
+    }
+
+    async function handleZikirBulkStatusUpdate(newStatus) {
+        if (selectedZikirIds.size === 0) {
+            showToast('Lütfen önce en az bir program seçin.', 'warning');
+            return;
+        }
+        const ids = Array.from(selectedZikirIds);
+
+        // Strict pre-validation: ensure all selected IDs are genuinely loaded Zikir programs
+        const validIds = ids.filter(id => {
+            const prog = loadedZikirPrograms.find(p => p.id === id);
+            return prog && isZikirProgram(prog);
+        });
+
+        if (validIds.length === 0) {
+            showToast('Hata: Seçilen programlar Zikir Halkaları kapsamında değil!', 'error');
+            hideZikirStates();
+            return;
+        }
+
+        const statusLabel = newStatus === 'active' ? 'Devam Ettir (Aktif)' : 'Ara Ver (Pasif)';
+
+        if (!confirm(`${validIds.length} adet seçilen Zikir programı için '${statusLabel}' işlemi uygulanacak. Onaylıyor musunuz?`)) {
+            return;
+        }
+
+        showZikirLoader();
+        try {
+            const chunkSize = 100;
+            for (let i = 0; i < validIds.length; i += chunkSize) {
+                const chunk = validIds.slice(i, i + chunkSize);
+                const { error } = await supabaseClient
+                    .from('programs')
+                    .update({ status: newStatus })
+                    .in('id', chunk);
+                if (error) throw error;
+            }
+
+            showToast(`${validIds.length} zikir programı başarıyla güncellendi.`, 'success');
+            selectedZikirIds.clear();
+            await loadZikirPrograms();
+        } catch (error) {
+            console.error('Zikir toplu durum güncelleme hatası:', error);
+            showToast('Güncellenirken hata oluştu: ' + error.message, 'error');
+            applyZikirFilters();
+        }
+    }
+
+    async function handleActivateBatch03() {
+        const batch03Programs = loadedZikirPrograms.filter(p => {
+            const batch = (p.import_batch_id || p.source || '').toLowerCase();
+            return batch.includes('2026_03') && isZikirProgram(p);
+        });
+
+        if (batch03Programs.length === 0) {
+            showToast('Batch 03 (Yeni 25 Kayıt) bulunamadı.', 'info');
+            return;
+        }
+
+        if (!confirm(`Batch 03'e ait ${batch03Programs.length} adet yeni Zikir kaydı tek işlemle aktifleştirilecek (status = active). Onaylıyor musunuz?`)) {
+            return;
+        }
+
+        const ids = batch03Programs.map(p => p.id);
+        const validIds = ids.filter(id => {
+            const prog = loadedZikirPrograms.find(p => p.id === id);
+            return prog && isZikirProgram(prog);
+        });
+
+        showZikirLoader();
+        try {
+            const chunkSize = 100;
+            for (let i = 0; i < validIds.length; i += chunkSize) {
+                const chunk = validIds.slice(i, i + chunkSize);
+                const { error } = await supabaseClient
+                    .from('programs')
+                    .update({ status: 'active' })
+                    .in('id', chunk);
+                if (error) throw error;
+            }
+
+            showToast(`Batch 03 ${validIds.length} kaydı başarıyla aktifleştirildi!`, 'success');
+            await loadZikirPrograms();
+        } catch (error) {
+            console.error('Batch 03 aktifleştirme hatası:', error);
+            showToast('Aktifleştirilirken hata oluştu: ' + error.message, 'error');
+            applyZikirFilters();
+        }
+    }
+
+    async function handleZikirBulkDelete() {
+        if (selectedZikirIds.size === 0) {
+            showToast('Lütfen silinecek programları seçin.', 'warning');
+            return;
+        }
+        const ids = Array.from(selectedZikirIds);
+
+        const validIds = ids.filter(id => {
+            const prog = loadedZikirPrograms.find(p => p.id === id);
+            return prog && isZikirProgram(prog);
+        });
+
+        if (validIds.length === 0) {
+            showToast('Hata: Seçilen programlar Zikir Halkaları kapsamında değil!', 'error');
+            hideZikirStates();
+            return;
+        }
+
+        const confirm1 = confirm(`DİKKAT: Seçilen ${validIds.length} adet Zikir programı kalıcı olarak silinecek! Bu işlem geri alınamaz.`);
+        if (!confirm1) return;
+
+        const confirm2 = prompt(`Silme işlemini onaylamak için lütfen "SİL" yazın:`);
+        if (confirm2 !== 'SİL') {
+            showToast('İptal edildi: Doğrulama metni "SİL" eşleşmedi.', 'info');
+            return;
+        }
+
+        showZikirLoader();
+        try {
+            const chunkSize = 100;
+            for (let i = 0; i < validIds.length; i += chunkSize) {
+                const chunk = validIds.slice(i, i + chunkSize);
+                const { error } = await supabaseClient
+                    .from('programs')
+                    .delete()
+                    .in('id', chunk);
+                if (error) throw error;
+            }
+
+            showToast(`${validIds.length} zikir programı başarıyla silindi.`, 'success');
+            selectedZikirIds.clear();
+            await loadZikirPrograms();
+        } catch (error) {
+            console.error('Zikir toplu silme hatası:', error);
+            showToast('Silinirken hata oluştu: ' + error.message, 'error');
+            applyZikirFilters();
+        }
+    }
+
+    function showZikirLoader() {
+        document.getElementById('zikir-loader')?.classList.remove('hidden');
+        document.getElementById('zikir-error-container')?.classList.add('hidden');
+        document.getElementById('zikir-empty-container')?.classList.add('hidden');
+        const container = document.getElementById('zikir-table-container');
+        if (container) container.innerHTML = '';
+    }
+
+    function showZikirError() {
+        document.getElementById('zikir-loader')?.classList.add('hidden');
+        document.getElementById('zikir-error-container')?.classList.remove('hidden');
+        document.getElementById('zikir-empty-container')?.classList.add('hidden');
+        const container = document.getElementById('zikir-table-container');
+        if (container) container.innerHTML = '';
+    }
+
+    function showZikirEmpty() {
+        document.getElementById('zikir-loader')?.classList.add('hidden');
+        document.getElementById('zikir-error-container')?.classList.add('hidden');
+        document.getElementById('zikir-empty-container')?.classList.remove('hidden');
+        const container = document.getElementById('zikir-table-container');
+        if (container) container.innerHTML = '';
+    }
+
+    function hideZikirStates() {
+        document.getElementById('zikir-loader')?.classList.add('hidden');
+        document.getElementById('zikir-error-container')?.classList.add('hidden');
+        document.getElementById('zikir-empty-container')?.classList.add('hidden');
+    }
+
+    function bindZikirEvents() {
+        if (isZikirEventsBound) return;
+        isZikirEventsBound = true;
+
+        const viewModeTabs = document.querySelectorAll('#zikir-view-mode-tabs .tab-btn');
+        viewModeTabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                viewModeTabs.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                currentZikirViewMode = btn.getAttribute('data-zikir-view') || 'programs';
+                const titleEl = document.getElementById('zikir-section-title');
+                if (titleEl) {
+                    titleEl.textContent = currentZikirViewMode === 'instagram' ? 'Instagram ve Teyit Takip Tablosu' : 'Zikir Programları Listesi';
+                }
+                applyZikirFilters();
+            });
+        });
+
+        const batchTabs = document.querySelectorAll('#zikir-batch-tabs .tab-btn');
+        batchTabs.forEach(btn => {
+            btn.addEventListener('click', () => {
+                batchTabs.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+
+                currentZikirBatchFilter = btn.getAttribute('data-zikir-batch') || 'all';
+                applyZikirFilters();
+            });
+        });
+
+        document.getElementById('zikir-filter-search')?.addEventListener('input', applyZikirFilters);
+        document.getElementById('zikir-filter-city')?.addEventListener('change', applyZikirFilters);
+        document.getElementById('zikir-filter-district')?.addEventListener('change', applyZikirFilters);
+        document.getElementById('zikir-filter-status')?.addEventListener('change', applyZikirFilters);
+        document.getElementById('zikir-filter-comm-status')?.addEventListener('change', applyZikirFilters);
+
+        document.getElementById('zikir-select-all-filtered-btn')?.addEventListener('click', () => {
+            currentFilteredZikirPrograms.forEach(item => selectedZikirIds.add(item.id));
+            if (currentZikirViewMode === 'instagram') {
+                renderInstagramTrackingView(currentFilteredZikirPrograms);
+            } else {
+                renderZikirProgramsTable(currentFilteredZikirPrograms);
+            }
+            updateZikirBulkActionsUI();
+            showToast(`${currentFilteredZikirPrograms.length} filtrelenmiş zikir kaydı seçildi.`, 'success');
+        });
+
+        document.getElementById('zikir-bulk-clear-btn')?.addEventListener('click', () => {
+            selectedZikirIds.clear();
+            if (currentZikirViewMode === 'instagram') {
+                renderInstagramTrackingView(currentFilteredZikirPrograms);
+            } else {
+                renderZikirProgramsTable(currentFilteredZikirPrograms);
+            }
+            updateZikirBulkActionsUI();
+            showToast('Seçim temizlendi.', 'info');
+        });
+
+        document.getElementById('zikir-bulk-active-btn')?.addEventListener('click', () => handleZikirBulkStatusUpdate('active'));
+        document.getElementById('zikir-bulk-pause-btn')?.addEventListener('click', () => handleZikirBulkStatusUpdate('inactive'));
+        document.getElementById('zikir-bulk-activate-batch03-btn')?.addEventListener('click', handleActivateBatch03);
+        document.getElementById('zikir-bulk-delete-btn')?.addEventListener('click', handleZikirBulkDelete);
+
+        document.getElementById('zikir-clear-filters-btn')?.addEventListener('click', () => {
+            const searchInput = document.getElementById('zikir-filter-search');
+            const citySelect = document.getElementById('zikir-filter-city');
+            const districtSelect = document.getElementById('zikir-filter-district');
+            const statusSelect = document.getElementById('zikir-filter-status');
+            const commSelect = document.getElementById('zikir-filter-comm-status');
+
+            if (searchInput) searchInput.value = '';
+            if (citySelect) citySelect.value = '';
+            if (districtSelect) districtSelect.value = '';
+            if (statusSelect) statusSelect.value = '';
+            if (commSelect) commSelect.value = '';
+
+            applyZikirFilters();
+        });
+
+        document.getElementById('zikir-refresh-btn')?.addEventListener('click', loadZikirPrograms);
+        document.getElementById('zikir-retry-btn')?.addEventListener('click', loadZikirPrograms);
     }
 
     // Expose Tomb functions globally
