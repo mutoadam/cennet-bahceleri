@@ -14243,6 +14243,7 @@ out center tags;`;
             last_communication_date: new Date().toISOString()
         };
 
+        // Step 1: Save venue communication first
         try {
             const { error } = await supabaseClient
                 .from('venue_communications')
@@ -14253,6 +14254,59 @@ out center tags;`;
         } catch (e) {
             console.error('saveVenueCommunication error:', e);
             showToast('Kayıt başarısız (Tablo migrasyonu gerekebilir): ' + e.message, 'error');
+            throw e;
+        }
+
+        // Step 2: Synchronize matching programs in public.programs table separately
+        try {
+            const sanitizeLike = (str) => (str || '').replace(/[%_]/g, '\\$&');
+            const { data: matchingPrograms, error: fetchErr } = await supabaseClient
+                .from('programs')
+                .select('id, city, district, venue_name, instagram_username')
+                .ilike('city', sanitizeLike(city))
+                .ilike('district', sanitizeLike(district))
+                .ilike('venue_name', sanitizeLike(venueName));
+
+            if (fetchErr) throw fetchErr;
+
+            let updatedCount = 0;
+            let skippedCount = 0;
+            let errorCount = 0;
+
+            for (const prog of (matchingPrograms || [])) {
+                const existingIg = (prog.instagram_username || '').trim().toLowerCase();
+                const newIg = (normalizedIg || '').trim().toLowerCase();
+
+                // If program already has a different non-empty custom Instagram handle, preserve and skip it
+                if (existingIg && existingIg !== newIg) {
+                    skippedCount++;
+                    continue;
+                }
+
+                if (existingIg === newIg) {
+                    skippedCount++;
+                    continue;
+                }
+
+                const { error: updateErr } = await supabaseClient
+                    .from('programs')
+                    .update({ instagram_username: normalizedIg })
+                    .eq('id', prog.id);
+
+                if (updateErr) {
+                    console.error(`Program update error for ID ${prog.id}:`, updateErr);
+                    errorCount++;
+                } else {
+                    updatedCount++;
+                }
+            }
+
+            if ((matchingPrograms || []).length > 0) {
+                showToast(`Program Senkronizasyonu: ${updatedCount} güncellendi, ${skippedCount} atlandı, ${errorCount} hata.`, errorCount > 0 ? 'warning' : 'success');
+            }
+        } catch (syncErr) {
+            console.error('Program synchronization error:', syncErr);
+            showToast('Programlar güncellenirken hata oluştu: ' + syncErr.message, 'error');
         }
     }
 
