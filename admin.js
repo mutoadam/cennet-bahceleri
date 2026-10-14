@@ -4428,6 +4428,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const tabTombs = document.getElementById('main-tab-tombs');
         const tabMuftuluk = document.getElementById('main-tab-muftuluk');
         const tabZikir = document.getElementById('main-tab-zikir');
+        const tabInstagram = document.getElementById('main-tab-instagram');
 
         const suggestionsContent = document.getElementById('suggestions-tab-content');
         const programsContent = document.getElementById('programs-tab-content');
@@ -4437,9 +4438,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const tombsContent = document.getElementById('tombs-tab-content');
         const muftulukContent = document.getElementById('muftuluk-tab-content');
         const zikirContent = document.getElementById('zikir-tab-content');
+        const instagramContent = document.getElementById('instagram-tab-content');
 
-        const allTabs = [tabSuggestions, tabPrograms, tabOrganizations, tabMosques, tabDiscover, tabTombs, tabMuftuluk, tabZikir].filter(Boolean);
-        const allContents = [suggestionsContent, programsContent, organizationsContent, mosquesContent, discoverContent, tombsContent, muftulukContent, zikirContent].filter(Boolean);
+        const allTabs = [tabSuggestions, tabPrograms, tabOrganizations, tabMosques, tabDiscover, tabTombs, tabMuftuluk, tabZikir, tabInstagram].filter(Boolean);
+        const allContents = [suggestionsContent, programsContent, organizationsContent, mosquesContent, discoverContent, tombsContent, muftulukContent, zikirContent, instagramContent].filter(Boolean);
 
         function switchTab(activeTab, activeContent) {
             allTabs.forEach(tab => tab.classList.remove('active'));
@@ -4503,6 +4505,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 switchTab(tabZikir, zikirContent);
                 await loadProgramTypes();
                 loadZikirPrograms();
+            });
+        }
+
+        if (tabInstagram) {
+            tabInstagram.addEventListener('click', async () => {
+                switchTab(tabInstagram, instagramContent);
+                await loadProgramTypes();
+                loadAllProgramsForInstagramTracking();
             });
         }
     }
@@ -14127,7 +14137,6 @@ out center tags;`;
 
     let loadedZikirPrograms = [];
     let currentZikirBatchFilter = 'all';
-    let currentZikirViewMode = 'programs'; // 'programs' or 'instagram'
     let isZikirEventsBound = false;
     let selectedZikirIds = new Set();
     let currentFilteredZikirPrograms = [];
@@ -14410,12 +14419,7 @@ out center tags;`;
 
         currentFilteredZikirPrograms = filtered;
         updateZikirStats(filtered);
-
-        if (currentZikirViewMode === 'instagram') {
-            renderInstagramTrackingView(filtered);
-        } else {
-            renderZikirProgramsTable(filtered);
-        }
+        renderZikirProgramsTable(filtered);
         updateZikirBulkActionsUI(filtered);
     }
 
@@ -14555,35 +14559,280 @@ out center tags;`;
         });
     }
 
-    function renderInstagramTrackingView(programs) {
-        const tableContainer = document.getElementById('zikir-table-container');
-        if (!tableContainer) return;
+    // ==========================================================
+    // B21.4 — TÜM PROGRAMLAR İÇİN İNSTAGRAM VE TEYİT YÖNETİMİ
+    // ==========================================================
 
-        if (programs.length === 0) {
-            showZikirEmpty();
-            return;
+    let loadedAllInstagramPrograms = [];
+    let isInstagramEventsBound = false;
+    let currentFilteredInstagramVenues = [];
+
+    async function fetchAllProgramsFromSupabase() {
+        if (!supabaseClient) return [];
+        let allData = [];
+        let from = 0;
+        const pageSize = 1000;
+        let keepFetching = true;
+
+        while (keepFetching) {
+            const to = from + pageSize - 1;
+            const { data, error } = await supabaseClient
+                .from('programs')
+                .select('*')
+                .order('created_at', { ascending: false })
+                .range(from, to);
+
+            if (error) {
+                console.warn('Chunked fetch error:', error);
+                throw error;
+            }
+
+            if (data && data.length > 0) {
+                allData = allData.concat(data);
+                if (data.length < pageSize) {
+                    keepFetching = false;
+                } else {
+                    from += pageSize;
+                }
+            } else {
+                keepFetching = false;
+            }
         }
-        hideZikirStates();
+        return allData;
+    }
 
+    async function loadAllProgramsForInstagramTracking() {
+        if (!supabaseClient) return;
+        showInstagramLoader();
+        try {
+            await loadVenueCommunications();
+            const allPrograms = await fetchAllProgramsFromSupabase();
+
+            // Exclude trash (deleted)
+            loadedAllInstagramPrograms = (allPrograms || []).filter(p => (p.status || '').toLowerCase() !== 'deleted');
+
+            populateInstagramDropdowns(loadedAllInstagramPrograms);
+            hideInstagramStates();
+            applyInstagramFilters();
+            bindInstagramEvents();
+        } catch (error) {
+            console.error('Tüm programlar yüklenirken hata oluştu:', error);
+            showInstagramError();
+        }
+    }
+
+    function showInstagramLoader() {
+        document.getElementById('insta-loader')?.classList.remove('hidden');
+        document.getElementById('insta-error-container')?.classList.add('hidden');
+        document.getElementById('insta-empty-container')?.classList.add('hidden');
+        document.getElementById('insta-table-container')?.classList.add('hidden');
+    }
+
+    function hideInstagramStates() {
+        document.getElementById('insta-loader')?.classList.add('hidden');
+        document.getElementById('insta-error-container')?.classList.add('hidden');
+        document.getElementById('insta-empty-container')?.classList.add('hidden');
+        document.getElementById('insta-table-container')?.classList.remove('hidden');
+    }
+
+    function showInstagramError() {
+        document.getElementById('insta-loader')?.classList.add('hidden');
+        document.getElementById('insta-error-container')?.classList.remove('hidden');
+        document.getElementById('insta-table-container')?.classList.add('hidden');
+    }
+
+    function showInstagramEmpty() {
+        document.getElementById('insta-loader')?.classList.add('hidden');
+        document.getElementById('insta-empty-container')?.classList.remove('hidden');
+        document.getElementById('insta-table-container')?.classList.add('hidden');
+    }
+
+    function populateInstagramDropdowns(programs) {
+        const citySelect = document.getElementById('insta-filter-city');
+        const districtSelect = document.getElementById('insta-filter-district');
+        const typeSelect = document.getElementById('insta-filter-type');
+
+        if (!citySelect || !districtSelect || !typeSelect) return;
+
+        const cities = new Set();
+        const districts = new Set();
+        const types = new Set();
+
+        programs.forEach(p => {
+            if (p.city) cities.add(p.city.trim());
+            if (p.district) districts.add(p.district.trim());
+            if (p.category) types.add(p.category.trim());
+            if (p.program_name) types.add(p.program_name.trim());
+        });
+
+        const curCity = citySelect.value;
+        const curDistrict = districtSelect.value;
+        const curType = typeSelect.value;
+
+        citySelect.innerHTML = '<option value="">Tüm İller</option>';
+        Array.from(cities).sort((a, b) => a.localeCompare(b, 'tr')).forEach(c => {
+            citySelect.innerHTML += `<option value="${escapeHtml(c)}">${escapeHtml(c)}</option>`;
+        });
+        citySelect.value = curCity;
+
+        districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
+        Array.from(districts).sort((a, b) => a.localeCompare(b, 'tr')).forEach(d => {
+            districtSelect.innerHTML += `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`;
+        });
+        districtSelect.value = curDistrict;
+
+        typeSelect.innerHTML = '<option value="">Tüm Türler</option>';
+        Array.from(types).sort((a, b) => a.localeCompare(b, 'tr')).forEach(t => {
+            typeSelect.innerHTML += `<option value="${escapeHtml(t)}">${escapeHtml(t)}</option>`;
+        });
+        typeSelect.value = curType;
+    }
+
+    function applyInstagramFilters() {
+        const searchVal = (document.getElementById('insta-filter-search')?.value || '').toLowerCase().trim();
+        const cityVal = document.getElementById('insta-filter-city')?.value || '';
+        const districtVal = document.getElementById('insta-filter-district')?.value || '';
+        const typeVal = document.getElementById('insta-filter-type')?.value || '';
+        const statusVal = document.getElementById('insta-filter-status')?.value || '';
+        const hasIgVal = document.getElementById('insta-filter-has-ig')?.value || '';
+        const confVal = document.getElementById('insta-filter-confirmation')?.value || '';
+        const commVal = document.getElementById('insta-filter-comm')?.value || '';
+        const sortVal = document.getElementById('insta-filter-sort')?.value || 'venue_asc';
+
+        // 1. Filter raw programs first
+        const filteredPrograms = loadedAllInstagramPrograms.filter(item => {
+            if (cityVal && normalizeCityName(item.city) !== normalizeCityName(cityVal)) return false;
+            if (districtVal && (item.district || '').toLowerCase() !== districtVal.toLowerCase()) return false;
+            if (typeVal) {
+                const cat = (item.category || '').toLowerCase();
+                const pname = (item.program_name || '').toLowerCase();
+                if (cat !== typeVal.toLowerCase() && pname !== typeVal.toLowerCase()) return false;
+            }
+            if (statusVal && (item.status || 'active').toLowerCase() !== statusVal.toLowerCase()) return false;
+
+            if (searchVal) {
+                const text = `${item.program_name || ''} ${item.venue_name || item.location || item.venue || ''} ${item.district || ''} ${item.city || ''} ${item.speaker || ''} ${item.instagram_username || ''}`.toLowerCase();
+                if (!text.includes(searchVal)) return false;
+            }
+            return true;
+        });
+
+        // 2. Group filtered programs into unique venues (City + District + Venue Name)
         const venueMap = new Map();
-        programs.forEach(item => {
-            const city = item.city || 'İstanbul';
-            const district = item.district || 'Merkez';
+        filteredPrograms.forEach(item => {
+            const city = (item.city || 'İstanbul').trim();
+            const district = (item.district || 'Merkez').trim();
             const venueName = (item.venue_name || item.location || item.venue || '').trim();
-            const key = venueName ? `${city.toLowerCase().trim()}|${district.toLowerCase().trim()}|${venueName.toLowerCase()}` : `${city.toLowerCase().trim()}|${district.toLowerCase().trim()}|unnamed_${item.id}`;
+
+            const isUnnamed = !venueName || !city || !district;
+            const key = isUnnamed
+                ? `unnamed_${item.id}`
+                : `${normalizeCityName(city)}|${normalizeCityName(district)}|${normalizeCityName(venueName)}`;
 
             if (!venueMap.has(key)) {
                 venueMap.set(key, {
                     city,
                     district,
-                    venueName: venueName,
+                    venueName,
                     programs: [],
                     key,
-                    isUnnamed: !venueName
+                    isUnnamed
                 });
             }
             venueMap.get(key).programs.push(item);
         });
+
+        let venueList = Array.from(venueMap.values());
+
+        // 3. Post-filter venue groups (Has IG, Confirmation, Comm Status)
+        venueList = venueList.filter(vData => {
+            const comm = venueCommunicationsMap.get(vData.key) || {};
+            const igUsername = (comm.instagram_username || vData.programs.find(p => p.instagram_username)?.instagram_username || '').trim();
+            const hasIg = !!igUsername;
+
+            if (hasIgVal === 'yes' && !hasIg) return false;
+            if (hasIgVal === 'no' && hasIg) return false;
+
+            const confStatus = comm.confirmation_status || 'pending';
+            if (confVal && confStatus !== confVal) return false;
+
+            const msgStatus = comm.message_status || 'not_messaged';
+            if (commVal && msgStatus !== commVal) return false;
+
+            return true;
+        });
+
+        // 4. Sort venues
+        venueList.sort((a, b) => {
+            if (sortVal === 'venue_asc') {
+                return (a.venueName || '').localeCompare(b.venueName || '', 'tr');
+            } else if (sortVal === 'venue_desc') {
+                return (b.venueName || '').localeCompare(a.venueName || '', 'tr');
+            } else if (sortVal === 'city_asc') {
+                const cComp = (a.city || '').localeCompare(b.city || '', 'tr');
+                if (cComp !== 0) return cComp;
+                return (a.venueName || '').localeCompare(b.venueName || '', 'tr');
+            } else if (sortVal === 'date_new') {
+                const dateA = venueCommunicationsMap.get(a.key)?.last_communication_date || '';
+                const dateB = venueCommunicationsMap.get(b.key)?.last_communication_date || '';
+                return dateB.localeCompare(dateA);
+            } else if (sortVal === 'date_old') {
+                const dateA = venueCommunicationsMap.get(a.key)?.last_communication_date || '';
+                const dateB = venueCommunicationsMap.get(b.key)?.last_communication_date || '';
+                return dateA.localeCompare(dateB);
+            }
+            return 0;
+        });
+
+        currentFilteredInstagramVenues = venueList;
+        updateInstagramStats(loadedAllInstagramPrograms, venueList, filteredPrograms);
+        renderInstagramTable(venueList);
+    }
+
+    function updateInstagramStats(allPrograms, filteredVenues, filteredPrograms) {
+        const totalCount = allPrograms.length;
+        const activeCount = allPrograms.filter(p => (p.status || 'active').toLowerCase() === 'active').length;
+        const passiveCount = totalCount - activeCount;
+
+        const allVenueMap = new Map();
+        allPrograms.forEach(p => {
+            const city = (p.city || 'İstanbul').trim();
+            const district = (p.district || 'Merkez').trim();
+            const venueName = (p.venue_name || p.location || p.venue || '').trim();
+            const key = (!venueName) ? `unnamed_${p.id}` : `${normalizeCityName(city)}|${normalizeCityName(district)}|${normalizeCityName(venueName)}`;
+            allVenueMap.set(key, true);
+        });
+        const uniqueVenuesCount = allVenueMap.size;
+
+        let pendingConfirmCount = 0;
+        allVenueMap.forEach((_, vKey) => {
+            const comm = venueCommunicationsMap.get(vKey);
+            if (!comm || comm.confirmation_status !== 'confirmed') {
+                pendingConfirmCount++;
+            }
+        });
+
+        document.getElementById('stats-insta-total-programs').textContent = totalCount;
+        document.getElementById('stats-insta-active-programs').textContent = activeCount;
+        document.getElementById('stats-insta-passive-programs').textContent = passiveCount;
+        document.getElementById('stats-insta-unique-venues').textContent = uniqueVenuesCount;
+        document.getElementById('stats-insta-pending-confirm').textContent = pendingConfirmCount;
+
+        const countText = document.getElementById('insta-count-text');
+        if (countText) {
+            countText.textContent = `${filteredPrograms.length} program içinden ${filteredVenues.length} mekân gösteriliyor. (Toplam ${totalCount} program, ${uniqueVenuesCount} mekân)`;
+        }
+    }
+
+    function renderInstagramTable(venues) {
+        const tableContainer = document.getElementById('insta-table-container');
+        if (!tableContainer) return;
+
+        if (venues.length === 0) {
+            showInstagramEmpty();
+            return;
+        }
+        hideInstagramStates();
 
         let tableHtml = `
             <div class="table-responsive">
@@ -14594,40 +14843,56 @@ out center tags;`;
                             <th>Mekân (Cami / Dernek)</th>
                             <th>Program Özeti</th>
                             <th>Instagram Kullanıcı Adı</th>
-                            <th>Mesaj / Teyit Durumu</th>
-                            <th>Notlar</th>
+                            <th>İletişim / Mesaj Durumu</th>
+                            <th>Teyit / Notlar</th>
                             <th style="text-align: right;">Eylem</th>
                         </tr>
                     </thead>
                     <tbody>
         `;
 
-        venueMap.forEach((vData, vKey) => {
-            const comm = venueCommunicationsMap.get(vKey) || {};
-            const igUsername = comm.instagram_username || '';
+        venues.forEach(vData => {
+            const comm = venueCommunicationsMap.get(vData.key) || {};
+            const igUsername = comm.instagram_username || vData.programs.find(p => p.instagram_username)?.instagram_username || '';
             const igLink = comm.instagram_profile_link || (igUsername ? `https://instagram.com/${igUsername.replace('@', '')}` : '');
             const msgStatus = comm.message_status || 'not_messaged';
             const notes = comm.notes || '';
+            const confStatus = comm.confirmation_status || 'pending';
+            const lastDate = comm.last_communication_date ? new Date(comm.last_communication_date).toLocaleDateString('tr-TR') : '-';
 
-            const summaries = vData.programs.map(p => `${p.day || '-'} · ${p.time || '-'}`).join(' | ');
-            const venueDisplay = vData.venueName ? `<strong>${escapeHtml(vData.venueName)}</strong>` : '<span style="color:var(--md-error); font-style:italic; font-weight:600;">Mekân Adı Belirtilmemiş</span>';
+            const typeSet = new Set();
+            vData.programs.forEach(p => {
+                if (p.category) typeSet.add(p.category);
+                else if (p.program_name) typeSet.add(p.program_name);
+            });
+            const typeListStr = Array.from(typeSet).slice(0, 3).join(', ');
+
+            const venueDisplay = vData.venueName
+                ? `<strong>${escapeHtml(vData.venueName)}</strong>`
+                : '<span style="color:var(--md-error); font-style:italic; font-weight:600;">Mekân Adı Belirtilmemiş</span>';
+
             const actionCell = vData.isUnnamed
                 ? '<span style="color:var(--md-error); font-size:11px; font-weight:600;">Mekân eşleştirmesi gerekli</span>'
-                : `<button class="btn btn-primary btn-sm btn-save-venue-comm" data-venue-key="${escapeHtml(vKey)}" title="Kalıcı Kaydet" style="background: #2e7d32; color: white;"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>`;
+                : `<button class="btn btn-primary btn-sm btn-save-insta-venue-comm" data-venue-key="${escapeHtml(vData.key)}" title="Kalıcı Kaydet" style="background: #2e7d32; color: white;"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>`;
 
             tableHtml += `
-                <tr data-venue-key="${escapeHtml(vKey)}">
+                <tr data-venue-key="${escapeHtml(vData.key)}">
                     <td><strong>${escapeHtml(vData.city)}</strong> / ${escapeHtml(vData.district)}</td>
                     <td>${venueDisplay}</td>
-                    <td style="font-size: 11.5px; color: #555; max-width: 220px; white-space: nowrap; overflow-x: auto;">${escapeHtml(summaries)}</td>
+                    <td>
+                        <span style="font-weight: 600; color: var(--md-primary);">${vData.programs.length} Kayıt</span>
+                        <div style="font-size: 11px; color: #666; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(Array.from(typeSet).join(', '))}">
+                            ${escapeHtml(typeListStr)}
+                        </div>
+                    </td>
                     <td>
                         <div style="display: flex; align-items: center; gap: 6px;">
-                            <input type="text" class="form-control ig-username-input" value="${escapeHtml(igUsername)}" placeholder="@kullaniciadi" style="height: 32px; font-size: 12px; width: 130px;" ${vData.isUnnamed ? 'disabled' : ''} />
+                            <input type="text" class="form-control insta-username-input" value="${escapeHtml(igUsername)}" placeholder="@kullaniciadi" style="height: 32px; font-size: 12px; width: 130px;" ${vData.isUnnamed ? 'disabled' : ''} />
                             ${igLink ? `<a href="${escapeHtml(igLink)}" target="_blank" class="btn btn-secondary btn-sm" title="Instagram Profilini Aç" style="padding: 4px 8px;"><i class="fa-brands fa-instagram" style="color: #E1306C;"></i></a>` : ''}
                         </div>
                     </td>
                     <td>
-                        <select class="form-control comm-status-select" style="height: 32px; font-size: 12px; width: 150px;" ${vData.isUnnamed ? 'disabled' : ''}>
+                        <select class="form-control insta-comm-status-select" style="height: 32px; font-size: 12px; width: 150px;" ${vData.isUnnamed ? 'disabled' : ''}>
                             <option value="not_messaged" ${msgStatus === 'not_messaged' ? 'selected' : ''}>Henüz mesaj atılmadı</option>
                             <option value="message_sent" ${msgStatus === 'message_sent' ? 'selected' : ''}>Mesaj gönderildi</option>
                             <option value="awaiting_reply" ${msgStatus === 'awaiting_reply' ? 'selected' : ''}>Cevap bekleniyor</option>
@@ -14638,7 +14903,15 @@ out center tags;`;
                         </select>
                     </td>
                     <td>
-                        <input type="text" class="form-control venue-notes-input" value="${escapeHtml(notes)}" placeholder="Not ekle..." style="height: 32px; font-size: 12px; width: 140px;" ${vData.isUnnamed ? 'disabled' : ''} />
+                        <div style="display: flex; flex-direction: column; gap: 4px;">
+                            <select class="form-control insta-conf-status-select" style="height: 28px; font-size: 11px; width: 140px;" ${vData.isUnnamed ? 'disabled' : ''}>
+                                <option value="pending" ${confStatus === 'pending' ? 'selected' : ''}>Teyit Bekliyor</option>
+                                <option value="confirmed" ${confStatus === 'confirmed' ? 'selected' : ''}>Teyit Edildi</option>
+                                <option value="recheck_needed" ${confStatus === 'recheck_needed' ? 'selected' : ''}>Tekrar Teyit Gerekli</option>
+                            </select>
+                            <input type="text" class="form-control insta-notes-input" value="${escapeHtml(notes)}" placeholder="Özel not..." style="height: 28px; font-size: 11px; width: 140px;" ${vData.isUnnamed ? 'disabled' : ''} />
+                            <span style="font-size: 10px; color: #880e4f;">Son Teyit: ${lastDate}</span>
+                        </div>
                     </td>
                     <td style="text-align: right; white-space: nowrap;">
                         ${actionCell}
@@ -14654,56 +14927,92 @@ out center tags;`;
         `;
 
         tableContainer.innerHTML = tableHtml;
-        bindInstagramTrackingEvents();
+        bindInstagramEvents();
     }
 
-    function getCommStatusLabel(status) {
-        switch (status) {
-            case 'message_sent': return 'Mesaj gönderildi';
-            case 'awaiting_reply': return 'Cevap bekleniyor';
-            case 'confirmed': return 'Teyit edildi';
-            case 'schedule_changed': return 'Vakit değişti';
-            case 'ended': return 'Sona erdi';
-            case 'account_not_found': return 'Hesap yok';
-            default: return 'Henüz atılmadı';
-        }
-    }
+    function bindInstagramEvents() {
+        if (isInstagramEventsBound) return;
+        isInstagramEventsBound = true;
 
-    function getCommStatusClass(status) {
-        switch (status) {
-            case 'message_sent': return 'comm-message-sent';
-            case 'awaiting_reply': return 'comm-awaiting-reply';
-            case 'confirmed': return 'comm-confirmed';
-            case 'schedule_changed': return 'comm-schedule-changed';
-            case 'ended': return 'comm-ended';
-            case 'account_not_found': return 'comm-account-not-found';
-            default: return 'comm-not-messaged';
-        }
-    }
+        const searchInput = document.getElementById('insta-filter-search');
+        const citySelect = document.getElementById('insta-filter-city');
+        const districtSelect = document.getElementById('insta-filter-district');
+        const typeSelect = document.getElementById('insta-filter-type');
+        const statusSelect = document.getElementById('insta-filter-status');
+        const hasIgSelect = document.getElementById('insta-filter-has-ig');
+        const confSelect = document.getElementById('insta-filter-confirmation');
+        const commSelect = document.getElementById('insta-filter-comm');
+        const sortSelect = document.getElementById('insta-filter-sort');
+        const clearBtn = document.getElementById('insta-clear-filters-btn');
+        const refreshBtn = document.getElementById('insta-refresh-btn');
+        const retryBtn = document.getElementById('insta-retry-btn');
 
-    function bindInstagramTrackingEvents() {
-        document.querySelectorAll('.btn-save-venue-comm').forEach(btn => {
-            btn.onclick = async (e) => {
-                const tr = btn.closest('tr');
-                const venueKey = btn.getAttribute('data-venue-key');
-                const igInput = tr.querySelector('.ig-username-input');
-                const statusSelect = tr.querySelector('.comm-status-select');
-                const notesInput = tr.querySelector('.venue-notes-input');
-
-                const username = igInput ? igInput.value.trim() : '';
-                const msgStatus = statusSelect ? statusSelect.value : 'not_messaged';
-                const notes = notesInput ? notesInput.value.trim() : '';
-                const profileLink = username ? `https://instagram.com/${username.replace('@', '')}` : '';
-
-                await saveVenueCommunication(venueKey, {
-                    instagram_username: username,
-                    instagram_profile_link: profileLink,
-                    message_status: msgStatus,
-                    confirmation_status: msgStatus === 'confirmed' ? 'confirmed' : 'pending',
-                    notes: notes
-                });
-                renderInstagramTrackingView(currentFilteredZikirPrograms);
+        [searchInput, citySelect, districtSelect, typeSelect, statusSelect, hasIgSelect, confSelect, commSelect, sortSelect].forEach(el => {
+            if (!el) return;
+            el.oninput = applyInstagramFilters;
+            el.onchange = () => {
+                if (el === citySelect && districtSelect) {
+                    const selectedCity = citySelect.value;
+                    districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
+                    if (selectedCity) {
+                        const districts = new Set();
+                        loadedAllInstagramPrograms.forEach(p => {
+                            if (p.city && normalizeCityName(p.city) === normalizeCityName(selectedCity) && p.district) {
+                                districts.add(p.district.trim());
+                            }
+                        });
+                        Array.from(districts).sort((a, b) => a.localeCompare(b, 'tr')).forEach(d => {
+                            districtSelect.innerHTML += `<option value="${escapeHtml(d)}">${escapeHtml(d)}</option>`;
+                        });
+                    }
+                }
+                applyInstagramFilters();
             };
+        });
+
+        clearBtn?.addEventListener('click', () => {
+            if (searchInput) searchInput.value = '';
+            if (citySelect) citySelect.value = '';
+            if (districtSelect) {
+                districtSelect.innerHTML = '<option value="">Tüm İlçeler</option>';
+                districtSelect.value = '';
+            }
+            if (typeSelect) typeSelect.value = '';
+            if (statusSelect) statusSelect.value = '';
+            if (hasIgSelect) hasIgSelect.value = '';
+            if (confSelect) confSelect.value = '';
+            if (commSelect) commSelect.value = '';
+            if (sortSelect) sortSelect.value = 'venue_asc';
+            applyInstagramFilters();
+        });
+
+        refreshBtn?.addEventListener('click', loadAllProgramsForInstagramTracking);
+        retryBtn?.addEventListener('click', loadAllProgramsForInstagramTracking);
+
+        document.addEventListener('click', async (e) => {
+            const btn = e.target.closest('.btn-save-insta-venue-comm');
+            if (!btn) return;
+            const tr = btn.closest('tr');
+            const venueKey = btn.getAttribute('data-venue-key');
+            const igInput = tr.querySelector('.insta-username-input');
+            const statusSelect = tr.querySelector('.insta-comm-status-select');
+            const confStatusSelect = tr.querySelector('.insta-conf-status-select');
+            const notesInput = tr.querySelector('.insta-notes-input');
+
+            const username = igInput ? igInput.value.trim() : '';
+            const msgStatus = statusSelect ? statusSelect.value : 'not_messaged';
+            const confStatus = confStatusSelect ? confStatusSelect.value : 'pending';
+            const notes = notesInput ? notesInput.value.trim() : '';
+            const profileLink = username ? `https://instagram.com/${username.replace('@', '')}` : '';
+
+            await saveVenueCommunication(venueKey, {
+                instagram_username: username,
+                instagram_profile_link: profileLink,
+                message_status: msgStatus,
+                confirmation_status: confStatus,
+                notes: notes
+            });
+            applyInstagramFilters();
         });
     }
 
@@ -14933,21 +15242,6 @@ out center tags;`;
         if (isZikirEventsBound) return;
         isZikirEventsBound = true;
 
-        const viewModeTabs = document.querySelectorAll('#zikir-view-mode-tabs .tab-btn');
-        viewModeTabs.forEach(btn => {
-            btn.addEventListener('click', () => {
-                viewModeTabs.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-
-                currentZikirViewMode = btn.getAttribute('data-zikir-view') || 'programs';
-                const titleEl = document.getElementById('zikir-section-title');
-                if (titleEl) {
-                    titleEl.textContent = currentZikirViewMode === 'instagram' ? 'Instagram ve Teyit Takip Tablosu' : 'Zikir Programları Listesi';
-                }
-                applyZikirFilters();
-            });
-        });
-
         const batchTabs = document.querySelectorAll('#zikir-batch-tabs .tab-btn');
         batchTabs.forEach(btn => {
             btn.addEventListener('click', () => {
@@ -14967,22 +15261,14 @@ out center tags;`;
 
         document.getElementById('zikir-select-all-filtered-btn')?.addEventListener('click', () => {
             currentFilteredZikirPrograms.forEach(item => selectedZikirIds.add(item.id));
-            if (currentZikirViewMode === 'instagram') {
-                renderInstagramTrackingView(currentFilteredZikirPrograms);
-            } else {
-                renderZikirProgramsTable(currentFilteredZikirPrograms);
-            }
+            renderZikirProgramsTable(currentFilteredZikirPrograms);
             updateZikirBulkActionsUI();
             showToast(`${currentFilteredZikirPrograms.length} filtrelenmiş zikir kaydı seçildi.`, 'success');
         });
 
         document.getElementById('zikir-bulk-clear-btn')?.addEventListener('click', () => {
             selectedZikirIds.clear();
-            if (currentZikirViewMode === 'instagram') {
-                renderInstagramTrackingView(currentFilteredZikirPrograms);
-            } else {
-                renderZikirProgramsTable(currentFilteredZikirPrograms);
-            }
+            renderZikirProgramsTable(currentFilteredZikirPrograms);
             updateZikirBulkActionsUI();
             showToast('Seçim temizlendi.', 'info');
         });
