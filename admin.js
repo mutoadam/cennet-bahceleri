@@ -14572,6 +14572,8 @@ out center tags;`;
     let loadedAllInstagramPrograms = [];
     let isInstagramEventsBound = false;
     let currentFilteredInstagramVenues = [];
+    let venueEditStateMap = new Map(); // venueKey -> { instagram_username, message_status, confirmation_status, notes }
+    let openVenueDetailsSet = new Set(); // venueKey set of currently open detail rows
 
     async function fetchAllProgramsFromSupabase() {
         if (!supabaseClient) return [];
