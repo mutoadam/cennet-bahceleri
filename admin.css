@@ -74,6 +74,12 @@ body {
     padding: 0 24px;
 }
 
+/* Admin Paneli Genişletilmiş Container (1440px) */
+.admin-main.container,
+.admin-header .header-container {
+    max-width: 1440px;
+}
+
 /* Geçici Güvenlik Uyarı Bannerı */
 .security-banner {
     background-color: #fff8e1;
@@ -1544,10 +1550,33 @@ body {
    ========================================== */
 .main-navigation-tabs {
     display: flex;
-    gap: 16px;
+    flex-wrap: wrap;
+    gap: 12px 16px;
     margin-bottom: 32px;
     border-bottom: 2px solid var(--md-outline);
     padding-bottom: 8px;
+}
+
+.instagram-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+}
+@media (max-width: 1440px) {
+    .instagram-stats-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+@media (max-width: 1024px) {
+    .instagram-stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+@media (max-width: 600px) {
+    .instagram-stats-grid {
+        grid-template-columns: 1fr;
+    }
 }
 
 .main-tab-btn {
