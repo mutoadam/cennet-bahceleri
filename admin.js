@@ -14235,9 +14235,14 @@ out center tags;`;
             throw new Error('Eksik mekân bilgisi nedeniyle kayıt reddedildi.');
         }
 
+        const existingComm = venueCommunicationsMap.get(venueKey) || {};
+        const oldNormalizedIg = normalizeInstagramUsername(existingComm.instagram_username || '');
+
         const rawIg = commData.instagram_username || '';
         const normalizedIg = normalizeInstagramUsername(rawIg);
         const profileLink = normalizedIg ? `https://instagram.com/${normalizedIg}` : null;
+
+        const instagramChanged = oldNormalizedIg !== normalizedIg;
 
         const payload = {
             city: city,
@@ -14266,56 +14271,57 @@ out center tags;`;
             throw e;
         }
 
-        // Step 2: Synchronize matching programs in public.programs table separately
-        try {
-            const sanitizeLike = (str) => (str || '').replace(/[%_]/g, '\\$&');
-            const { data: matchingPrograms, error: fetchErr } = await supabaseClient
-                .from('programs')
-                .select('id, city, district, venue_name, instagram_username')
-                .ilike('city', sanitizeLike(city))
-                .ilike('district', sanitizeLike(district))
-                .ilike('venue_name', sanitizeLike(venueName));
-
-            if (fetchErr) throw fetchErr;
-
-            let updatedCount = 0;
-            let skippedCount = 0;
-            let errorCount = 0;
-
-            for (const prog of (matchingPrograms || [])) {
-                const existingIg = (prog.instagram_username || '').trim().toLowerCase();
-                const newIg = (normalizedIg || '').trim().toLowerCase();
-
-                // If program already has a different non-empty custom Instagram handle, preserve and skip it
-                if (existingIg && existingIg !== newIg) {
-                    skippedCount++;
-                    continue;
-                }
-
-                if (existingIg === newIg) {
-                    skippedCount++;
-                    continue;
-                }
-
-                const { error: updateErr } = await supabaseClient
+        // Step 2: Synchronize matching programs in public.programs table ONLY IF instagram username changed
+        if (instagramChanged) {
+            try {
+                const sanitizeLike = (str) => (str || '').replace(/[%_]/g, '\\$&');
+                const { data: matchingPrograms, error: fetchErr } = await supabaseClient
                     .from('programs')
-                    .update({ instagram_username: normalizedIg })
-                    .eq('id', prog.id);
+                    .select('id, city, district, venue_name, instagram_username')
+                    .ilike('city', sanitizeLike(city))
+                    .ilike('district', sanitizeLike(district))
+                    .ilike('venue_name', sanitizeLike(venueName));
 
-                if (updateErr) {
-                    console.error(`Program update error for ID ${prog.id}:`, updateErr);
-                    errorCount++;
-                } else {
-                    updatedCount++;
+                if (fetchErr) throw fetchErr;
+
+                let updatedCount = 0;
+                let skippedCount = 0;
+                let errorCount = 0;
+
+                for (const prog of (matchingPrograms || [])) {
+                    const existingIg = (prog.instagram_username || '').trim().toLowerCase();
+                    const newIg = (normalizedIg || '').trim().toLowerCase();
+
+                    if (existingIg && existingIg !== newIg) {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    if (existingIg === newIg) {
+                        skippedCount++;
+                        continue;
+                    }
+
+                    const { error: updateErr } = await supabaseClient
+                        .from('programs')
+                        .update({ instagram_username: normalizedIg })
+                        .eq('id', prog.id);
+
+                    if (updateErr) {
+                        console.error(`Program update error for ID ${prog.id}:`, updateErr);
+                        errorCount++;
+                    } else {
+                        updatedCount++;
+                    }
                 }
-            }
 
-            if ((matchingPrograms || []).length > 0) {
-                showToast(`Program Senkronizasyonu: ${updatedCount} güncellendi, ${skippedCount} atlandı, ${errorCount} hata.`, errorCount > 0 ? 'warning' : 'success');
+                if ((matchingPrograms || []).length > 0) {
+                    showToast(`Program Senkronizasyonu: ${updatedCount} güncellendi, ${skippedCount} atlandı, ${errorCount} hata.`, errorCount > 0 ? 'warning' : 'success');
+                }
+            } catch (syncErr) {
+                console.error('Program synchronization error:', syncErr);
+                showToast('Programlar güncellenirken hata oluştu: ' + syncErr.message, 'error');
             }
-        } catch (syncErr) {
-            console.error('Program synchronization error:', syncErr);
-            showToast('Programlar güncellenirken hata oluştu: ' + syncErr.message, 'error');
         }
     }
 
@@ -14836,15 +14842,14 @@ out center tags;`;
 
         let tableHtml = `
             <div class="table-responsive">
-                <table class="zikir-admin-table">
+                <table class="zikir-admin-table" style="table-layout: auto;">
                     <thead>
                         <tr>
                             <th>İl / İlçe</th>
                             <th>Mekân (Cami / Dernek)</th>
                             <th>Program Özeti</th>
-                            <th>Instagram Kullanıcı Adı</th>
-                            <th>İletişim / Mesaj Durumu</th>
-                            <th>Teyit / Notlar</th>
+                            <th>Instagram</th>
+                            <th>İletişim & Teyit</th>
                             <th style="text-align: right;">Eylem</th>
                         </tr>
                     </thead>
@@ -14852,12 +14857,16 @@ out center tags;`;
         `;
 
         venues.forEach(vData => {
-            const comm = venueCommunicationsMap.get(vData.key) || {};
-            const igUsername = comm.instagram_username || vData.programs.find(p => p.instagram_username)?.instagram_username || '';
-            const igLink = comm.instagram_profile_link || (igUsername ? `https://instagram.com/${igUsername.replace('@', '')}` : '');
-            const msgStatus = comm.message_status || 'not_messaged';
-            const notes = comm.notes || '';
-            const confStatus = comm.confirmation_status || 'pending';
+            const vKey = vData.key;
+            const comm = venueCommunicationsMap.get(vKey) || {};
+            const draft = venueEditStateMap.get(vKey) || {};
+
+            const igUsername = draft.instagram_username !== undefined ? draft.instagram_username : (comm.instagram_username || vData.programs.find(p => p.instagram_username)?.instagram_username || '');
+            const msgStatus = draft.message_status !== undefined ? draft.message_status : (comm.message_status || 'not_messaged');
+            const confStatus = draft.confirmation_status !== undefined ? draft.confirmation_status : (comm.confirmation_status || 'pending');
+            const notes = draft.notes !== undefined ? draft.notes : (comm.notes || '');
+
+            const igLink = igUsername ? `https://instagram.com/${igUsername.replace('@', '').trim()}` : '';
             const lastDate = comm.last_communication_date ? new Date(comm.last_communication_date).toLocaleDateString('tr-TR') : '-';
 
             const typeSet = new Set();
@@ -14871,50 +14880,87 @@ out center tags;`;
                 ? `<strong>${escapeHtml(vData.venueName)}</strong>`
                 : '<span style="color:var(--md-error); font-style:italic; font-weight:600;">Mekân Adı Belirtilmemiş</span>';
 
-            const actionCell = vData.isUnnamed
-                ? '<span style="color:var(--md-error); font-size:11px; font-weight:600;">Mekân eşleştirmesi gerekli</span>'
-                : `<button class="btn btn-primary btn-sm btn-save-insta-venue-comm" data-venue-key="${escapeHtml(vData.key)}" title="Kalıcı Kaydet" style="background: #2e7d32; color: white;"><i class="fa-solid fa-floppy-disk"></i> Kaydet</button>`;
+            const commLabel = getCommStatusLabel(msgStatus);
+            const commClass = getCommStatusClass(msgStatus);
+            const confLabel = confStatus === 'confirmed' ? 'Teyit Edildi' : (confStatus === 'recheck_needed' ? 'Tekrar Teyit Gerekli' : 'Teyit Bekliyor');
+            const confClass = confStatus === 'confirmed' ? 'comm-confirmed' : (confStatus === 'recheck_needed' ? 'comm-schedule-changed' : 'comm-awaiting-reply');
 
+            const isOpen = openVenueDetailsSet.has(vKey);
+            const toggleBtnText = isOpen ? '<i class="fa-solid fa-chevron-up"></i> Kapat' : '<i class="fa-solid fa-pen-to-square"></i> Düzenle & Yönet';
+            const toggleBtnClass = isOpen ? 'btn btn-secondary btn-sm' : 'btn btn-primary btn-sm';
+
+            // Summary Row
             tableHtml += `
-                <tr data-venue-key="${escapeHtml(vData.key)}">
+                <tr data-venue-key="${escapeHtml(vKey)}" class="venue-summary-row">
                     <td><strong>${escapeHtml(vData.city)}</strong> / ${escapeHtml(vData.district)}</td>
                     <td>${venueDisplay}</td>
                     <td>
                         <span style="font-weight: 600; color: var(--md-primary);">${vData.programs.length} Kayıt</span>
-                        <div style="font-size: 11px; color: #666; max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(Array.from(typeSet).join(', '))}">
+                        <div style="font-size: 11px; color: #666; max-width: 160px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(Array.from(typeSet).join(', '))}">
                             ${escapeHtml(typeListStr)}
                         </div>
                     </td>
                     <td>
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <input type="text" class="form-control insta-username-input" value="${escapeHtml(igUsername)}" placeholder="@kullaniciadi" style="height: 32px; font-size: 12px; width: 130px;" ${vData.isUnnamed ? 'disabled' : ''} />
-                            ${igLink ? `<a href="${escapeHtml(igLink)}" target="_blank" class="btn btn-secondary btn-sm" title="Instagram Profilini Aç" style="padding: 4px 8px;"><i class="fa-brands fa-instagram" style="color: #E1306C;"></i></a>` : ''}
-                        </div>
-                    </td>
-                    <td>
-                        <select class="form-control insta-comm-status-select" style="height: 32px; font-size: 12px; width: 150px;" ${vData.isUnnamed ? 'disabled' : ''}>
-                            <option value="not_messaged" ${msgStatus === 'not_messaged' ? 'selected' : ''}>Henüz mesaj atılmadı</option>
-                            <option value="message_sent" ${msgStatus === 'message_sent' ? 'selected' : ''}>Mesaj gönderildi</option>
-                            <option value="awaiting_reply" ${msgStatus === 'awaiting_reply' ? 'selected' : ''}>Cevap bekleniyor</option>
-                            <option value="confirmed" ${msgStatus === 'confirmed' ? 'selected' : ''}>Program teyit edildi</option>
-                            <option value="schedule_changed" ${msgStatus === 'schedule_changed' ? 'selected' : ''}>Gün/vakit değişti</option>
-                            <option value="ended" ${msgStatus === 'ended' ? 'selected' : ''}>Program sona erdi</option>
-                            <option value="account_not_found" ${msgStatus === 'account_not_found' ? 'selected' : ''}>Hesap bulunamadı</option>
-                        </select>
+                        ${igUsername ? `<span style="font-weight:600; color:#e1306c;">@${escapeHtml(igUsername.replace('@',''))}</span>` : '<span style="color:#999; font-style:italic;">Hesap Yok</span>'}
                     </td>
                     <td>
                         <div style="display: flex; flex-direction: column; gap: 4px;">
-                            <select class="form-control insta-conf-status-select" style="height: 28px; font-size: 11px; width: 140px;" ${vData.isUnnamed ? 'disabled' : ''}>
-                                <option value="pending" ${confStatus === 'pending' ? 'selected' : ''}>Teyit Bekliyor</option>
-                                <option value="confirmed" ${confStatus === 'confirmed' ? 'selected' : ''}>Teyit Edildi</option>
-                                <option value="recheck_needed" ${confStatus === 'recheck_needed' ? 'selected' : ''}>Tekrar Teyit Gerekli</option>
-                            </select>
-                            <input type="text" class="form-control insta-notes-input" value="${escapeHtml(notes)}" placeholder="Özel not..." style="height: 28px; font-size: 11px; width: 140px;" ${vData.isUnnamed ? 'disabled' : ''} />
-                            <span style="font-size: 10px; color: #880e4f;">Son Teyit: ${lastDate}</span>
+                            <span class="comm-status-badge ${commClass}" style="font-size: 11px; padding: 2px 6px; width: fit-content;">${escapeHtml(commLabel)}</span>
+                            <span class="comm-status-badge ${confClass}" style="font-size: 11px; padding: 2px 6px; width: fit-content;">${escapeHtml(confLabel)}</span>
                         </div>
                     </td>
                     <td style="text-align: right; white-space: nowrap;">
-                        ${actionCell}
+                        <button class="${toggleBtnClass} btn-toggle-insta-detail" data-venue-key="${escapeHtml(vKey)}">
+                            ${toggleBtnText}
+                        </button>
+                    </td>
+                </tr>
+            `;
+
+            // Expandable Detail Row
+            tableHtml += `
+                <tr class="venue-detail-row ${isOpen ? '' : 'hidden'}" data-venue-detail-key="${escapeHtml(vKey)}" style="background-color: #fafafa; border-bottom: 2px solid var(--md-outline);">
+                    <td colspan="6" style="padding: 16px 20px;">
+                        <div style="background: #ffffff; border: 1px solid var(--md-outline); border-radius: 8px; padding: 16px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 16px; align-items: end;">
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block;"><i class="fa-brands fa-instagram" style="color:#e1306c;"></i> Instagram Kullanıcı Adı</label>
+                                <div style="display: flex; align-items: center; gap: 6px;">
+                                    <input type="text" class="form-control insta-username-input" data-venue-key="${escapeHtml(vKey)}" value="${escapeHtml(igUsername)}" placeholder="@kullaniciadi" style="height: 38px; font-size: 13px;" ${vData.isUnnamed ? 'disabled' : ''} />
+                                    ${igLink ? `<a href="${escapeHtml(igLink)}" target="_blank" class="btn btn-secondary btn-sm" title="Instagram Profilini Aç" style="padding: 6px 10px; height: 38px; display: inline-flex; align-items: center;"><i class="fa-brands fa-instagram" style="color: #E1306C; font-size: 16px;"></i></a>` : ''}
+                                </div>
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block;"><i class="fa-solid fa-comments"></i> İletişim / Mesaj Durumu</label>
+                                <select class="form-control insta-comm-status-select" data-venue-key="${escapeHtml(vKey)}" style="height: 38px; font-size: 13px;" ${vData.isUnnamed ? 'disabled' : ''}>
+                                    <option value="not_messaged" ${msgStatus === 'not_messaged' ? 'selected' : ''}>Henüz mesaj atılmadı</option>
+                                    <option value="message_sent" ${msgStatus === 'message_sent' ? 'selected' : ''}>Mesaj gönderildi</option>
+                                    <option value="awaiting_reply" ${msgStatus === 'awaiting_reply' ? 'selected' : ''}>Cevap bekleniyor</option>
+                                    <option value="confirmed" ${msgStatus === 'confirmed' ? 'selected' : ''}>Program teyit edildi</option>
+                                    <option value="schedule_changed" ${msgStatus === 'schedule_changed' ? 'selected' : ''}>Gün/vakit değişti</option>
+                                    <option value="ended" ${msgStatus === 'ended' ? 'selected' : ''}>Program sona erdi</option>
+                                    <option value="account_not_found" ${msgStatus === 'account_not_found' ? 'selected' : ''}>Hesap bulunamadı</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block;"><i class="fa-solid fa-circle-check"></i> Teyit Durumu</label>
+                                <select class="form-control insta-conf-status-select" data-venue-key="${escapeHtml(vKey)}" style="height: 38px; font-size: 13px;" ${vData.isUnnamed ? 'disabled' : ''}>
+                                    <option value="pending" ${confStatus === 'pending' ? 'selected' : ''}>Teyit Bekliyor</option>
+                                    <option value="confirmed" ${confStatus === 'confirmed' ? 'selected' : ''}>Teyit Edildi</option>
+                                    <option value="recheck_needed" ${confStatus === 'recheck_needed' ? 'selected' : ''}>Tekrar Teyit Gerekli</option>
+                                </select>
+                            </div>
+                            <div class="form-group" style="margin: 0;">
+                                <label style="font-size: 12px; font-weight: 600; margin-bottom: 4px; display: block;"><i class="fa-solid fa-note-sticky"></i> Özel Notlar</label>
+                                <input type="text" class="form-control insta-notes-input" data-venue-key="${escapeHtml(vKey)}" value="${escapeHtml(notes)}" placeholder="Özel not..." style="height: 38px; font-size: 13px;" ${vData.isUnnamed ? 'disabled' : ''} />
+                            </div>
+                            <div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; grid-column: 1 / -1; margin-top: 8px; border-top: 1px solid #eee; padding-top: 14px;">
+                                <span style="font-size: 12px; color: #555;"><i class="fa-solid fa-clock"></i> Son Teyit / İletişim Tarihi: <strong>${lastDate}</strong></span>
+                                ${vData.isUnnamed
+                                    ? '<span style="color:var(--md-error); font-size:12px; font-weight:600;">Mekân eşleştirmesi gerekli</span>'
+                                    : `<button class="btn btn-primary btn-sm btn-save-insta-venue-comm" data-venue-key="${escapeHtml(vKey)}" style="background: #2e7d32; color: white; padding: 12px 28px; font-size: 14px; font-weight: 600; height: 42px; display: inline-flex; align-items: center; gap: 8px; cursor: pointer;"><i class="fa-solid fa-floppy-disk"></i> Değişiklikleri Kaydet</button>`
+                                }
+                            </div>
+                        </div>
                     </td>
                 </tr>
             `;
@@ -14946,6 +14992,7 @@ out center tags;`;
         const clearBtn = document.getElementById('insta-clear-filters-btn');
         const refreshBtn = document.getElementById('insta-refresh-btn');
         const retryBtn = document.getElementById('insta-retry-btn');
+        const tableContainer = document.getElementById('insta-table-container');
 
         [searchInput, citySelect, districtSelect, typeSelect, statusSelect, hasIgSelect, confSelect, commSelect, sortSelect].forEach(el => {
             if (!el) return;
@@ -14989,31 +15036,79 @@ out center tags;`;
         refreshBtn?.addEventListener('click', loadAllProgramsForInstagramTracking);
         retryBtn?.addEventListener('click', loadAllProgramsForInstagramTracking);
 
-        document.addEventListener('click', async (e) => {
-            const btn = e.target.closest('.btn-save-insta-venue-comm');
-            if (!btn) return;
-            const tr = btn.closest('tr');
-            const venueKey = btn.getAttribute('data-venue-key');
-            const igInput = tr.querySelector('.insta-username-input');
-            const statusSelect = tr.querySelector('.insta-comm-status-select');
-            const confStatusSelect = tr.querySelector('.insta-conf-status-select');
-            const notesInput = tr.querySelector('.insta-notes-input');
+        if (tableContainer) {
+            tableContainer.onclick = async (e) => {
+                const toggleBtn = e.target.closest('.btn-toggle-insta-detail');
+                if (toggleBtn) {
+                    const vKey = toggleBtn.getAttribute('data-venue-key');
+                    if (openVenueDetailsSet.has(vKey)) {
+                        openVenueDetailsSet.delete(vKey);
+                    } else {
+                        openVenueDetailsSet.add(vKey);
+                    }
+                    renderInstagramTable(currentFilteredInstagramVenues);
+                    return;
+                }
 
-            const username = igInput ? igInput.value.trim() : '';
-            const msgStatus = statusSelect ? statusSelect.value : 'not_messaged';
-            const confStatus = confStatusSelect ? confStatusSelect.value : 'pending';
-            const notes = notesInput ? notesInput.value.trim() : '';
-            const profileLink = username ? `https://instagram.com/${username.replace('@', '')}` : '';
+                const saveBtn = e.target.closest('.btn-save-insta-venue-comm');
+                if (saveBtn) {
+                    const vKey = saveBtn.getAttribute('data-venue-key');
+                    const detailRow = tableContainer.querySelector(`.venue-detail-row[data-venue-detail-key="${CSS.escape(vKey)}"]`);
+                    if (!detailRow) return;
 
-            await saveVenueCommunication(venueKey, {
-                instagram_username: username,
-                instagram_profile_link: profileLink,
-                message_status: msgStatus,
-                confirmation_status: confStatus,
-                notes: notes
-            });
-            applyInstagramFilters();
-        });
+                    const igInput = detailRow.querySelector('.insta-username-input');
+                    const commSelectEl = detailRow.querySelector('.insta-comm-status-select');
+                    const confSelectEl = detailRow.querySelector('.insta-conf-status-select');
+                    const notesInput = detailRow.querySelector('.insta-notes-input');
+
+                    const username = igInput ? igInput.value.trim() : '';
+                    const msgStatus = commSelectEl ? commSelectEl.value : 'not_messaged';
+                    const confStatus = confSelectEl ? confSelectEl.value : 'pending';
+                    const notes = notesInput ? notesInput.value.trim() : '';
+                    const profileLink = username ? `https://instagram.com/${username.replace('@', '')}` : '';
+
+                    await saveVenueCommunication(vKey, {
+                        instagram_username: username,
+                        instagram_profile_link: profileLink,
+                        message_status: msgStatus,
+                        confirmation_status: confStatus,
+                        notes: notes
+                    });
+
+                    venueEditStateMap.delete(vKey);
+                    applyInstagramFilters();
+                }
+            };
+
+            tableContainer.oninput = (e) => {
+                const target = e.target;
+                const vKey = target.getAttribute('data-venue-key');
+                if (!vKey) return;
+
+                if (target.classList.contains('insta-username-input') ||
+                    target.classList.contains('insta-comm-status-select') ||
+                    target.classList.contains('insta-conf-status-select') ||
+                    target.classList.contains('insta-notes-input')) {
+
+                    const detailRow = tableContainer.querySelector(`.venue-detail-row[data-venue-detail-key="${CSS.escape(vKey)}"]`);
+                    if (!detailRow) return;
+
+                    const igInput = detailRow.querySelector('.insta-username-input');
+                    const commSelectEl = detailRow.querySelector('.insta-comm-status-select');
+                    const confSelectEl = detailRow.querySelector('.insta-conf-status-select');
+                    const notesInput = detailRow.querySelector('.insta-notes-input');
+
+                    venueEditStateMap.set(vKey, {
+                        instagram_username: igInput ? igInput.value.trim() : '',
+                        message_status: commSelectEl ? commSelectEl.value : 'not_messaged',
+                        confirmation_status: confSelectEl ? confSelectEl.value : 'pending',
+                        notes: notesInput ? notesInput.value.trim() : ''
+                    });
+                }
+            };
+
+            tableContainer.onchange = tableContainer.oninput;
+        }
     }
 
     function updateZikirBulkActionsUI(filtered = currentFilteredZikirPrograms) {
