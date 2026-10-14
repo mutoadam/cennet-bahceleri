@@ -3612,7 +3612,7 @@ body:not(.logged-out) #admin-login-screen {
 
 .zikir-admin-table {
     width: 100%;
-    min-width: 980px;
+    min-width: 950px;
     border-collapse: collapse;
     font-size: 13px;
     text-align: left;
@@ -3620,26 +3620,50 @@ body:not(.logged-out) #admin-login-screen {
 
 .zikir-admin-table th,
 .zikir-admin-table td {
-    padding: 12px 14px;
+    padding: 8px 10px;
     border-bottom: 1px solid var(--md-outline, #e0e0e0);
     vertical-align: middle;
 }
 
-/* Sütun Genişlik Kontrolleri */
-.zikir-admin-table th:nth-child(1),
-.zikir-admin-table td:nth-child(1) { width: 130px; min-width: 130px; }
+/* Sütun Genişlik Kontrolleri ve Sıkıştırma */
+.zikir-admin-table th:has(input[type="checkbox"]),
+.zikir-admin-table td:has(input[type="checkbox"]) {
+    width: 36px;
+    min-width: 36px;
+    max-width: 36px;
+    text-align: center;
+    padding-left: 4px;
+    padding-right: 4px;
+}
+
 .zikir-admin-table th:nth-child(2),
-.zikir-admin-table td:nth-child(2) { width: 180px; min-width: 160px; }
+.zikir-admin-table td:nth-child(2) { width: 110px; min-width: 100px; }
+
 .zikir-admin-table th:nth-child(3),
-.zikir-admin-table td:nth-child(3) { width: 220px; min-width: 200px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.zikir-admin-table td:nth-child(3) { width: 170px; min-width: 140px; }
+
 .zikir-admin-table th:nth-child(4),
-.zikir-admin-table td:nth-child(4) { width: 160px; min-width: 150px; }
+.zikir-admin-table td:nth-child(4) { width: 130px; min-width: 110px; }
+
 .zikir-admin-table th:nth-child(5),
-.zikir-admin-table td:nth-child(5) { width: 170px; min-width: 160px; }
+.zikir-admin-table td:nth-child(5) { width: 120px; min-width: 100px; }
+
 .zikir-admin-table th:nth-child(6),
-.zikir-admin-table td:nth-child(6) { width: 150px; min-width: 140px; }
+.zikir-admin-table td:nth-child(6) { width: 110px; min-width: 95px; }
+
 .zikir-admin-table th:nth-child(7),
-.zikir-admin-table td:nth-child(7) { width: 110px; min-width: 110px; text-align: right; white-space: nowrap; }
+.zikir-admin-table td:nth-child(7) { width: 75px; min-width: 70px; text-align: center; }
+
+.zikir-admin-table th:nth-child(8),
+.zikir-admin-table td:nth-child(8) { width: 125px; min-width: 110px; }
+
+.zikir-admin-table th:last-child,
+.zikir-admin-table td:last-child {
+    width: 85px;
+    min-width: 85px;
+    text-align: right;
+    white-space: nowrap;
+}
 
 .btn-save-venue-comm {
     white-space: nowrap !important;
