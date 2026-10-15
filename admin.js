@@ -14575,6 +14575,30 @@ out center tags;`;
     let venueEditStateMap = new Map(); // venueKey -> { instagram_username, message_status, confirmation_status, notes }
     let openVenueDetailsSet = new Set(); // venueKey set of currently open detail rows
 
+    function getCommStatusLabel(status) {
+        switch (status) {
+            case 'message_sent': return 'Mesaj gönderildi';
+            case 'awaiting_reply': return 'Cevap bekleniyor';
+            case 'confirmed': return 'Program teyit edildi';
+            case 'schedule_changed': return 'Gün/vakit değişti';
+            case 'ended': return 'Program sona erdi';
+            case 'account_not_found': return 'Hesap bulunamadı';
+            default: return 'Henüz mesaj atılmadı';
+        }
+    }
+
+    function getCommStatusClass(status) {
+        switch (status) {
+            case 'message_sent': return 'comm-message-sent';
+            case 'awaiting_reply': return 'comm-awaiting-reply';
+            case 'confirmed': return 'comm-confirmed';
+            case 'schedule_changed': return 'comm-schedule-changed';
+            case 'ended': return 'comm-ended';
+            case 'account_not_found': return 'comm-account-not-found';
+            default: return 'comm-not-messaged';
+        }
+    }
+
     async function fetchAllProgramsFromSupabase() {
         if (!supabaseClient) return [];
         let allData = [];
