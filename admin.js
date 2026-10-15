@@ -14271,8 +14271,8 @@ out center tags;`;
             throw e;
         }
 
-        // Step 2: Synchronize matching programs in public.programs table ONLY IF instagram username changed
-        if (instagramChanged) {
+        // Step 2: Synchronize matching programs in public.programs table whenever venue has an Instagram handle
+        if (normalizedIg) {
             try {
                 const sanitizeLike = (str) => (str || '').replace(/[%_]/g, '\\$&');
                 const { data: matchingPrograms, error: fetchErr } = await supabaseClient
@@ -14287,36 +14287,52 @@ out center tags;`;
                 let updatedCount = 0;
                 let skippedCount = 0;
                 let errorCount = 0;
+                let notFoundMsg = false;
 
-                for (const prog of (matchingPrograms || [])) {
-                    const existingIg = (prog.instagram_username || '').trim().toLowerCase();
-                    const newIg = (normalizedIg || '').trim().toLowerCase();
+                if (!matchingPrograms || matchingPrograms.length === 0) {
+                    notFoundMsg = true;
+                } else {
+                    for (const prog of matchingPrograms) {
+                        const existingIg = (prog.instagram_username || '').trim().toLowerCase();
+                        const newIg = (normalizedIg || '').trim().toLowerCase();
 
-                    if (existingIg && existingIg !== newIg) {
-                        skippedCount++;
-                        continue;
-                    }
+                        // If program already has a different non-empty custom Instagram handle, preserve and skip it
+                        if (existingIg && existingIg !== newIg) {
+                            skippedCount++;
+                            continue;
+                        }
 
-                    if (existingIg === newIg) {
-                        skippedCount++;
-                        continue;
-                    }
+                        // If program already has the exact same handle, skip
+                        if (existingIg === newIg) {
+                            skippedCount++;
+                            continue;
+                        }
 
-                    const { error: updateErr } = await supabaseClient
-                        .from('programs')
-                        .update({ instagram_username: normalizedIg })
-                        .eq('id', prog.id);
+                        // If program instagram_username is NULL or empty, update it to normalizedIg
+                        if (!existingIg) {
+                            const { error: updateErr } = await supabaseClient
+                                .from('programs')
+                                .update({ instagram_username: normalizedIg })
+                                .eq('id', prog.id);
 
-                    if (updateErr) {
-                        console.error(`Program update error for ID ${prog.id}:`, updateErr);
-                        errorCount++;
-                    } else {
-                        updatedCount++;
+                            if (updateErr) {
+                                console.error(`Program update error for ID ${prog.id}:`, updateErr);
+                                errorCount++;
+                            } else {
+                                updatedCount++;
+                            }
+                        } else {
+                            skippedCount++;
+                        }
                     }
                 }
 
-                if ((matchingPrograms || []).length > 0) {
-                    showToast(`Program Senkronizasyonu: ${updatedCount} güncellendi, ${skippedCount} atlandı, ${errorCount} hata.`, errorCount > 0 ? 'warning' : 'success');
+                if (notFoundMsg) {
+                    showToast('Uyarı: Bu mekânla eşleşen hiçbir program bulunamadı.', 'warning');
+                } else if ((matchingPrograms || []).length > 0) {
+                    if (updatedCount > 0 || errorCount > 0) {
+                        showToast(`Program Senkronizasyonu: ${updatedCount} güncellendi, ${skippedCount} atlandı, ${errorCount} hata.`, errorCount > 0 ? 'warning' : 'success');
+                    }
                 }
             } catch (syncErr) {
                 console.error('Program synchronization error:', syncErr);
