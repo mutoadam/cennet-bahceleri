@@ -45,7 +45,7 @@ Bekleyen öneriler · Programlar · Kurum/Cemaat/Oluşum · Cami konumları · K
 - Öneri onaylama/programa aktarma davranışı Android admin ekranının referansıdır. Değiştirirken Android tarafını da düşün (bkz. Android reposundaki `docs/devir-teslim-chatgpt.md`, atomik onay RPC kararı).
 - Programı kaldırma = `active/inactive`, kalıcı silme yok.
 - Tarih, saat, hoca, kurum, mekân ve dinî metinler tasarım uğruna değiştirilmez.
-- **Yayın:** Netlify'a GitHub üzerinden otomatik yayın olup olmadığı DOĞRULANMADI. `main`'e push canlıya çıkabilir; doğrulanana kadar `main`'e kullanıcı onayı olmadan push etme, işleri dalda yap.
+- **Yayın:** Repo GitHub üzerinden 11 Netlify sitesine bağlı (ahanda, cennetbah, cennetbah5temmuz, cennetbahce, cennetbahcee, cennetbahceleri, cennetbahceleri-ekle, cennetbahceleri-eskii, cennetbahceleriii, cennetbahcesi, cennetbahh). Her PR'da deploy preview çalışır; `main`'e push hepsine canlı yayın demektir. Kullanıcı onayı olmadan `main`'e push etme veya merge yapma; işleri dalda ve PR ile yap.
 
 ## İlgili proje
 
