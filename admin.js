@@ -238,7 +238,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Auth Durum Değişikliklerini Dinle
             supabaseClient.auth.onAuthStateChange((event, session) => {
-                console.log("Auth Event:", event);
                 handleAuthStateChange(session);
             });
 
@@ -406,7 +405,6 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!error && data) {
                 if (data.length > 0) {
                     knownColumns = Object.keys(data[0]);
-                    console.log("Successfully detected suggestions table columns:", knownColumns);
                 } else {
                     knownColumns = []; // B16.1C Hotfix: Table empty, mark as attempted
                 }
@@ -671,7 +669,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Sync Approved/Added Suggestion to Programs Table (Paket F2/B12.2A4)
     async function syncSuggestionToProgram(suggestion, sourceType, logoUrlOverride = null, organizationIdOverride = null) {
         if (!supabaseClient) return { success: false, error: 'Supabase client not initialized' };
-        console.log("syncSuggestionToProgram başlatıldı - sourceType:", sourceType);
 
         let programId = null;
         let wasExisting = false;
@@ -688,7 +685,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (existingPrograms && existingPrograms.length > 0) {
-            console.log(`suggestion_id: ${suggestion.id} zaten programs tablosunda mevcut. Mevcut ID kullanılıyor.`);
             programId = existingPrograms[0].id;
             wasExisting = true;
         } else {
@@ -779,7 +775,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 source: sourceType
             };
 
-            console.log("Programs tablosuna veri aktarılıyor...");
 
             // 6. Insert to programs (robust fallback in case columns don't exist)
             const { data: insertedData, error: insertError } = await supabaseClient
@@ -825,7 +820,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 7. B12.2A4 - Fotoğrafları RPC ile aktar
         if (programId) {
-            console.log(`Fotoğraflar programa aktarılıyor. Program ID: ${programId}`);
             const { data: photoCount, error: rpcError } = await supabaseClient.rpc(
                 'admin_sync_suggestion_photos_to_program',
                 {
@@ -839,7 +833,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw rpcError;
             }
 
-            console.log(`Fotoğraf aktarımı tamamlandı. Toplam aktarılan: ${photoCount || 0}`);
             return {
                 success: true,
                 programId: programId,
@@ -854,7 +847,6 @@ document.addEventListener('DOMContentLoaded', () => {
     // Modal functions (Paket A — Admin İncele Modalı)
     function openInspectModal(item) {
         currentSuggestion = item;
-        console.log("İncele tıklandı");
         try {
             // Resolve field values (fallback to 'Belirtilmemiş' for missing strings, handle potential variant keys)
             const programName = item.program_name || 'Belirtilmemiş';
@@ -1026,7 +1018,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Show Modal overlay
             const modal = document.getElementById('inspect-modal');
-            console.log("Modal bulundu mu?", modal);
             if (modal) {
                 modal.classList.remove('hidden');
                 document.body.style.overflow = "hidden";
@@ -1154,7 +1145,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (galleryLoading) galleryLoading.classList.remove('hidden');
 
         try {
-            console.log(`Loading gallery for suggestion: ${suggestionId}`);
 
             const { data: photos, error } = await supabaseClient
                 .from('program_photos')
@@ -1164,7 +1154,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Yarış Durumu Kontrolü (Race Condition check)
             if (!currentSuggestion || currentSuggestion.id !== suggestionId) {
-                console.log("Gallery load ignored: Modal context changed.");
                 return;
             }
 
@@ -1342,7 +1331,6 @@ document.addEventListener('DOMContentLoaded', () => {
         allGalleryBtns.forEach(b => b.classList.add('disabled'));
 
         try {
-            console.log(`Setting new cover for suggestion ${currentSuggestion.id}: Photo ${photo.id}`);
 
             const { error } = await supabaseClient.rpc(
                 'admin_set_suggestion_photo_cover',
@@ -1394,7 +1382,6 @@ document.addEventListener('DOMContentLoaded', () => {
         allGalleryBtns.forEach(b => b.classList.add('disabled'));
 
         try {
-            console.log(`Moving photo ${photo.id} direction ${direction} for suggestion ${currentSuggestion.id}`);
 
             const { data: moved, error } = await supabaseClient.rpc(
                 'admin_move_suggestion_photo',
@@ -1413,7 +1400,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 await loadSuggestionGallery(currentSuggestion.id, currentSuggestion.photo_url);
             } else {
                 // Sınırda işlem yapılamadı (moved = false)
-                console.log("Move operation returned false (likely at boundary).");
                 btn.innerHTML = originalHTML;
                 allGalleryBtns.forEach(b => b.classList.remove('disabled'));
             }
@@ -1456,7 +1442,6 @@ document.addEventListener('DOMContentLoaded', () => {
         allGalleryBtns.forEach(b => b.classList.add('disabled'));
 
         try {
-            console.log(`Deleting photo ${photo.id} for suggestion ${currentSuggestion.id}`);
             const targetSuggestionId = currentSuggestion.id;
 
             // 1. RPC Çağrısı (Database Silme)
@@ -1805,8 +1790,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 updatePayload.updated_at = new Date().toISOString();
             }
 
-            console.log("Updating suggestion ID:", id);
-            console.log("Updating suggestion...");
 
             let attempt = 0;
             let success = false;
@@ -1814,7 +1797,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let responseError = null;
 
             while (attempt < 5) {
-                console.log(`Update attempt #${attempt + 1}...`);
                 const { data, error } = await supabaseClient
                     .from('suggestions')
                     .update(updatePayload)
@@ -1843,7 +1825,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 for (const key of Object.keys(updatePayload)) {
                     if (candidates.has(key.toLowerCase()) || errMsg.includes(key.toLowerCase())) {
-                        console.log(`Detected offending column '${key}' in error message, removing from update payload.`);
                         delete updatePayload[key];
                         columnRemoved = true;
                     }
@@ -1854,7 +1835,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const optionalKeys = ['teacher', 'organization', 'address', 'google_maps_link', 'updated_at'];
                     for (const optKey of optionalKeys) {
                         if (optKey in updatePayload) {
-                            console.log(`No direct match. Removing optional column '${optKey}' as a safe fallback.`);
                             delete updatePayload[optKey];
                             columnRemoved = true;
                             break;
@@ -1945,13 +1925,11 @@ document.addEventListener('DOMContentLoaded', () => {
             // B12.2A4 - GÜVENLİ ONAY SIRALAMASI
             // Onay durumunda önce senkronizasyonu (program oluşturma + fotoğraf aktarımı) yapıyoruz.
             if (newStatus === 'approved') {
-                console.log("Onay işlemi: Önce programa aktarım yapılıyor...");
                 const syncRes = await syncSuggestionToProgram(currentSuggestion, 'suggestion');
 
                 if (!syncRes || !syncRes.success) {
                     throw new Error(syncRes?.error || "Programa aktarım sırasında bilinmeyen bir hata oluştu.");
                 }
-                console.log("Programa aktarım başarılı. Şimdi öneri durumu güncelleniyor.");
             }
 
             // Şimdi öneri durumunu güncelle
@@ -2701,7 +2679,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
 
         try {
-            console.log(`Updating program ID ${programId} status to ${newStatus}...`);
             const { error } = await supabaseClient
                 .from('programs')
                 .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -2783,7 +2760,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            console.log(`Soft deleting program with ID: ${programId}`);
             let updatedRows = [];
             let updateError = null;
 
@@ -2854,7 +2830,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         try {
-            console.log(`Restoring program ID ${programId} to inactive...`);
             const { data, error } = await supabaseClient
                 .from('programs')
                 .update({ status: 'inactive', updated_at: new Date().toISOString() })
@@ -2910,7 +2885,6 @@ document.addEventListener('DOMContentLoaded', () => {
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Taranıyor...';
 
         try {
-            console.log("B16.2H1 - Koordinatı eksik programlar taranıyor...");
 
             // 1. Eksik koordinatlı programları çek (Sadece silinmemiş ve reddedilmemiş olanlar)
             const { data: candidates, error: fetchError } = await supabaseClient
@@ -3149,7 +3123,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showProgramsLoader();
 
         try {
-            console.log("Fetching program records from public.programs...");
             const { data: programsData, error: fetchError } = await supabaseClient
                 .from('programs')
                 .select('*')
@@ -3484,7 +3457,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (closeTopBtn) closeTopBtn.disabled = true;
 
         try {
-            console.log(`Updating ${count} programs time to ${newTime}...`);
             const { error } = await supabaseClient
                 .from('programs')
                 .update({ time: newTime, updated_at: new Date().toISOString() })
@@ -3548,7 +3520,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (clearBtn) clearBtn.disabled = true;
 
         try {
-            console.log(`Updating ${count} programs status to ${newStatus}...`);
             const { error } = await supabaseClient
                 .from('programs')
                 .update({ status: newStatus, updated_at: new Date().toISOString() })
@@ -5075,225 +5046,11 @@ document.addEventListener('DOMContentLoaded', () => {
      */
 
     /**
-     * B12.2A3.3B1 - Program Galerisinde Kapak Değiştirme
-     */
-    async function setProgramPhotoCover(photo, btn) {
-        if (!currentEditProgram || !photo || !supabaseClient) return;
-
-        // Çift tıklama ve işlem kilidi koruması
-        if (btn.classList.contains('disabled') || isProgramGalleryMutating) return;
-
-        const programId = currentEditProgram.id;
-        const originalHTML = btn.innerHTML;
-        // B12.2A3.3B2: Ortak işlem kilidi için tüm galeri butonlarını seç
-        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo, #edit-program-gallery-grid .btn-delete-program-photo, #edit-program-btn-upload-gallery');
-
-        // UI Kilitleme
-        isProgramGalleryMutating = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        allGalleryBtns.forEach(b => b.classList.add('disabled'));
-
-        try {
-            console.log(`Setting new cover for program ${programId}: Photo ${photo.id}`);
-
-            const { error } = await supabaseClient.rpc(
-                'admin_set_program_photo_cover',
-                {
-                    p_program_id: programId,
-                    p_photo_id: photo.id
-                }
-            );
-
-            if (error) throw error;
-
-            // Race Condition: Hala aynı program mı açık?
-            if (!currentEditProgram || currentEditProgram.id !== programId) {
-                console.log("Program cover update successful but modal context changed.");
-                return;
-            }
-
-            // 1. Local State ve UI Senkronizasyonu
-            currentEditProgram.photo_url = photo.photo_url;
-            if (initialProgramState) initialProgramState.photo_url = photo.photo_url;
-
-            // #edit-program-photo-url alanını güncelle
-            const photoUrlInput = document.getElementById('edit-program-photo-url');
-            if (photoUrlInput) photoUrlInput.value = photo.photo_url;
-
-            // Mevcut program fotoğraf önizlemesini güncelle
-            const previewImg = document.getElementById('edit-program-photo-preview-img');
-            if (previewImg) previewImg.src = photo.photo_url;
-
-            showToast("Program kapak fotoğrafı güncellendi.", "success");
-
-            // 2. Galeriyi Yenile
-            await loadEntityGallery('program', programId);
-
-        } catch (err) {
-            console.error("Program kapak değiştirme hatası:", err.code || err);
-            showToast("Program kapak fotoğrafı güncellenemedi.", "error");
-
-            // UI kilidini aç
-            btn.innerHTML = originalHTML;
-            allGalleryBtns.forEach(b => b.classList.remove('disabled'));
-        } finally {
-            isProgramGalleryMutating = false;
-        }
-    }
-
-    /**
-     * B12.2A3.3B2 - Program Galerisinde Fotoğraf Sıralama
-     */
-    async function moveProgramPhoto(photo, direction, btn) {
-        if (!currentEditProgram || !photo || !supabaseClient) return;
-        if (direction !== -1 && direction !== 1) return;
-
-        // Çift tıklama ve işlem kilidi koruması
-        if (btn.classList.contains('disabled') || isProgramGalleryMutating) return;
-
-        const programId = currentEditProgram.id;
-        const originalHTML = btn.innerHTML;
-        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo, #edit-program-gallery-grid .btn-delete-program-photo');
-
-        // UI Kilitleme
-        isProgramGalleryMutating = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        allGalleryBtns.forEach(b => b.classList.add('disabled'));
-
-        try {
-            console.log(`Moving photo ${photo.id} in program ${programId}, direction: ${direction}`);
-
-            const { data: moveSuccess, error } = await supabaseClient.rpc(
-                'admin_move_program_photo',
-                {
-                    p_program_id: programId,
-                    p_photo_id: photo.id,
-                    p_direction: direction
-                }
-            );
-
-            if (error) throw error;
-
-            if (moveSuccess === false) {
-                console.log("Photo move limit reached or target not found.");
-            } else {
-                showToast("Program fotoğraf sırası güncellendi.", "success");
-            }
-
-            // Race Condition: Hala aynı program mı açık?
-            if (!currentEditProgram || currentEditProgram.id !== programId) {
-                console.log("Program move successful but modal context changed.");
-                return;
-            }
-
-            // Galeriyi Yenile (photo_url değişmez, kapak korunur)
-            await loadEntityGallery('program', programId);
-
-        } catch (err) {
-            console.error("Program fotoğraf taşıma hatası:", err.code || err);
-            showToast("Program fotoğraf sırası güncellenemedi.", "error");
-
-            // UI kilidini aç
-            btn.innerHTML = originalHTML;
-            allGalleryBtns.forEach(b => b.classList.remove('disabled'));
-        } finally {
-            isProgramGalleryMutating = false;
-        }
-    }
-
-    /**
-     * B12.2A3.3B3B - Program Galerisinden Fotoğraf Silme (RPC + Storage)
-     */
-    async function deleteProgramPhoto(photo, btn) {
-        if (!currentEditProgram || !photo || !supabaseClient) return;
-
-        // Metadata ID kontrolü
-        if (!photo.id || !photo.program_id) return;
-
-        // Onay iste
-        const confirmDelete = confirm("Bu fotoğraf program galerisinden kalıcı olarak kaldırılsın mı?");
-        if (!confirmDelete) return;
-
-        // İşlem kilidi koruması
-        if (btn.classList.contains('disabled') || isProgramGalleryMutating) return;
-
-        const targetProgramId = currentEditProgram.id;
-        const targetPhotoId = photo.id;
-        const originalHTML = btn.innerHTML;
-
-        // Ortak işlem kilidi için tüm galeri butonlarını seç
-        const allGalleryBtns = document.querySelectorAll('#edit-program-gallery-grid .btn-make-cover, #edit-program-gallery-grid .btn-move-photo, #edit-program-gallery-grid .btn-delete-program-photo, #edit-program-btn-upload-gallery');
-
-        // UI Kilitleme
-        isProgramGalleryMutating = true;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i>';
-        allGalleryBtns.forEach(b => b.classList.add('disabled'));
-
-        try {
-            console.log(`Deleting photo ${targetPhotoId} for program ${targetProgramId}`);
-
-            // 1. RPC Çağrısı (Database Silme ve Sıra Sıkıştırma)
-            const { data, error: rpcError } = await supabaseClient.rpc(
-                'admin_delete_program_photo',
-                {
-                    p_program_id: targetProgramId,
-                    p_photo_id: targetPhotoId
-                }
-            );
-
-            // 2. Hata ve Ağ Belirsizliği Yönetimi
-            if (rpcError) {
-                console.error("RPC Hatası:", rpcError);
-
-                const isUncertain = rpcError.message?.toLowerCase().includes('fetch') ||
-                                   rpcError.status === 0;
-
-                if (isUncertain) {
-                    // Doğrulama sorgusu
-                    const { data: exists, error: checkError } = await supabaseClient
-                        .from('program_photos')
-                        .select('id')
-                        .eq('id', targetPhotoId)
-                        .eq('program_id', targetProgramId)
-                        .maybeSingle();
-
-                    if (!checkError && !exists) {
-                        // DB'den silinmiş, başarı varsay ama storage silme
-                        showToast("Fotoğraf galeriden kaldırıldı; depolama temizliği daha sonra kontrol edilecek.", "warning");
-                        await syncProgramGalleryAfterDeletion(targetProgramId, null); // null -> storage silme yapma
-                        return;
-                    }
-                }
-                throw rpcError;
-            }
-
-            const result = Array.isArray(data) ? data[0] : data;
-            if (!result || result.deleted_photo_id !== targetPhotoId) {
-                throw new Error("RPC sonucu doğrulanamadı.");
-            }
-
-            // 3. Senkronizasyon ve Storage Temizliği
-            await syncProgramGalleryAfterDeletion(targetProgramId, result);
-
-        } catch (err) {
-            console.error("Program fotoğraf silme hatası:", err);
-            showToast("Fotoğraf galeriden kaldırılamadı.", "error");
-
-            // UI kilidini aç
-            btn.innerHTML = originalHTML;
-            allGalleryBtns.forEach(b => b.classList.remove('disabled'));
-        } finally {
-            isProgramGalleryMutating = false;
-        }
-    }
-
-    /**
      * B12.2A3.3B3B - Silme Sonrası UI ve Storage Senkronizasyonu
      */
     async function syncProgramGalleryAfterDeletion(programId, rpcResult) {
         // Race Condition: Hala aynı program mı açık?
         if (!currentEditProgram || currentEditProgram.id !== programId) {
-            console.log("Sync ignored: Modal context changed.");
             return;
         }
 
@@ -5481,8 +5238,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
 
-        console.log("Payload logo_url before save:", originalLogoUrl);
-        console.log("Payload logo_url after fallback:", logo_url);
 
         const contact_name = document.getElementById('edit-program-contact-name').value.trim();
         const contact_phone = document.getElementById('edit-program-contact-phone').value.trim();
@@ -5559,7 +5314,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 updated_at: new Date().toISOString()
             };
 
-            console.log("Updating program...");
 
             let attempt = 0;
             let success = false;
@@ -5567,7 +5321,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let responseError = null;
 
             while (attempt < 5) {
-                console.log(`Program update attempt #${attempt + 1}...`);
                 const { data, error } = await supabaseClient
                     .from('programs')
                     .update(updatePayload)
@@ -5594,7 +5347,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 for (const key of Object.keys(updatePayload)) {
                     if (candidates.has(key.toLowerCase()) || errMsg.includes(key.toLowerCase())) {
-                        console.log(`Detected offending column '${key}' in programs error message, removing from update payload.`);
                         delete updatePayload[key];
                         columnRemoved = true;
                     }
@@ -5605,7 +5357,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const optionalKeys = ['latitude', 'longitude', 'logo_url', 'updated_at', 'photo_url', 'contact_name', 'contact_phone', 'google_maps_link', 'address', 'description', 'teacher', 'organization'];
                     for (const optKey of optionalKeys) {
                         if (optKey in updatePayload) {
-                            console.log(`Removing optional column '${optKey}' from programs update as fallback.`);
                             delete updatePayload[optKey];
                             columnRemoved = true;
                             break;
@@ -6014,137 +5765,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function uploadProgramPhoto(photoFile, progressElementId, fileNameElementId, previewImgElementId, previewContainerId, urlInputElementId) {
-        if (!supabaseClient) {
-            if (!initSupabase()) return;
-        }
-
-        const progressEl = document.getElementById(progressElementId);
-        const fileNameEl = document.getElementById(fileNameElementId);
-        const previewImgEl = document.getElementById(previewImgElementId);
-        const previewContainerEl = document.getElementById(previewContainerId);
-        const urlInputEl = document.getElementById(urlInputElementId);
-
-        if (!photoFile) return;
-
-        // Validation
-        const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
-        if (!allowedTypes.includes(photoFile.type)) {
-            showToast("Geçersiz dosya tipi. Lütfen JPG, JPEG, PNG veya WEBP seçin.", "error");
-            return;
-        }
-
-        const maxSize = 5 * 1024 * 1024; // 5 MB
-        if (photoFile.size > maxSize) {
-            showToast("Dosya boyutu 5 MB'dan küçük olmalıdır.", "error");
-            return;
-        }
-
-        if (fileNameEl) {
-            fileNameEl.textContent = photoFile.name;
-        }
-
-        if (progressEl) {
-            progressEl.classList.remove('hidden');
-        }
-
-        try {
-            const fileExt = photoFile.name.split('.').pop();
-            const fileName = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
-            const filePath = `programs/${fileName}`;
-
-            console.log("Uploading program photo to storage:", filePath);
-
-            // Try bucket "program-photos" first, fallback to "suggestion-photos" then "suggestions"
-            let uploadResult = null;
-            let finalBucket = 'program-photos';
-
-            try {
-                uploadResult = await supabaseClient.storage
-                    .from('program-photos')
-                    .upload(filePath, photoFile);
-                
-                if (uploadResult && uploadResult.error) {
-                    console.log("Failed in program-photos bucket, trying 'suggestion-photos' bucket.", uploadResult.error);
-                    finalBucket = 'suggestion-photos';
-                    uploadResult = await supabaseClient.storage
-                        .from('suggestion-photos')
-                        .upload(filePath, photoFile);
-                }
-
-                if (uploadResult && uploadResult.error) {
-                    console.log("Failed in suggestion-photos bucket, trying 'suggestions' bucket.", uploadResult.error);
-                    finalBucket = 'suggestions';
-                    uploadResult = await supabaseClient.storage
-                        .from('suggestions')
-                        .upload(filePath, photoFile);
-                }
-            } catch (uploadErr) {
-                console.warn("Storage upload error during direct attempt:", uploadErr);
-                // Try fallback suggestions buckets inside catch
-                try {
-                    finalBucket = 'suggestion-photos';
-                    uploadResult = await supabaseClient.storage
-                        .from('suggestion-photos')
-                        .upload(filePath, photoFile);
-                    
-                    if (uploadResult && uploadResult.error) {
-                        finalBucket = 'suggestions';
-                        uploadResult = await supabaseClient.storage
-                            .from('suggestions')
-                            .upload(filePath, photoFile);
-                    }
-                } catch (fallbackErr) {
-                    console.warn("Fallback upload error:", fallbackErr);
-                }
-            }
-
-            if (uploadResult && !uploadResult.error) {
-                // Try to resolve public URL
-                try {
-                    const { data: publicUrlData } = supabaseClient.storage
-                        .from(finalBucket)
-                        .getPublicUrl(filePath);
-                    
-                    const photoUrl = publicUrlData.publicUrl;
-                    console.log("Resolved public photo URL:", photoUrl);
-
-                    if (urlInputEl) {
-                        urlInputEl.value = photoUrl;
-                        // Fire change event to ensure any forms register the manual changes too
-                        urlInputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                    }
-
-                    if (previewImgEl) {
-                        previewImgEl.src = photoUrl;
-                    }
-
-                    if (previewContainerEl) {
-                        previewContainerEl.classList.remove('hidden');
-                    }
-
-                    showToast("Fotoğraf başarıyla yüklendi.", "success");
-                } catch (urlErr) {
-                    console.warn("Could not get public URL:", urlErr);
-                    showToast("Fotoğraf yüklendi fakat genel URL alınamadı.", "error");
-                }
-            } else {
-                console.error("Photo upload failed:", uploadResult ? uploadResult.error : "No upload result");
-                showToast("Fotoğraf yüklenirken hata oluştu.", "error");
-                if (fileNameEl) {
-                    fileNameEl.textContent = "Hata oluştu";
-                }
-            }
-        } catch (err) {
-            console.error("Photo upload try/catch error:", err);
-            showToast("Fotoğraf yüklenirken beklenmeyen bir hata oluştu.", "error");
-        } finally {
-            if (progressEl) {
-                progressEl.classList.add('hidden');
-            }
-        }
-    }
-
     function initPhotoUploadListeners() {
         // --- Add Modal ---
         const addUploadTrigger = document.getElementById('add-photo-upload-trigger');
@@ -6429,7 +6049,6 @@ document.addEventListener('DOMContentLoaded', () => {
             const randomStr = Math.random().toString(36).substring(2, 7);
             const filePath = `logos/${Date.now()}_${randomStr}.${fileExt}`;
 
-            console.log("Uploading logo to storage:", filePath);
 
             // Upload directly to "program-logos" bucket
             const { data, error } = await supabaseClient.storage
@@ -6446,7 +6065,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 .getPublicUrl(filePath);
 
             const logoUrl = publicUrlData.publicUrl;
-            console.log("Resolved public logo URL:", logoUrl);
 
             if (urlInputEl) {
                 urlInputEl.value = logoUrl;
@@ -6674,9 +6292,6 @@ document.addEventListener('DOMContentLoaded', () => {
             // - loadedOrganizations count
             // - organizationsFilterElement exists?
             // - first organization name
-            console.log("loadedOrganizations count:", activeOrganizations.length);
-            console.log("organizationsFilterElement exists?:", !!filterSelect);
-            console.log("first organization name:", activeOrganizations.length > 0 ? activeOrganizations[0].name : "None");
 
             // Türk alfabesine göre mükemmel alfabetik sıralama (Ç, Ğ, İ, Ö, Ş, Ü dahil)
             activeOrganizations.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
@@ -6705,9 +6320,6 @@ document.addEventListener('DOMContentLoaded', () => {
         } catch (err) {
             console.error("Kurumlar yüklenirken hata oluştu (organizations tablosu olmayabilir):", err);
             // Console'a geçici debug log ekle:
-            console.log("loadedOrganizations count: 0 (error)");
-            console.log("organizationsFilterElement exists?:", !!filterSelect);
-            console.log("first organization name: None (error)");
 
             activeOrganizations = [];
             const errorOptionsHtml = '<option value="">Liste yüklenemedi</option>';
@@ -6718,7 +6330,6 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function loadProgramTypes() {
-        console.log("ADMIN_PROGRAM_TYPE_DEBUG - loadAdminProgramTypes called: true");
         
         if (!supabaseClient) {
             if (!initSupabase()) {
@@ -6731,10 +6342,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const editInputSelect = document.getElementById('edit-program-name-input');
         const addSelect = document.getElementById('add-program-name');
 
-        console.log("ADMIN_PROGRAM_TYPE_DEBUG - select element found (add-program-name):", !!addSelect);
         if (addSelect) {
-            console.log("ADMIN_PROGRAM_TYPE_DEBUG - select id (add-program-name):", addSelect.id);
-            console.log("ADMIN_PROGRAM_TYPE_DEBUG - current option count before load (add-program-name):", addSelect.options.length);
         }
 
         if (editSuggestSelect) editSuggestSelect.innerHTML = '<option value="">Yükleniyor...</option>';
@@ -6744,7 +6352,6 @@ document.addEventListener('DOMContentLoaded', () => {
         let optionsHtml = '';
 
         try {
-            console.log("ADMIN_PROGRAM_TYPE_DEBUG - supabase program_types request started");
             const { data, error } = await supabaseClient
                 .from('program_types')
                 .select('id, name, slug, icon_key, sort_order, status')
@@ -6757,7 +6364,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
 
             activeProgramTypes = data || [];
-            console.log("ADMIN_PROGRAM_TYPE_DEBUG - supabase program_types count:", activeProgramTypes.length);
 
             // B16.2I - Türkçe Alfabetik Sıralama (A->Z)
             activeProgramTypes.sort((a, b) => {
@@ -6820,7 +6426,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const el = document.getElementById(target.id);
                     if (el) {
                         const order = Array.from(el.options).map(opt => opt.text);
-                        console.log(`B16.2I1 - ${target.label} FINAL DOM ORDER:`, order.join(' | '));
                     }
                 });
             }
@@ -7085,7 +6690,6 @@ document.addEventListener('DOMContentLoaded', () => {
         showOrgsLoader();
 
         try {
-            console.log("Loading all organizations from Supabase...");
             const { data, error } = await supabaseClient
                 .from('organizations')
                 .select('*');
@@ -7095,7 +6699,6 @@ document.addEventListener('DOMContentLoaded', () => {
             loadedOrganizations = data || [];
             if (loadedOrganizations.length > 0) {
                 detectedOrgColumns = Object.keys(loadedOrganizations[0]);
-                console.log("Detected organizations table columns:", detectedOrgColumns);
             }
             // Türkçe sıralama
             loadedOrganizations.sort((a, b) => (a.name || '').localeCompare(b.name || '', 'tr'));
@@ -7338,7 +6941,6 @@ document.addEventListener('DOMContentLoaded', () => {
         container.innerHTML = '';
 
         try {
-            console.log(`Loading connected programs for organization ID: ${org.id}, Name: ${org.name}`);
             const { data, error } = await supabaseClient
                 .from('programs')
                 .select('*');
@@ -7509,7 +7111,6 @@ document.addEventListener('DOMContentLoaded', () => {
                         .limit(1);
                     if (!error && data && data.length > 0) {
                         detectedOrgColumns = Object.keys(data[0]);
-                        console.log("Successfully auto-detected organization columns on save:", detectedOrgColumns);
                     }
                 } catch (e) {
                     console.warn("Could not auto-detect organizations columns on save:", e);
@@ -7554,7 +7155,6 @@ document.addEventListener('DOMContentLoaded', () => {
             let attempt = 0;
 
             while (attempt < 5) {
-                console.log(`Org save attempt #${attempt + 1}...`);
                 
                 let res;
                 if (id) {
@@ -7589,7 +7189,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 for (const key of Object.keys(orgPayload)) {
                     if (candidates.has(key.toLowerCase()) || errMsg.includes(key.toLowerCase())) {
-                        console.log(`Offending column '${key}' detected for organizations table. Pruning.`);
                         delete orgPayload[key];
                         columnRemoved = true;
                     }
@@ -7605,7 +7204,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     ];
                     for (const optKey of optionalKeys) {
                         if (optKey in orgPayload) {
-                            console.log(`Fallback: Pruning optional column '${optKey}' from organizations.`);
                             delete orgPayload[optKey];
                             columnRemoved = true;
                             break;
@@ -7818,7 +7416,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (context === 'edit' && currentEditProgram) {
             currentEditProgram.latitude = candidate.lat;
             currentEditProgram.longitude = candidate.lng;
-            console.log("Edit program coordinates updated from candidate:", candidate.lat, candidate.lng);
         }
 
         // İl/İlçe uyumsuzsa onları da güncelle (Kullanıcı aday seçtiği için bu güvenlidir)
@@ -7958,38 +7555,94 @@ document.addEventListener('DOMContentLoaded', () => {
         if (link.includes("maps.app.goo.gl") || link.includes("goo.gl/maps")) {
             return { isShort: true };
         }
+
+        let decoded = link;
+        try { decoded = decodeURIComponent(link); } catch (e) { /* kodlanmamış metin */ }
         
-        // Pattern 1: @40.8021,30.7456,17z or similar
-        const patternAt = /@(-?\d+\.\d+),(-?\d+\.\d+)/;
-        const matchAt = link.match(patternAt);
-        if (matchAt && matchAt.length >= 3) {
-            return {
-                latitude: parseFloat(matchAt[1]),
-                longitude: parseFloat(matchAt[2])
-            };
-        }
-        
-        // Pattern 2: !3d40.8021!4d30.7456 or similar
-        const patternExcl = /!3d(-?\d+\.\d+).*!4d(-?\d+\.\d+)/;
-        const matchExcl = link.match(patternExcl);
-        if (matchExcl && matchExcl.length >= 3) {
-            return {
-                latitude: parseFloat(matchExcl[1]),
-                longitude: parseFloat(matchExcl[2])
-            };
-        }
-        
-        // Pattern 3: standard query param q=lat,lng or sll=lat,lng or ll=lat,lng or query=lat,lng
-        const patternQuery = /[?&](?:q|ll|sll|query)=(-?\d+\.\d+),(-?\d+\.\d+)/;
-        const matchQuery = link.match(patternQuery);
-        if (matchQuery && matchQuery.length >= 3) {
-            return {
-                latitude: parseFloat(matchQuery[1]),
-                longitude: parseFloat(matchQuery[2])
-            };
+        let found = null;
+        // Pattern 1: !3d40.8021!4d30.7456 (yerin kendi koordinatı, @ merkezinden daha doğru)
+        const matchExcl = decoded.match(/!3d(-?\d+\.\d+).*?!4d(-?\d+\.\d+)/);
+        if (matchExcl) found = { latitude: parseFloat(matchExcl[1]), longitude: parseFloat(matchExcl[2]) };
+
+        // Pattern 2: @40.8021,30.7456,17z or similar
+        if (!found) {
+            const matchAt = decoded.match(/@(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (matchAt) found = { latitude: parseFloat(matchAt[1]), longitude: parseFloat(matchAt[2]) };
         }
 
-        return null;
+        // Pattern 3: standard query param q=lat,lng or sll=lat,lng or ll=lat,lng or query=lat,lng
+        if (!found) {
+            const matchQuery = decoded.match(/[?&](?:q|ll|sll|query)=(-?\d+\.\d+),\s*(-?\d+\.\d+)/);
+            if (matchQuery) found = { latitude: parseFloat(matchQuery[1]), longitude: parseFloat(matchQuery[2]) };
+        }
+
+        // Pattern 4: geo:40.78,30.40
+        if (!found) {
+            const matchGeo = decoded.match(/geo:(-?\d+\.\d+),(-?\d+\.\d+)/);
+            if (matchGeo) found = { latitude: parseFloat(matchGeo[1]), longitude: parseFloat(matchGeo[2]) };
+        }
+
+        // Pattern 5: düz yazılmış "40.7812345, 30.4023456"
+        if (!found) {
+            const matchPlain = decoded.trim().match(/^(-?\d{1,2}\.\d{3,})\s*[,;\s]\s*(-?\d{1,3}\.\d{3,})$/);
+            if (matchPlain) found = { latitude: parseFloat(matchPlain[1]), longitude: parseFloat(matchPlain[2]) };
+        }
+
+        if (!found) return null;
+
+        // Türkiye sınırları dışındaysa hatalı kopya olabilir
+        if (found.latitude < 35 || found.latitude > 43 || found.longitude < 25 || found.longitude > 45) {
+            return { outsideTurkey: true };
+        }
+
+        // Ad: bağlantıdaki /maps/place/Cami+Adı/ kısmı
+        const placeMatch = decoded.match(/\/maps\/place\/([^/@?]+)/);
+        if (placeMatch) {
+            const name = placeMatch[1].replace(/\+/g, ' ').trim();
+            if (name && !/^[-\d.,;\s+°NSEWnsew]+$/.test(name)) found.name = name;
+        }
+        return found;
+    }
+
+    /** İki nokta arası kuş uçuşu mesafe (metre). */
+    function distanceMeters(lat1, lon1, lat2, lon2) {
+        const r = 6371000;
+        const toRad = (d) => d * Math.PI / 180;
+        const dLat = toRad(lat2 - lat1);
+        const dLon = toRad(lon2 - lon1);
+        const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+        return 2 * r * Math.asin(Math.sqrt(a));
+    }
+
+    /** Koordinatın 60 m içinde kayıtlı cami varsa uyarıyı gösterir (kayıt engellenmez). */
+    let mosqueDuplicateCheckSeq = 0;
+    async function checkMosqueDuplicateNearby(lat, lon) {
+        const box = document.getElementById('mosque-modal-duplicate-warning');
+        if (!box) return;
+        const seq = ++mosqueDuplicateCheckSeq;
+        box.classList.add('hidden');
+        if (!supabaseClient || isNaN(lat) || isNaN(lon)) return;
+        try {
+            const { data, error } = await supabaseClient
+                .from('mosque_locations')
+                .select('id, mosque_name, district, latitude, longitude')
+                .gte('latitude', lat - 0.001).lte('latitude', lat + 0.001)
+                .gte('longitude', lon - 0.0015).lte('longitude', lon + 0.0015)
+                .limit(10);
+            if (error || seq !== mosqueDuplicateCheckSeq) return;
+            const currentId = document.getElementById('mosque-modal-id')?.value || '';
+            const near = (data || [])
+                .filter(m => String(m.id) !== String(currentId))
+                .map(m => ({ m, d: distanceMeters(lat, lon, m.latitude, m.longitude) }))
+                .filter(x => x.d <= 60)
+                .sort((a, b) => a.d - b.d)[0];
+            if (!near) return;
+            const label = (near.m.mosque_name || 'İsimsiz cami') + (near.m.district ? ' (' + near.m.district + ')' : '');
+            box.textContent = 'Dikkat: ' + Math.round(near.d) + ' m yakında kayıtlı bir cami var: ' + label + '. Aynı cami olabilir; eklemeden önce listeden kontrol edin.';
+            box.classList.remove('hidden');
+        } catch (e) {
+            // Uyarı yardımcı bir özelliktir; hata kaydı engellemez
+        }
     }
 
     /**
@@ -8013,7 +7666,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Önbellek boşsa yüklemeyi dene
         if (!mosquesListCache || mosquesListCache.length === 0) {
-            console.log("mosquesListCache boş, yükleniyor...");
             await loadMosques();
         }
 
@@ -8409,7 +8061,6 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
     async function populateOsmDeduplicationCache() {
         if (!supabaseClient) return;
         try {
-            console.log("OSM Deduplication Cache dolduruluyor...");
             osmDeduplicationCache = [];
             let page = 0;
             const pageSize = 1000;
@@ -8438,7 +8089,6 @@ CREATE POLICY "Public Write Access" ON public.mosque_locations FOR ALL USING (tr
                     hasMore = false;
                 }
             }
-            console.log(`OSM Deduplication Cache: ${osmDeduplicationCache.length} kayıt yüklendi (${page + 1} sayfa).`);
         } catch (err) {
             console.error("OSM Deduplication Cache hatası:", err);
         }
@@ -9021,7 +8671,6 @@ out center tags;`;
         let successfulEndpoint = '';
         let errorMessage = 'OSM servisi geçici olarak yanıt vermiyor. Lütfen biraz sonra tekrar deneyin.';
 
-        console.log(`[OSM Client] Proxy isteği başlatıldı: /.netlify/functions/overpass-proxy (${city} / ${district})...`);
 
         try {
             const response = await fetch('/.netlify/functions/overpass-proxy', {
@@ -9032,7 +8681,6 @@ out center tags;`;
                 body: JSON.stringify({ query: query })
             });
 
-            console.log(`[OSM Client] Proxy yanıt verdi, HTTP status: ${response.status}`);
 
             const result = await response.json().catch(() => null);
 
@@ -9040,7 +8688,6 @@ out center tags;`;
                 elements = result.data.elements || [];
                 success = true;
                 successfulEndpoint = result.endpoint || '/.netlify/functions/overpass-proxy';
-                console.log(`[OSM Client] Proxy üzerinden başarılı yanıt alındı (${successfulEndpoint}). Raw eleman sayısı: ${elements.length}`);
             } else if (result && result.error === 'query_error') {
                 errorMessage = result.message || 'Geçersiz Overpass sorgusu hatası.';
                 console.warn(`[OSM Client] Query hatası: ${errorMessage}`);
@@ -9286,20 +8933,7 @@ out center tags;`;
         const visibleIfHideUnnamed = osmResults.filter(item => !item.isUnnamed).length;
 
         // Diagnostics console logs
-        console.log("---- OVERPASS API INTEGRATION DIAGNOSTICS ----");
-        console.log(`1. Kullanılan endpoint: ${successfulEndpoint}`);
-        console.log(`2. Seçilen il / ilçe: ${city} / ${district} (Plaka: TR-${plate})`);
-        console.log(`3. Province bulundu mu: ${provinceFound ? "EVET" : "HAYIR"}`);
-        console.log(`4. District relation bulundu mu: ${districtRelFound ? "EVET" : "HAYIR"}`);
-        console.log(`5. SearchArea oluştu mu: ${searchAreaCreated ? "EVET" : "HAYIR"}`);
-        console.log(`6. Final Overpass query:\n${query}`);
-        console.log(`7. Raw gelen element sayısı: ${mosqueElements.length}`);
-        console.log(`8. Koordinatsız atlanan kayıt sayısı: ${skippedCount}`);
-        console.log(`9. İsimsiz kayıt sayısı: ${unnamedCount}`);
-        console.log(`10. Duplicate / sistemde kayıtlı sayısı: ${registeredCount}`);
         console.log(`11. OSM'de ${osmResults.length} benzersiz cami bulundu (Unique Count: ${osmResults.length}).`);
-        console.log(`12. İsimsizleri gizle açıkken görünen kayıt sayısı: ${visibleIfHideUnnamed}`);
-        console.log("----------------------------------------------");
 
         if (osmResults.length === 0) {
             showToast(`${city} - ${district} için OSM cami kaydı bulunamadı.`, "warning");
@@ -9798,24 +9432,30 @@ out center tags;`;
         if (googleMapsInput) {
             googleMapsInput.addEventListener('input', (e) => {
                 const link = e.target.value.trim();
+                const warning = document.getElementById('mosque-modal-link-warning');
                 if (!link) {
-                    document.getElementById('mosque-modal-link-warning').classList.add('hidden');
+                    warning.classList.add('hidden');
+                    document.getElementById('mosque-modal-duplicate-warning')?.classList.add('hidden');
                     return;
                 }
                 
                 const parsed = extractLatLngFromGoogleMapsLink(link);
-                if (parsed) {
-                    if (parsed.isShort) {
-                        document.getElementById('mosque-modal-link-warning').classList.remove('hidden');
-                        showToast("Kısa Google Maps linkleri otomatik çözümlenemiyor. Lütfen Google Maps’ten uzun bağlantıyı yapıştırın.", "error");
-                    } else {
-                        document.getElementById('mosque-modal-link-warning').classList.add('hidden');
-                        document.getElementById('mosque-modal-latitude-input').value = parsed.latitude;
-                        document.getElementById('mosque-modal-longitude-input').value = parsed.longitude;
-                        showToast("Koordinatlar otomatik çözümlendi.", "success");
-                    }
+                if (parsed && parsed.isShort) {
+                    warning.classList.remove('hidden');
+                    showToast("Kısa Google Maps linkleri otomatik çözümlenemiyor. Lütfen Google Maps’ten uzun bağlantıyı yapıştırın.", "error");
+                } else if (parsed && parsed.outsideTurkey) {
+                    warning.classList.add('hidden');
+                    showToast("Bu konum Türkiye dışında görünüyor; doğru camiyi kopyaladığınızdan emin olun.", "error");
+                } else if (parsed) {
+                    warning.classList.add('hidden');
+                    document.getElementById('mosque-modal-latitude-input').value = parsed.latitude;
+                    document.getElementById('mosque-modal-longitude-input').value = parsed.longitude;
+                    const nameInput = document.getElementById('mosque-modal-name-input');
+                    if (parsed.name && nameInput && !nameInput.value.trim()) nameInput.value = parsed.name;
+                    showToast("Koordinatlar otomatik çözümlendi.", "success");
+                    checkMosqueDuplicateNearby(parsed.latitude, parsed.longitude);
                 } else {
-                    document.getElementById('mosque-modal-link-warning').classList.add('hidden');
+                    warning.classList.add('hidden');
                 }
             });
         }
@@ -10031,7 +9671,11 @@ out center tags;`;
                     city: document.getElementById('edit-program-city')?.value.trim() || 'Sakarya',
                     district: document.getElementById('edit-program-district')?.value.trim() || '',
                     day: document.getElementById('edit-program-day')?.value.trim() || '',
-                    time: document.getElementById('edit-program-time')?.value.trim() || '',
+                    time: (() => {
+                        const t = document.getElementById('edit-program-time-type')?.value || '';
+                        const d = document.getElementById('edit-program-time-detail')?.value.trim() || '';
+                        return (t === 'Sabit Saat' || t === 'Diğer') ? d : t;
+                    })(),
                     teacher: document.getElementById('edit-program-teacher')?.value.trim() || '',
                     organization: document.getElementById('edit-program-organization')?.value.trim() || '',
                     organization_id: document.getElementById('edit-program-org-select')?.value || currentEditProgram?.organization_id || currentEditProgram?.organizationId || null,
@@ -10204,7 +9848,6 @@ out center tags;`;
             if (!initSupabase()) return;
         }
         try {
-            console.log("Loading Discover Modules from Supabase for CMS v2...");
             const { data, error } = await supabaseClient
                 .from('discover_modules')
                 .select('*')
@@ -10329,7 +9972,6 @@ out center tags;`;
         if (container) container.innerHTML = '';
 
         try {
-            console.log("Loading discover articles for CMS v2: " + moduleSlug + "...");
             const { data, error } = await supabaseClient
                 .from('discover_articles')
                 .select('*')
@@ -10806,30 +10448,25 @@ out center tags;`;
         const editingArticle = excludeId ? loadedDiscoverArticles.find(a => a.id === excludeId || a.id == excludeId) : null;
         const editingSlug = editingArticle ? editingArticle.slug : null;
 
-        console.log("populateCmsParentDropdown debugging:", { moduleSlug, excludeId, editingSlug, loadedArticlesCount: loadedDiscoverArticles.length });
 
         // Show ALL headings/articles in the module, but apply cycle prevention
         const potentialParents = loadedDiscoverArticles.filter(a => {
             // Exclude current editing item by id
             if (excludeId && (a.id === excludeId || a.id == excludeId)) {
-                console.log("Excluding current editing item by ID:", a.title);
                 return false;
             }
             // Exclude current editing item by slug
             if (editingSlug && a.slug === editingSlug) {
-                console.log("Excluding current editing item by Slug:", a.title);
                 return false;
             }
             // Prevent cycles
             if (editingSlug && willCreateCycle(editingSlug, a.slug, loadedDiscoverArticles)) {
-                console.log("Excluding potential parent because it creates a cycle:", a.title);
                 return false;
             }
             
             return true;
         });
 
-        console.log("Potential parents determined:", potentialParents.map(p => p.title));
 
         parentEl.innerHTML = '<option value="">Yok (Ana Başlık)</option>' + 
             potentialParents.map(p => '<option value="' + escapeHtml(p.slug) + '">' + escapeHtml(p.title) + ' (' + escapeHtml(p.slug) + ')</option>').join('');
@@ -10838,7 +10475,6 @@ out center tags;`;
     // === PDF Ekleme & Upload Altyapısı ===
 
     function openPdfAddModal(folderItem) {
-        console.log("PDF Ekle clicked for folder:", folderItem);
         
         const modal = document.getElementById('pdf-add-modal');
         const folderBadge = document.getElementById('pdf-modal-folder-badge');
@@ -10882,7 +10518,6 @@ out center tags;`;
 
         for (const bucket of buckets) {
             try {
-                console.log(`Trying to upload PDF to bucket "${bucket}" at path "${path}"...`);
                 const { data, error } = await supabaseClient.storage
                     .from(bucket)
                     .upload(path, file, {
@@ -10896,7 +10531,6 @@ out center tags;`;
                 }
 
                 if (data) {
-                    console.log(`Successfully uploaded PDF to bucket "${bucket}"!`);
                     const { data: publicUrlData } = supabaseClient.storage
                         .from(bucket)
                         .getPublicUrl(path);
@@ -11071,13 +10705,11 @@ out center tags;`;
         try {
             let result;
             if (id) {
-                console.log("Updating article ID: " + id + "...");
                 result = await supabaseClient
                     .from('discover_articles')
                     .update(payload)
                     .eq('id', id);
             } else {
-                console.log("Inserting new article...");
                 result = await supabaseClient
                     .from('discover_articles')
                     .insert([payload])
@@ -11134,7 +10766,6 @@ out center tags;`;
         if (!confirm(confirmationMsg)) return;
 
         try {
-            console.log("Soft deleting (disabling) article ID: " + id + "...");
             const { error } = await supabaseClient
                 .from('discover_articles')
                 .update({ is_active: false })
@@ -11507,7 +11138,6 @@ out center tags;`;
         };
 
         try {
-            console.log("Converting PDF card to child content...");
             const { data, error: insertError } = await supabaseClient
                 .from('discover_articles')
                 .insert([payload]);
@@ -11650,7 +11280,6 @@ out center tags;`;
             const fileName = `${Date.now()}_pdf_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
             const filePath = `davet-ameli/pdfs/${fileName}`;
 
-            console.log("Uploading PDF to storage:", filePath);
 
             let uploadResult = null;
             let finalBucket = 'discover-content'; 
@@ -11661,7 +11290,6 @@ out center tags;`;
                     .upload(filePath, file);
                 
                 if (uploadResult && uploadResult.error) {
-                    console.log("Failed in discover-content, trying 'infographics' bucket.", uploadResult.error);
                     finalBucket = 'infographics';
                     uploadResult = await supabaseClient.storage
                         .from('infographics')
@@ -11669,7 +11297,6 @@ out center tags;`;
                 }
 
                 if (uploadResult && uploadResult.error) {
-                    console.log("Failed in infographics, trying 'public' bucket.", uploadResult.error);
                     finalBucket = 'public';
                     uploadResult = await supabaseClient.storage
                         .from('public')
@@ -11686,7 +11313,6 @@ out center tags;`;
                         .getPublicUrl(filePath);
                     
                     const pdfUrl = publicUrlData.publicUrl;
-                    console.log("Resolved public PDF URL:", pdfUrl);
 
                     const fileTitle = file.name.replace(/\.[^/.]+$/, ""); 
                     const pdfLine = `${pdfUrl}#${fileTitle}`;
@@ -12001,7 +11627,6 @@ out center tags;`;
             const fileName = `${Date.now()}_infographic_${Math.random().toString(36).substring(2, 7)}.${fileExt}`;
             const filePath = `infographics/${fileName}`;
 
-            console.log("Uploading infographic photo to storage:", filePath);
 
             let uploadResult = null;
             let finalBucket = 'infographics';
@@ -12012,7 +11637,6 @@ out center tags;`;
                     .upload(filePath, file);
                 
                 if (uploadResult && uploadResult.error) {
-                    console.log("Failed in infographics bucket, trying 'discover-content' bucket.", uploadResult.error);
                     finalBucket = 'discover-content';
                     uploadResult = await supabaseClient.storage
                         .from('discover-content')
@@ -12020,7 +11644,6 @@ out center tags;`;
                 }
 
                 if (uploadResult && uploadResult.error) {
-                    console.log("Failed in discover-content, trying 'program-photos' bucket.", uploadResult.error);
                     finalBucket = 'program-photos';
                     uploadResult = await supabaseClient.storage
                         .from('program-photos')
@@ -12028,7 +11651,6 @@ out center tags;`;
                 }
 
                 if (uploadResult && uploadResult.error) {
-                    console.log("Failed in program-photos bucket, trying 'suggestions' bucket.", uploadResult.error);
                     finalBucket = 'suggestions';
                     uploadResult = await supabaseClient.storage
                         .from('suggestions')
@@ -12060,7 +11682,6 @@ out center tags;`;
                         .getPublicUrl(filePath);
                     
                     const photoUrl = publicUrlData.publicUrl;
-                    console.log("Resolved public infographic URL:", photoUrl);
 
                     if (textarea) {
                         const currentText = textarea.value.trim();
@@ -13337,23 +12958,13 @@ out center tags;`;
         }
     }
 
-    // Tomb Wrappers for backward compatibility (B16.3C2)
-    async function loadTombGallery(tombId) { await loadEntityGallery('tomb', tombId); }
-    function renderTombGallery() { renderEntityGallery('tomb'); }
     async function handleTombGalleryUpload(files) { await handleEntityGalleryUpload('tomb', files); }
-    async function setTombCover(imageId) { await setEntityCover('tomb', imageId); }
-    async function syncTombCover(tombId, imageUrl) { await syncEntityCover('tomb', tombId, imageUrl); }
-    async function moveTombImage(imageId, direction) { await moveEntityImage('tomb', imageId, direction); }
-    async function removeTombImage(imageId) { await removeEntityImage('tomb', imageId); }
-    async function updateTombImageAttribution(imageId, text) { await updateEntityImageAttribution('tomb', imageId, text); }
     async function searchGooglePlacesForTomb() { await searchGooglePlacesGeneric('tomb'); }
 
     // Mosque implementation
     async function loadMosqueGallery(mosqueId) { await loadEntityGallery('mosque', mosqueId); }
     function renderMosqueGallery() { renderEntityGallery('mosque'); }
-    async function handleMosqueGalleryUpload(files) { await handleEntityGalleryUpload('mosque', files); }
     async function searchGooglePlacesForMosquePhoto() { await searchGooglePlacesGeneric('mosque'); }
-    async function searchGooglePlacesForProgramPhoto() { await searchGooglePlacesGeneric('program'); }
 
     function trNormalizeForPath(text) {
         if (!text) return "";
@@ -13448,33 +13059,6 @@ out center tags;`;
         }
     }
 
-    async function uploadTombPhotoToStorage(file, city, district, tombId) {
-        try {
-            const fileExt = file.name.split('.').pop();
-            const cleanCity = trNormalizeForPath(city);
-            const cleanDistrict = trNormalizeForPath(district);
-            const timestamp = new Date().getTime();
-            const fileName = `${crypto.randomUUID()}_${timestamp}.${fileExt}`;
-
-            const path = `TR/${cleanCity}/${cleanDistrict}/${tombId}/${fileName}`;
-
-            const { data, error } = await supabaseClient.storage
-                .from('tomb-images')
-                .upload(path, file, { contentType: file.type });
-
-            if (error) throw error;
-
-            const { data: { publicUrl } } = supabaseClient.storage
-                .from('tomb-images')
-                .getPublicUrl(path);
-
-            return publicUrl;
-        } catch (error) {
-            console.error("Fotoğraf yükleme hatası:", error);
-            return null;
-        }
-    }
-
     function initTombFilterOptions() {
         const citySelect = document.getElementById('tombs-filter-city');
         if (citySelect && typeof TURKEY_LOCATION_DATA !== 'undefined') {
@@ -13565,7 +13149,6 @@ out center tags;`;
         btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Yayınlanıyor...';
 
         try {
-            console.log(`Bulk publishing batch: ${batchId}`);
             const { data, error } = await supabaseClient
                 .from('programs')
                 .update({ status: 'active', updated_at: new Date().toISOString() })
@@ -13774,7 +13357,6 @@ out center tags;`;
         showMuftulukLoader();
 
         try {
-            console.log("Fetching Sakarya Müftülüğü records from public.programs...");
             const { data: programsData, error: fetchError } = await supabaseClient
                 .from('programs')
                 .select('*')
