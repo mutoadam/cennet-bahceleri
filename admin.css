@@ -3794,3 +3794,28 @@ body:not(.logged-out) #admin-login-screen {
     text-align: right;
     white-space: nowrap;
 }
+
+/* Programlar kart görünümü: sütunlar içerik yüzünden sayfanın sağından taşmasın */
+#programs-list.view-card {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+
+@media (min-width: 768px) {
+    #programs-list.view-card {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    #programs-list.view-card {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+#programs-list .suggestion-card {
+    min-width: 0;
+}
+
+#programs-list .card-actions {
+    flex-wrap: wrap;
+}
