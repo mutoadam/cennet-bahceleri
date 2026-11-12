@@ -3768,3 +3768,29 @@ body:not(.logged-out) #admin-login-screen {
     gap: 12px;
     margin-bottom: 20px;
 }
+
+/* Tablo taşma düzeltmeleri: kaydırılabilir kutu, Instagram & Teyit tablosunda Zikir'e özel sabit genişlikler iptal */
+.programs-list-table-wrapper {
+    overflow-x: auto !important;
+}
+
+#insta-table-container .zikir-admin-table {
+    table-layout: auto;
+}
+
+#insta-table-container .zikir-admin-table th,
+#insta-table-container .zikir-admin-table td {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    text-align: left;
+}
+
+#insta-table-container .zikir-admin-table th:last-child,
+#insta-table-container .zikir-admin-table td:last-child {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+}
