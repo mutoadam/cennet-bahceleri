@@ -3697,6 +3697,125 @@ body:not(.logged-out) #admin-login-screen {
         min-width: 930px;
     }
 }
-    align-items: center;
-    gap: 4px;
+
+/* ==========================================
+   Kompakt yönetim paneli düzeni
+   ========================================== */
+.main-navigation-tabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 2px;
+    margin-bottom: 20px;
+    padding-bottom: 0;
+    scrollbar-width: thin;
+}
+
+.main-tab-btn {
+    flex: 0 0 auto;
+    gap: 6px;
+    padding: 10px 10px;
+    font-size: 13.5px;
+    min-height: 40px;
+    border-bottom-width: 3px;
+    white-space: nowrap;
+}
+
+.main-tab-btn i {
+    font-size: 15px;
+}
+
+.page-title-section {
+    margin-bottom: 16px;
+}
+
+.page-title-section h2 {
+    font-size: 24px;
+    margin-bottom: 4px;
+}
+
+.section-desc {
+    font-size: 14px;
+}
+
+.stats-grid {
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+.stats-card {
+    padding: 12px 16px;
+    gap: 12px;
+}
+
+.stats-icon {
+    font-size: 20px;
+    width: 40px;
+    height: 40px;
+}
+
+.stats-label {
+    font-size: 12px;
+    letter-spacing: 0.5px;
+}
+
+.stats-value {
+    font-size: 24px;
+    margin-top: 2px;
+}
+
+.instagram-stats-grid {
+    gap: 12px;
+    margin-bottom: 20px;
+}
+
+/* Tablo taşma düzeltmeleri: kaydırılabilir kutu, Instagram & Teyit tablosunda Zikir'e özel sabit genişlikler iptal */
+.programs-list-table-wrapper {
+    overflow-x: auto !important;
+}
+
+#insta-table-container .zikir-admin-table {
+    table-layout: auto;
+}
+
+#insta-table-container .zikir-admin-table th,
+#insta-table-container .zikir-admin-table td {
+    width: auto;
+    min-width: 0;
+    max-width: none;
+    overflow: visible;
+    text-overflow: clip;
+    text-align: left;
+}
+
+#insta-table-container .zikir-admin-table th:last-child,
+#insta-table-container .zikir-admin-table td:last-child {
+    width: 1%;
+    text-align: right;
+    white-space: nowrap;
+}
+
+/* Programlar kart görünümü: sütunlar içerik yüzünden sayfanın sağından taşmasın */
+#programs-list.view-card {
+    grid-template-columns: minmax(0, 1fr) !important;
+}
+
+@media (min-width: 768px) {
+    #programs-list.view-card {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+    }
+}
+
+@media (min-width: 1024px) {
+    #programs-list.view-card {
+        grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+}
+
+#programs-list .suggestion-card {
+    min-width: 0;
+}
+
+#programs-list .card-actions {
+    flex-wrap: wrap;
 }
