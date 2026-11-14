@@ -36,6 +36,8 @@ Sade HTML/CSS/JavaScript (framework ve build adımı yok), Netlify'da barındır
 
 ### Admin panel bölümleri
 
+Admin panel notları (Kasım 2026 temizliği): `admin.css` sonuna kompakt blok ve tablo taşma düzeltmeleri eklendi (ana sekmeler tek satır, ince istatistik kartları). Tuzaklar: Instagram & Teyit tablosu `zikir-admin-table` sınıfını paylaşır; o stilin sabit sütun genişlikleri ve `overflow: hidden` bu tabloyu kesiyordu, `#insta-table-container` ile ezildi. `.programs-list-table-wrapper` yatay kaydırılabilir; Programlar kart görünümü ızgarası `minmax(0, 1fr)` olmalı (aksi hâlde kart içeriği sayfayı sağdan taşırır). Cami formu: Google Maps linkinden koordinat ve ad çözülür, 60 m içinde kayıtlı cami uyarısı verir; kısa `maps.app.goo.gl` linkleri tarayıcıdan çözülemez (CORS). Silinen ölü kod: işleyicisiz eski Keşfet modalı, kullanılmayan 14 fotoğraf yardımcısı. `mosque_locations` tablosuna yalnız yönetici (`is_admin()`) yazabilir; `location` sütunu otomatik üretilir.
+
 Bekleyen öneriler · Programlar · Kurum/Cemaat/Oluşum · Cami konumları · Keşfet içerikleri · Türbe ve makamlar · Müftülük vaaz programları · Zikir halkaları · Tüm programlar Instagram & teyit.
 
 ## Güvenlik ve veri kuralları
@@ -45,7 +47,8 @@ Bekleyen öneriler · Programlar · Kurum/Cemaat/Oluşum · Cami konumları · K
 - Öneri onaylama/programa aktarma davranışı Android admin ekranının referansıdır. Değiştirirken Android tarafını da düşün (bkz. Android reposundaki `docs/devir-teslim-chatgpt.md`, atomik onay RPC kararı).
 - Programı kaldırma = `active/inactive`, kalıcı silme yok.
 - Tarih, saat, hoca, kurum, mekân ve dinî metinler tasarım uğruna değiştirilmez.
-- **Yayın:** Repo GitHub üzerinden 11 Netlify sitesine bağlı (ahanda, cennetbah, cennetbah5temmuz, cennetbahce, cennetbahcee, cennetbahceleri, cennetbahceleri-ekle, cennetbahceleri-eskii, cennetbahceleriii, cennetbahcesi, cennetbahh). Her PR'da deploy preview çalışır; `main`'e push hepsine canlı yayın demektir. Kullanıcı onayı olmadan `main`'e push etme veya merge yapma; işleri dalda ve PR ile yap.
+- **Yayın (Netlify, krediye dikkat):** Repo GitHub üzerinden Netlify'a bağlıdır; her PR'da deploy preview, `main`'e birleşince canlı yayın build'i çalışır ve **kredi harcar**. Başlangıçta 11 siteye (ahanda, cennetbah, cennetbah5temmuz, cennetbahce, cennetbahcee, cennetbahceleri, cennetbahceleri-ekle, cennetbahceleri-eskii, cennetbahceleriii, cennetbahcesi, cennetbahh) bağlıydı; farklı hesaplarda açılmış eski/atıl kopyalardı ve her biri ayrı kredi yiyordu. Kasım 2026'da çoğu depodan ayrıldı (silinmedi); 12 Kasım'da hâlâ bağlı olanlar cennetbahcesi, cennetbahceleri-ekle ve ahanda'ydı. **Kalıcı site `cennetbahcesi`dir:** Android uygulaması program öneri formu için `https://cennetbahcesi.netlify.app` adresini kullanır, silinmez ve adı değiştirilmez. Bağlı site sayısını PR kontrol listesindeki `netlify/<site>/deploy-preview` satırlarından say. Kredi tasarrufu: bir PR'a tek seferde push et; yalnız doküman gibi canlıyı etkilemeyen commit'lerin mesajına `[skip netlify]` ekle (denendi, push anında önizleme çıkmadığı görüldü, kesin doğrulanmadı; birleştirmede squash başlığına da yaz çünkü merge commit'i etiketi taşımaz). Kullanıcı onayı olmadan `main`'e push etme veya merge yapma; işleri dalda ve PR ile yap.
+- **Netlify sitesi taşındıysa:** ortam değişkenleri `TELEGRAM_BOT_TOKEN` ve `TELEGRAM_CHAT_ID` (`netlify/functions/notify.js`) siteye elle girilir; depoda yoktur, yoksa program önerisi Supabase'e yazılır ama Telegram bildirimi gitmez. Yeni sitede `main@<commit>` yayında ve "Skipped" değil olmalı (kredi bitince deploy atlanır; eski sayfa yayında kalır).
 
 ## İlgili proje
 
